@@ -72,6 +72,10 @@ class _HomeShellState extends State<HomeShell> {
           label: 'Invoices',
           icon: Icons.receipt_long_outlined,
         ),
+        AppNavItem(
+          label: 'Expense',
+          icon: Icons.account_balance_outlined,
+        ),
       ],
     ),
     AppNavSection(
@@ -90,7 +94,8 @@ class _HomeShellState extends State<HomeShell> {
     AppRoutes.payroll, // 4 Finances → Payroll
     AppRoutes.proposals, // 5 Finances → Proposals
     AppRoutes.invoices, // 6 Finances → Invoices
-    AppRoutes.settings, // 7 Settings hub
+    AppRoutes.expenses, // 7 Finances → Expense
+    AppRoutes.settings, // 8 Settings hub
   ];
 
   @override
@@ -102,7 +107,8 @@ class _HomeShellState extends State<HomeShell> {
 
   int get _selectedIndex {
     final location = widget.location;
-    if (location.startsWith(AppRoutes.settings)) return 7;
+    if (location.startsWith(AppRoutes.settings)) return 8;
+    if (location.startsWith(AppRoutes.expenses)) return 7;
     if (location.startsWith(AppRoutes.invoices)) return 6;
     if (location.startsWith(AppRoutes.proposals)) return 5;
     if (location.startsWith(AppRoutes.payroll)) return 4;
@@ -130,6 +136,7 @@ class _HomeShellState extends State<HomeShell> {
     if (location == AppRoutes.roles) return 'Roles';
     if (location == AppRoutes.ledger) return 'Activity ledger';
     if (location == AppRoutes.settings) return 'Settings';
+    if (location.startsWith(AppRoutes.expenses)) return 'Expense';
     if (location.startsWith(AppRoutes.invoices)) return 'Invoices';
     if (location.startsWith(AppRoutes.proposals)) return 'Proposals';
     if (location.startsWith(AppRoutes.payroll)) return 'Payroll';

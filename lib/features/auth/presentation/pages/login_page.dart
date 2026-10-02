@@ -29,9 +29,10 @@ class LoginView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<LoginBloc, LoginState>(
       listenWhen: (previous, current) => previous.status != current.status,
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state.status == LoginStatus.success && state.user != null) {
-          sl<AuthSession>().setUser(state.user!);
+          await sl<AuthSession>().setUser(state.user!);
+          if (!context.mounted) return;
           context.go(AppRoutes.hrms);
         }
       },

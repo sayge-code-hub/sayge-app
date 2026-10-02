@@ -1,11 +1,14 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
+import 'core/auth/auth_local_storage.dart';
 import 'core/auth/auth_session.dart';
 import 'core/config/app_config.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
+import 'features/auth/domain/entities/user.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/auth/presentation/bloc/login_bloc.dart';
@@ -16,6 +19,11 @@ import 'features/dms/domain/usecases/add_document.dart';
 import 'features/dms/domain/usecases/get_dms_entities.dart';
 import 'features/dms/domain/usecases/get_documents.dart';
 import 'features/dms/presentation/bloc/dms/dms_bloc.dart';
+import 'features/expenses/data/datasources/expense_remote_datasource.dart';
+import 'features/expenses/data/repositories/expense_repository_impl.dart';
+import 'features/expenses/domain/repositories/expense_repository.dart';
+import 'features/expenses/domain/usecases/expense_usecases.dart';
+import 'features/expenses/presentation/bloc/expenses_bloc.dart';
 import 'features/hrms/data/datasources/employee_purchase_order_remote_datasource.dart';
 import 'features/hrms/data/datasources/employee_remote_datasource.dart';
 import 'features/hrms/data/repositories/employee_purchase_order_repository_impl.dart';
@@ -71,14 +79,27 @@ Future<void> initDependencies() async {
     publishableKey: AppConfig.supabaseAnonKey,
   );
 
-  sl.registerLazySingleton(() => AuthSession());
+  final prefs = await SharedPreferences.getInstance();
+  final authStorage = AuthLocalStorage(prefs);
+  sl.registerLazySingleton<AuthLocalStorage>(() => authStorage);
 
-  sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
-  sl.registerLazySingleton(() => LoginUseCase(sl()));
-  sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
   sl.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(),
   );
+  sl.registerLazySingleton<AuthRepository>(
+    () => AuthRepositoryImpl(sl()),
+  );
+
+  final restoredUser = await _restoreAuthUser(
+    storage: authStorage,
+    remote: sl<AuthRemoteDataSource>(),
+  );
+  sl.registerLazySingleton(
+    () => AuthSession(storage: authStorage, initialUser: restoredUser),
+  );
+
+  sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
+  sl.registerLazySingleton(() => LoginUseCase(sl()));
 
   sl.registerFactory(
     () => ClientsBloc(
@@ -155,6 +176,21 @@ Future<void> initDependencies() async {
   sl.registerFactory(() => PayrollBloc(getEmployeesUseCase: sl()));
 
   sl.registerFactory(
+    () => ExpensesBloc(
+      getExpensesUseCase: sl(),
+      addExpenseUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetExpensesUseCase(sl()));
+  sl.registerLazySingleton(() => AddExpenseUseCase(sl()));
+  sl.registerLazySingleton<ExpenseRemoteDataSource>(
+    () => ExpenseRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<ExpenseRepository>(
+    () => ExpenseRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  sl.registerFactory(
     () => InvoicesBloc(
       getInvoicesUseCase: sl(),
       createInvoiceUseCase: sl(),
@@ -205,4 +241,29 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<DocumentRepository>(
     () => DocumentRepositoryImpl(remoteDataSource: sl()),
   );
+}
+
+/// Restores app user when Supabase still has a valid session.
+Future<User?> _restoreAuthUser({
+  required AuthLocalStorage storage,
+  required AuthRemoteDataSource remote,
+}) async {
+  final session = Supabase.instance.client.auth.currentSession;
+  if (session == null) {
+    await storage.clear();
+    return null;
+  }
+
+  final cached = storage.readUser();
+  if (cached != null && cached.id == session.user.id) {
+    return cached;
+  }
+
+  final fresh = await remote.restoreSession();
+  if (fresh == null) {
+    await storage.clear();
+    return null;
+  }
+  await storage.saveUser(fresh);
+  return fresh;
 }

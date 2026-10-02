@@ -32,4 +32,29 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Left(ServerFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, User?>> restoreSession() async {
+    try {
+      return Right(await _remoteDataSource.restoreSession());
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Right(null);
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> signOut() async {
+    try {
+      await _remoteDataSource.signOut();
+      return const Right(unit);
+    } catch (_) {
+      return const Right(unit);
+    }
+  }
 }

@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const payroll = '/payroll';
   static const proposals = '/proposals';
   static const invoices = '/invoices';
+  static const expenses = '/expenses';
   static const settings = '/settings';
   static const clients = '/settings/clients';
   static const clientsAdd = '/settings/clients/add';

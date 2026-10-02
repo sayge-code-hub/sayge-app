@@ -8,6 +8,11 @@ abstract class AuthRemoteDataSource {
     required String email,
     required String password,
   });
+
+  /// Returns the profile for the current Supabase session, if any.
+  Future<UserModel?> restoreSession();
+
+  Future<void> signOut();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -31,26 +36,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const core.AuthException('Invalid email or password.');
       }
 
-      final profile = await _client
-          .from('users')
-          .select(
-            'id, email, full_name, role_id, employee_id, is_active, '
-            'roles(code, label)',
-          )
-          .eq('id', authUser.id)
-          .maybeSingle();
-
-      if (profile == null) {
-        throw const core.AuthException(
-          'No user profile found. Ask an admin to provision your account.',
-        );
-      }
-
-      if (profile['is_active'] == false) {
-        throw const core.AuthException('This account is inactive.');
-      }
-
-      return UserModel.fromProfileRow(profile);
+      return _fetchProfile(authUser.id);
     } on core.AuthException {
       rethrow;
     } on AuthException catch (e) {
@@ -62,5 +48,51 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'Unable to sign in. Check your credentials.',
       );
     }
+  }
+
+  @override
+  Future<UserModel?> restoreSession() async {
+    final session = _client.auth.currentSession;
+    final authUser = session?.user ?? _client.auth.currentUser;
+    if (session == null || authUser == null) return null;
+    try {
+      return await _fetchProfile(authUser.id);
+    } on core.AuthException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> signOut() async {
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Local clear still proceeds even if remote sign-out fails.
+    }
+  }
+
+  Future<UserModel> _fetchProfile(String userId) async {
+    final profile = await _client
+        .from('users')
+        .select(
+          'id, email, full_name, role_id, employee_id, is_active, '
+          'roles(code, label)',
+        )
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (profile == null) {
+      throw const core.AuthException(
+        'No user profile found. Ask an admin to provision your account.',
+      );
+    }
+
+    if (profile['is_active'] == false) {
+      throw const core.AuthException('This account is inactive.');
+    }
+
+    return UserModel.fromProfileRow(profile);
   }
 }

@@ -12,6 +12,7 @@ import '../../features/hrms/presentation/pages/employee_detail_page.dart';
 import '../../features/hrms/presentation/pages/employees_page.dart';
 import '../../features/hrms/presentation/pages/hrms_overview_page.dart';
 import '../../features/modules/presentation/pages/home_shell.dart';
+import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
 import '../../features/payroll/presentation/pages/payroll_page.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
@@ -186,6 +187,11 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: AppRoutes.invoices,
             pageBuilder: (context, state) =>
                 _page(state, const InvoicesPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.expenses,
+            pageBuilder: (context, state) =>
+                _page(state, const ExpensesPage()),
           ),
           GoRoute(
             path: AppRoutes.settings,

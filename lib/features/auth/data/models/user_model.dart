@@ -39,4 +39,20 @@ class UserModel extends User {
       'employee_id': employeeId,
     };
   }
+
+  Map<String, dynamic> toStorageJson() => toJson();
+
+  factory UserModel.fromStorage(Map<String, dynamic> json) {
+    return UserModel(
+      id: (json['id'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      name: (json['full_name'] as String?)?.trim().isNotEmpty == true
+          ? (json['full_name'] as String).trim()
+          : null,
+      roleId: (json['role_id'] ?? '').toString(),
+      roleCode: (json['role_code'] as String?) ?? 'employee',
+      roleLabel: (json['role_label'] as String?) ?? 'Employee',
+      employeeId: json['employee_id'] as String?,
+    );
+  }
 }

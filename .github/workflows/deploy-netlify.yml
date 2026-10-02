@@ -1,0 +1,59 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: netlify-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web (CanvasKit from CDN)
+        run: |
+          flutter build web --release --base-href / --web-resources-cdn --no-wasm-dry-run
+          # Drop local CanvasKit (~37MB); runtime loads from gstatic CDN.
+          rm -rf build/web/canvaskit
+          # Avoid stale service-worker caches on Netlify.
+          node -e "
+            const fs = require('fs');
+            const p = 'build/web/flutter_bootstrap.js';
+            let t = fs.readFileSync(p, 'utf8');
+            t = t.replace(
+              /_flutter\.loader\.load\(\{[\s\S]*?\}\);/,
+              '_flutter.loader.load({ config: {} });'
+            );
+            fs.writeFileSync(p, t);
+          "
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: ./build/web
+          production-branch: main
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions ${{ github.sha }}"
+          enable-commit-comment: false
+          enable-pull-request-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
