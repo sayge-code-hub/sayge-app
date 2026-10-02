@@ -18,6 +18,7 @@ abstract class DocumentRemoteDataSource {
     required String entityName,
     required String title,
     required String fileName,
+    required String category,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
@@ -32,30 +33,89 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
 
   static const _documentsTable = 'documents';
   static const _entitiesTable = 'dms_entities';
+  static const _employeesTable = 'employees';
+  static const _clientsTable = 'clients';
 
   @override
   Future<List<DmsEntity>> getEntities(DmsEntityType type) async {
     try {
-      final rows = await _client
-          .from(_entitiesTable)
-          .select()
-          .eq('entity_type', type.storageValue)
-          .order('name');
-      return (rows as List<dynamic>).map((row) {
-        final map = row as Map<String, dynamic>;
-        return DmsEntity(
-          id: (map['id'] ?? '').toString(),
-          name: (map['name'] ?? '').toString(),
-          type: DmsEntityType.fromStorage(
-            (map['entity_type'] ?? type.storageValue).toString(),
-          ),
-        );
-      }).toList();
+      switch (type) {
+        case DmsEntityType.employee:
+          return _employees();
+        case DmsEntityType.client:
+          return _clients();
+        case DmsEntityType.vendor:
+        case DmsEntityType.candidate:
+          return _catalogEntities(type);
+      }
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
-    } catch (_) {
+    } catch (e) {
+      if (e is ServerException) rethrow;
       throw const NetworkException('Failed to load DMS entities from Supabase.');
     }
+  }
+
+  Future<List<DmsEntity>> _employees() async {
+    final rows = await _client
+        .from(_employeesTable)
+        .select('employee_id, employee_name, designation, is_active')
+        .order('employee_name');
+    return (rows as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      final designation = (map['designation'] ?? '').toString().trim();
+      final active = map['is_active'] == true || map['is_active'] == 'true';
+      final bits = <String>[
+        if (designation.isNotEmpty) designation,
+        if (!active) 'Inactive',
+      ];
+      return DmsEntity(
+        id: (map['employee_id'] ?? '').toString(),
+        name: (map['employee_name'] ?? '').toString(),
+        type: DmsEntityType.employee,
+        subtitle: bits.join(' · '),
+      );
+    }).toList();
+  }
+
+  Future<List<DmsEntity>> _clients() async {
+    final rows = await _client
+        .from(_clientsTable)
+        .select('id, name, contact_name, vendor_code')
+        .order('name');
+    return (rows as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      final contact = (map['contact_name'] ?? '').toString().trim();
+      final vendor = (map['vendor_code'] ?? '').toString().trim();
+      final bits = <String>[
+        if (contact.isNotEmpty) contact,
+        if (vendor.isNotEmpty) vendor,
+      ];
+      return DmsEntity(
+        id: (map['id'] ?? '').toString(),
+        name: (map['name'] ?? '').toString(),
+        type: DmsEntityType.client,
+        subtitle: bits.join(' · '),
+      );
+    }).toList();
+  }
+
+  Future<List<DmsEntity>> _catalogEntities(DmsEntityType type) async {
+    final rows = await _client
+        .from(_entitiesTable)
+        .select()
+        .eq('entity_type', type.storageValue)
+        .order('name');
+    return (rows as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      return DmsEntity(
+        id: (map['id'] ?? '').toString(),
+        name: (map['name'] ?? '').toString(),
+        type: DmsEntityType.fromStorage(
+          (map['entity_type'] ?? type.storageValue).toString(),
+        ),
+      );
+    }).toList();
   }
 
   @override
@@ -87,12 +147,16 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     required String entityName,
     required String title,
     required String fileName,
+    required String category,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
   }) async {
     final trimmedTitle = title.trim();
     final trimmedFile = fileName.trim();
+    final trimmedCategory = category.trim().isEmpty
+        ? DmsDocumentCategories.fallback
+        : category.trim();
     if (trimmedTitle.isEmpty) {
       throw const ServerException('Document title is required.');
     }
@@ -116,6 +180,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
       'file_size_bytes': fileSizeBytes,
       'storage_path': path,
       'notes': notes.trim(),
+      'category': trimmedCategory,
       'uploaded_at': DateTime.now().toUtc().toIso8601String(),
     };
 

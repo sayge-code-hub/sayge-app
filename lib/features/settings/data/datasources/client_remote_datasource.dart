@@ -1,12 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/client.dart';
 import '../models/client_model.dart';
 
 abstract class ClientRemoteDataSource {
   Future<List<ClientModel>> getClients();
 
-  Future<ClientModel> addClient(String name);
+  Future<ClientModel> addClient(Client client);
 }
 
 class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
@@ -32,8 +33,8 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
   }
 
   @override
-  Future<ClientModel> addClient(String name) async {
-    final trimmed = name.trim();
+  Future<ClientModel> addClient(Client client) async {
+    final trimmed = client.name.trim();
     if (trimmed.isEmpty) {
       throw const ServerException('Client name is required.');
     }
@@ -46,7 +47,17 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
     try {
       final row = await _client
           .from(_table)
-          .insert({'id': id.isEmpty ? 'client' : id, 'name': trimmed})
+          .insert(
+            ClientModel(
+              id: id.isEmpty ? 'client' : id,
+              name: trimmed,
+              vendorCode: client.vendorCode.trim(),
+              entityCode: client.entityCode.trim(),
+              contactName: client.contactName.trim(),
+              address: client.address.trim(),
+              gstin: client.gstin.trim(),
+            ).toJson(),
+          )
           .select()
           .single();
       return ClientModel.fromJson(row);

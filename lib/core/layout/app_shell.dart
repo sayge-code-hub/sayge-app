@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/auth/domain/entities/user.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_version_label.dart';
 import 'app_destination.dart';
 import 'breakpoints.dart';
 
@@ -119,7 +120,17 @@ class _DesktopShell extends StatelessWidget {
                       actions: actions,
                     )
                   else
-                    const SizedBox(height: AppShell.logoBandHeight),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(32, 20, 32, 8),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: AppVersionLabel(
+                          alignment: Alignment.centerRight,
+                          textAlign: TextAlign.right,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Align(
                       alignment: Alignment.topLeft,
@@ -182,7 +193,19 @@ class _MobileShell extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back),
                 onPressed: onBack,
               ),
-        actions: actions,
+        actions: [
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Center(
+              child: AppVersionLabel(
+                alignment: Alignment.centerRight,
+                textAlign: TextAlign.right,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          ...?actions,
+        ],
       ),
       drawer: Drawer(
         backgroundColor: AppColors.surfaceMuted,
@@ -248,14 +271,22 @@ class _DesktopHeader extends StatelessWidget {
                   ),
             ),
           ),
-          ...?actions,
+          const AppVersionLabel(
+            alignment: Alignment.centerRight,
+            textAlign: TextAlign.right,
+            fontSize: 11,
+          ),
+          if (actions != null && actions!.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            ...actions!,
+          ],
         ],
       ),
     );
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends StatefulWidget {
   const _Sidebar({
     required this.user,
     required this.sections,
@@ -270,12 +301,72 @@ class _Sidebar extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final bool compact;
 
+  @override
+  State<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<_Sidebar> {
   static const _navFontSize = 14.0;
+
+  /// Section labels the user has expanded. Active route's section is also shown.
+  final Set<String> _expanded = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final label = _sectionLabelForIndex(widget.selectedIndex);
+    if (label != null) {
+      _expanded.add(label);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _Sidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      final label = _sectionLabelForIndex(widget.selectedIndex);
+      if (label != null && !_expanded.contains(label)) {
+        setState(() => _expanded.add(label));
+      }
+    }
+  }
+
+  String? _sectionLabelForIndex(int selectedIndex) {
+    var nextIndex = 0;
+    for (final section in widget.sections) {
+      final sectionIndex = section.selectable ? nextIndex++ : null;
+      final childStart = nextIndex;
+      nextIndex += section.items.length;
+      final childEnd = nextIndex;
+
+      if (sectionIndex == selectedIndex) return section.label;
+      if (selectedIndex >= childStart && selectedIndex < childEnd) {
+        return section.label;
+      }
+    }
+    return null;
+  }
+
+  bool _isExpanded(AppNavSection section) {
+    if (section.items.isEmpty) return false;
+    return _expanded.contains(section.label);
+  }
+
+  void _toggleSection(AppNavSection section) {
+    if (section.items.isEmpty) return;
+    setState(() {
+      if (_expanded.contains(section.label)) {
+        _expanded.remove(section.label);
+      } else {
+        _expanded.add(section.label);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: compact ? 248 : null,
+      width: widget.compact ? 248 : null,
       decoration: const BoxDecoration(
         color: AppColors.surfaceMuted,
         border: Border(
@@ -311,14 +402,14 @@ class _Sidebar extends StatelessWidget {
             color: AppColors.border,
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: AppColors.text.withValues(alpha: 0.08),
                   child: Text(
-                    _initials(user),
+                    _initials(widget.user),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontSize: 12,
                         ),
@@ -330,7 +421,7 @@ class _Sidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.name ?? user.email,
+                        widget.user.name ?? widget.user.email,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -339,7 +430,7 @@ class _Sidebar extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        user.roleLabel,
+                        widget.user.roleLabel,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontSize: 12,
                             ),
@@ -348,6 +439,14 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: AppVersionLabel(
+              alignment: Alignment.centerLeft,
+              textAlign: TextAlign.left,
+              fontSize: 11,
             ),
           ),
         ],
@@ -359,17 +458,27 @@ class _Sidebar extends StatelessWidget {
     final widgets = <Widget>[];
     var nextIndex = 0;
 
-    for (final section in sections) {
+    for (final section in widget.sections) {
       final sectionIndex = section.selectable ? nextIndex++ : null;
       final sectionSelected =
-          sectionIndex != null && sectionIndex == selectedIndex;
+          sectionIndex != null && sectionIndex == widget.selectedIndex;
+      final hasChildren = section.items.isNotEmpty;
+      final expanded = _isExpanded(section);
+
+      // Child indices are reserved even when collapsed so route indexes stay stable.
+      final childIndexes = <int>[
+        for (var i = 0; i < section.items.length; i++) nextIndex + i,
+      ];
+      nextIndex += section.items.length;
+
+      final childSelected = childIndexes.contains(widget.selectedIndex);
 
       widgets.add(
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
           child: _NavTile(
             label: section.label,
-            selected: sectionSelected,
+            selected: sectionSelected || (hasChildren && childSelected),
             fontSize: _navFontSize,
             leading: section.iconAsset != null
                 ? Image.asset(
@@ -391,44 +500,61 @@ class _Sidebar extends StatelessWidget {
                         color: AppColors.text,
                       )
                     : null,
-            onTap: section.selectable
-                ? () => onDestinationSelected(sectionIndex!)
+            trailing: hasChildren
+                ? Icon(
+                    expanded
+                        ? Icons.expand_more_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.textLight,
+                  )
                 : null,
+            onTap: () {
+              if (hasChildren) {
+                _toggleSection(section);
+              }
+              if (section.selectable && sectionIndex != null) {
+                widget.onDestinationSelected(sectionIndex);
+              }
+            },
             indent: false,
           ),
         ),
       );
 
-      for (final item in section.items) {
-        final index = nextIndex++;
-        final selected = index == selectedIndex;
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
-            child: _NavTile(
-              label: item.label,
-              selected: selected,
-              fontSize: _navFontSize,
-              leading: item.iconAsset != null
-                  ? Image.asset(
-                      item.iconAsset!,
-                      width: 18,
-                      height: 18,
-                      color: AppColors.textLight,
-                      colorBlendMode: BlendMode.srcIn,
-                    )
-                  : item.icon != null
-                      ? Icon(
-                          item.icon,
-                          size: 18,
-                          color: AppColors.textLight,
-                        )
-                      : null,
-              onTap: () => onDestinationSelected(index),
-              indent: true,
+      if (expanded) {
+        for (var i = 0; i < section.items.length; i++) {
+          final item = section.items[i];
+          final index = childIndexes[i];
+          final selected = index == widget.selectedIndex;
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+              child: _NavTile(
+                label: item.label,
+                selected: selected,
+                fontSize: _navFontSize,
+                leading: item.iconAsset != null
+                    ? Image.asset(
+                        item.iconAsset!,
+                        width: 18,
+                        height: 18,
+                        color: AppColors.textLight,
+                        colorBlendMode: BlendMode.srcIn,
+                      )
+                    : item.icon != null
+                        ? Icon(
+                            item.icon,
+                            size: 18,
+                            color: AppColors.textLight,
+                          )
+                        : null,
+                onTap: () => widget.onDestinationSelected(index),
+                indent: true,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
 
       widgets.add(const SizedBox(height: 12));
@@ -453,6 +579,7 @@ class _NavTile extends StatelessWidget {
     required this.fontSize,
     required this.indent,
     this.leading,
+    this.trailing,
     this.onTap,
   });
 
@@ -461,6 +588,7 @@ class _NavTile extends StatelessWidget {
   final double fontSize;
   final bool indent;
   final Widget? leading;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
@@ -500,6 +628,7 @@ class _NavTile extends StatelessWidget {
                       ),
                 ),
               ),
+              ?trailing,
             ],
           ),
         ),

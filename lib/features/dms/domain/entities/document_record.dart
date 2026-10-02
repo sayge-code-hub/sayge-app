@@ -13,6 +13,7 @@ class DocumentRecord {
     required this.fileSizeBytes,
     required this.storagePath,
     required this.notes,
+    required this.category,
     required this.uploadedAt,
   });
 
@@ -26,5 +27,6 @@ class DocumentRecord {
   final int fileSizeBytes;
   final String storagePath;
   final String notes;
+  final String category;
   final DateTime uploadedAt;
 }

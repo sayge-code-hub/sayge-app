@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_list_card.dart';
+import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../domain/entities/employee.dart';
@@ -51,10 +53,28 @@ class EmployeesPage extends StatelessWidget {
   }
 }
 
-class _EmployeesBody extends StatelessWidget {
+class _EmployeesBody extends StatefulWidget {
   const _EmployeesBody({this.onEmployeeSelected});
 
   final ValueChanged<Employee>? onEmployeeSelected;
+
+  @override
+  State<_EmployeesBody> createState() => _EmployeesBodyState();
+}
+
+class _EmployeesBodyState extends State<_EmployeesBody> {
+  String _query = '';
+
+  List<Employee> _filter(List<Employee> employees) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return employees;
+    return employees.where((e) {
+      return e.employeeName.toLowerCase().contains(q) ||
+          e.employeeId.toLowerCase().contains(q) ||
+          e.designation.toLowerCase().contains(q) ||
+          e.client.toLowerCase().contains(q);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,16 +104,45 @@ class _EmployeesBody extends StatelessWidget {
           );
         }
 
-        if (isDesktop) {
-          return EmployeesTable(
-            employees: state.employees,
-            onEmployeeSelected: onEmployeeSelected,
-          );
-        }
+        final filtered = _filter(state.employees);
+        final searchPad = EdgeInsets.fromLTRB(
+          isDesktop ? 32 : 16,
+          isDesktop ? 12 : 8,
+          isDesktop ? 32 : 16,
+          0,
+        );
 
-        return _EmployeesMobileList(
-          employees: state.employees,
-          onEmployeeSelected: onEmployeeSelected,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: searchPad,
+              child: AppListSearchField(
+                hintText: 'Search employees…',
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No matching employees.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textLight,
+                            ),
+                      ),
+                    )
+                  : isDesktop
+                      ? EmployeesTable(
+                          employees: filtered,
+                          onEmployeeSelected: widget.onEmployeeSelected,
+                        )
+                      : _EmployeesMobileList(
+                          employees: filtered,
+                          onEmployeeSelected: widget.onEmployeeSelected,
+                        ),
+            ),
+          ],
         );
       },
     );
@@ -188,15 +237,6 @@ class _EmployeesTableState extends State<EmployeesTable> {
       padding: const EdgeInsets.fromLTRB(32, 12, 32, 32),
       child: Column(
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.tune_rounded, size: 16),
-              label: const Text('Filter'),
-            ),
-          ),
-          const SizedBox(height: 12),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -492,18 +532,10 @@ class _EmployeesMobileList extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final employee = employees[index];
-        return InkWell(
+        return AppListCard(
+          borderRadius: 12,
+          padding: AppListCard.sectionPadding,
           onTap: () => onEmployeeSelected?.call(employee),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.border,
-            ),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -537,7 +569,7 @@ class _EmployeesMobileList extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 employee.designation,
                 style: textTheme.bodyMedium?.copyWith(
@@ -557,11 +589,8 @@ class _EmployeesMobileList extends StatelessWidget {
               ),
             ],
           ),
-        ),
         );
       },
     );
   }
 }
-
-

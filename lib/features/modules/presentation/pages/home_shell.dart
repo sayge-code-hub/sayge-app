@@ -36,16 +36,16 @@ class _HomeShellState extends State<HomeShell> {
   static const _sections = [
     AppNavSection(
       label: 'HRMS',
-      iconAsset: 'assets/images/icon_hrms.png',
+      icon: Icons.groups_outlined,
       selectable: true,
       items: [
         AppNavItem(
           label: 'All Employees',
-          iconAsset: 'assets/images/icon_all_employees.png',
+          icon: Icons.people_outline,
         ),
         AppNavItem(
           label: 'Add Employee',
-          iconAsset: 'assets/images/icon_add_employee.png',
+          icon: Icons.person_add_alt_1_outlined,
         ),
       ],
     ),
@@ -56,21 +56,29 @@ class _HomeShellState extends State<HomeShell> {
       items: [],
     ),
     AppNavSection(
-      label: 'Payroll',
-      icon: Icons.payments_outlined,
-      selectable: true,
-      items: [],
+      label: 'Finances',
+      icon: Icons.account_balance_wallet_outlined,
+      selectable: false,
+      items: [
+        AppNavItem(
+          label: 'Payroll',
+          icon: Icons.payments_outlined,
+        ),
+        AppNavItem(
+          label: 'Proposals',
+          icon: Icons.request_quote_outlined,
+        ),
+        AppNavItem(
+          label: 'Invoices',
+          icon: Icons.receipt_long_outlined,
+        ),
+      ],
     ),
     AppNavSection(
       label: 'Settings',
       icon: Icons.settings_outlined,
       selectable: true,
-      items: [
-        AppNavItem(
-          label: 'Manage clients',
-          icon: Icons.apartment_outlined,
-        ),
-      ],
+      items: [],
     ),
   ];
 
@@ -79,9 +87,10 @@ class _HomeShellState extends State<HomeShell> {
     AppRoutes.employees, // 1
     AppRoutes.employeesAdd, // 2
     AppRoutes.dms, // 3
-    AppRoutes.payroll, // 4
-    AppRoutes.clients, // 5 Settings → clients
-    AppRoutes.clients, // 6 Manage clients
+    AppRoutes.payroll, // 4 Finances → Payroll
+    AppRoutes.proposals, // 5 Finances → Proposals
+    AppRoutes.invoices, // 6 Finances → Invoices
+    AppRoutes.settings, // 7 Settings hub
   ];
 
   @override
@@ -93,8 +102,9 @@ class _HomeShellState extends State<HomeShell> {
 
   int get _selectedIndex {
     final location = widget.location;
-    if (location.startsWith(AppRoutes.clients)) return 6;
-    if (location.startsWith(AppRoutes.settings)) return 6;
+    if (location.startsWith(AppRoutes.settings)) return 7;
+    if (location.startsWith(AppRoutes.invoices)) return 6;
+    if (location.startsWith(AppRoutes.proposals)) return 5;
     if (location.startsWith(AppRoutes.payroll)) return 4;
     if (location.startsWith(AppRoutes.dms)) return 3;
     if (location.startsWith(AppRoutes.employeesAdd)) return 2;
@@ -107,7 +117,6 @@ class _HomeShellState extends State<HomeShell> {
   String get _title {
     final location = widget.location;
     if (location == AppRoutes.employeesAdd) {
-      // Nav already labels "Add Employee" — skip redundant page header.
       return '';
     }
     if (location.endsWith('/edit')) return 'Edit employee';
@@ -117,6 +126,12 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (location == AppRoutes.clientsAdd) return 'Add client';
     if (location.startsWith(AppRoutes.clients)) return 'Manage clients';
+    if (location == AppRoutes.companyDetails) return 'GST & company';
+    if (location == AppRoutes.roles) return 'Roles';
+    if (location == AppRoutes.ledger) return 'Activity ledger';
+    if (location == AppRoutes.settings) return 'Settings';
+    if (location.startsWith(AppRoutes.invoices)) return 'Invoices';
+    if (location.startsWith(AppRoutes.proposals)) return 'Proposals';
     if (location.startsWith(AppRoutes.payroll)) return 'Payroll';
     if (location.startsWith(AppRoutes.dms)) return 'DMS';
     if (location == AppRoutes.employees) return 'All employees';
@@ -149,10 +164,11 @@ class _HomeShellState extends State<HomeShell> {
     if (location == AppRoutes.clientsAdd) {
       return () => _goBack(AppRoutes.clients);
     }
-    if (location == AppRoutes.clients) {
-      // Manage clients sits under Settings; Settings itself redirects here,
-      // so Back leaves the settings area to the HRMS home.
-      return () => _goBack(AppRoutes.hrms);
+    if (location == AppRoutes.clients ||
+        location == AppRoutes.companyDetails ||
+        location == AppRoutes.roles ||
+        location == AppRoutes.ledger) {
+      return () => _goBack(AppRoutes.settings);
     }
     return null;
   }

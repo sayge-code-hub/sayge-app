@@ -23,6 +23,7 @@ dependencies:
   go_router: ^17.5.0
   pdf: ^3.13.1
   printing: ^5.15.1
+  file_picker: ^13.1.0
 
 dev_dependencies:
   flutter_test:
@@ -33,13 +34,12 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
+    # Non-dot path so Netlify (and similar) do not strip it from deploys.
+    - assets/config/app.env
     - assets/images/sayge_logo.webp
     - assets/images/sayge_logo.png
-    - assets/images/icon_hrms.png
-    - assets/images/icon_all_employees.png
-    - assets/images/icon_add_employee.png
     - assets/images/sayge_icon.png
+    - assets/images/proposal_signature.png
 
   fonts:
     - family: PlusJakartaSans

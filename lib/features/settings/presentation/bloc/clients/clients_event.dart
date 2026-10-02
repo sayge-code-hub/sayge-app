@@ -11,15 +11,30 @@ class ClientsRequested extends ClientsEvent {
   const ClientsRequested();
 }
 
-class ClientNameChanged extends ClientsEvent {
-  const ClientNameChanged(this.name);
+class ClientSubmitted extends ClientsEvent {
+  const ClientSubmitted({
+    required this.name,
+    this.vendorCode = '',
+    this.entityCode = '',
+    this.contactName = '',
+    this.address = '',
+    this.gstin = '',
+  });
 
   final String name;
+  final String vendorCode;
+  final String entityCode;
+  final String contactName;
+  final String address;
+  final String gstin;
 
   @override
-  List<Object?> get props => [name];
-}
-
-class ClientSubmitted extends ClientsEvent {
-  const ClientSubmitted();
+  List<Object?> get props => [
+        name,
+        vendorCode,
+        entityCode,
+        contactName,
+        address,
+        gstin,
+      ];
 }

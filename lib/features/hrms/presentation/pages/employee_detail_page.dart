@@ -8,6 +8,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../domain/entities/employee.dart';
 import '../widgets/employee_form_layout.dart';
+import '../widgets/employee_purchase_orders_section.dart';
 
 class EmployeeDetailPage extends StatelessWidget {
   const EmployeeDetailPage({
@@ -174,6 +175,11 @@ class EmployeeDetailPage extends StatelessWidget {
                 left: compensation,
                 right: compliance,
               ),
+              const SizedBox(height: 12),
+              EmployeePurchaseOrdersSection(
+                employeeId: employee.employeeId,
+                isDesktop: isDesktop,
+              ),
             ],
           ),
         ),
@@ -191,7 +197,6 @@ class EmployeeDetailPage extends StatelessWidget {
             ),
             AppButton(
               label: 'Edit',
-              expand: false,
               onPressed: () {
                 if (embedded) {
                   onEdit?.call();

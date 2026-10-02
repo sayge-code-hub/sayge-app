@@ -48,11 +48,30 @@ class _AddClientsView extends StatefulWidget {
 
 class _AddClientsViewState extends State<_AddClientsView> {
   final _nameController = TextEditingController();
+  final _vendorController = TextEditingController();
+  final _entityController = TextEditingController();
+  final _contactController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _gstinController = TextEditingController();
 
   @override
   void dispose() {
     _nameController.dispose();
+    _vendorController.dispose();
+    _entityController.dispose();
+    _contactController.dispose();
+    _addressController.dispose();
+    _gstinController.dispose();
     super.dispose();
+  }
+
+  void _clear() {
+    _nameController.clear();
+    _vendorController.clear();
+    _entityController.clear();
+    _contactController.clear();
+    _addressController.clear();
+    _gstinController.clear();
   }
 
   @override
@@ -65,7 +84,7 @@ class _AddClientsViewState extends State<_AddClientsView> {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) async {
         if (state.status == ClientsStatus.success) {
-          _nameController.clear();
+          _clear();
           await showAppMessageDialog(
             context,
             message: 'Client added successfully',
@@ -78,6 +97,80 @@ class _AddClientsViewState extends State<_AddClientsView> {
       },
       builder: (context, state) {
         final isSaving = state.status == ClientsStatus.saving;
+
+        Widget fieldGap = const SizedBox(height: 12);
+        final fields = <Widget>[
+          AppTextField(
+            controller: _nameController,
+            label: 'Company name',
+            enabled: !isSaving,
+            textCapitalization: TextCapitalization.words,
+          ),
+          fieldGap,
+          if (isDesktop)
+            Row(
+              children: [
+                Expanded(
+                  child: AppTextField(
+                    controller: _vendorController,
+                    label: 'Vendor code',
+                    enabled: !isSaving,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: AppTextField(
+                    controller: _entityController,
+                    label: 'Entity code',
+                    enabled: !isSaving,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            AppTextField(
+              controller: _vendorController,
+              label: 'Vendor code',
+              enabled: !isSaving,
+            ),
+            fieldGap,
+            AppTextField(
+              controller: _entityController,
+              label: 'Entity code',
+              enabled: !isSaving,
+            ),
+          ],
+          fieldGap,
+          AppTextField(
+            controller: _contactController,
+            label: 'Contact name',
+            enabled: !isSaving,
+            textCapitalization: TextCapitalization.words,
+          ),
+          fieldGap,
+          AppTextField(
+            controller: _addressController,
+            label: 'Address',
+            enabled: !isSaving,
+            maxLines: 3,
+          ),
+          fieldGap,
+          AppTextField(
+            controller: _gstinController,
+            label: 'GSTIN',
+            enabled: !isSaving,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          if (state.errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              state.errorMessage!,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ],
+        ];
 
         final body = Column(
           children: [
@@ -104,26 +197,7 @@ class _AddClientsViewState extends State<_AddClientsView> {
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppTextField(
-                          controller: _nameController,
-                          label: 'Client name',
-                          enabled: !isSaving,
-                          textCapitalization: TextCapitalization.words,
-                          onChanged: (value) => context
-                              .read<ClientsBloc>()
-                              .add(ClientNameChanged(value)),
-                        ),
-                        if (state.errorMessage != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            state.errorMessage!,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ],
-                      ],
+                      children: fields,
                     ),
                   ),
                 ],
@@ -145,11 +219,17 @@ class _AddClientsViewState extends State<_AddClientsView> {
                 ),
                 AppButton(
                   label: 'Save',
-                  expand: false,
                   isLoading: isSaving,
-                  onPressed: () => context
-                      .read<ClientsBloc>()
-                      .add(const ClientSubmitted()),
+                  onPressed: () => context.read<ClientsBloc>().add(
+                        ClientSubmitted(
+                          name: _nameController.text,
+                          vendorCode: _vendorController.text,
+                          entityCode: _entityController.text,
+                          contactName: _contactController.text,
+                          address: _addressController.text,
+                          gstin: _gstinController.text,
+                        ),
+                      ),
                 ),
               ],
             ),

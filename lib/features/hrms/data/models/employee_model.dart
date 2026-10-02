@@ -130,7 +130,7 @@ class EmployeeModel extends Employee {
       'is_active': isActive,
       'location': location,
       'grade': grade,
-      'client_id': clientId,
+      'client_id': clientId.isEmpty ? null : clientId,
     };
   }
 }

@@ -141,7 +141,6 @@ class CompensationBreakupPage extends StatelessWidget {
             ),
             AppButton(
               label: 'Done',
-              expand: false,
               onPressed: () {
                 if (embedded) {
                   onBack?.call();

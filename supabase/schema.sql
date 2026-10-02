@@ -81,9 +81,29 @@ on conflict (id) do nothing;
 
 create table if not exists public.clients (
   id text primary key,
-  name text not null unique,
+  name text not null,
+  vendor_code text not null default '',
+  entity_code text not null default '',
+  contact_name text not null default '',
+  address text not null default '',
+  gstin text not null default '',
   created_at timestamptz not null default now()
 );
+
+-- Existing projects that already have clients (id, name only)
+alter table public.clients
+  add column if not exists vendor_code text not null default '';
+alter table public.clients
+  add column if not exists entity_code text not null default '';
+alter table public.clients
+  add column if not exists contact_name text not null default '';
+alter table public.clients
+  add column if not exists address text not null default '';
+alter table public.clients
+  add column if not exists gstin text not null default '';
+
+-- Allow multiple contacts per company (e.g. Ketan Jain + Jaspreet Lamba).
+alter table public.clients drop constraint if exists clients_name_key;
 
 create index if not exists clients_name_idx on public.clients (name);
 
@@ -136,7 +156,7 @@ create table if not exists public.employees (
   is_active boolean not null default true,
   location text not null,
   grade text not null,
-  client_id text not null references public.clients (id) on delete restrict,
+  client_id text references public.clients (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -189,25 +209,18 @@ begin
       and table_name = 'employees'
       and column_name = 'client_id'
   ) then
-    if exists (select 1 from public.employees where client_id is null) then
-      raise exception
-        'employees.client_id backfill failed: some rows have no matching client';
-    end if;
+    -- Allow client deletes without removing employees (FK SET NULL).
+    alter table public.employees
+      alter column client_id drop not null;
 
     alter table public.employees
-      alter column client_id set not null;
+      drop constraint if exists employees_client_id_fkey;
 
-    if not exists (
-      select 1
-      from pg_constraint
-      where conname = 'employees_client_id_fkey'
-    ) then
-      alter table public.employees
-        add constraint employees_client_id_fkey
-        foreign key (client_id)
-        references public.clients (id)
-        on delete restrict;
-    end if;
+    alter table public.employees
+      add constraint employees_client_id_fkey
+      foreign key (client_id)
+      references public.clients (id)
+      on delete set null;
   end if;
 end $$;
 
@@ -315,9 +328,13 @@ create table if not exists public.documents (
   file_size_bytes bigint not null default 0,
   storage_path text not null default '',
   notes text not null default '',
+  category text not null default 'General',
   uploaded_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+alter table public.documents
+  add column if not exists category text not null default 'General';
 
 create index if not exists documents_entity_idx
   on public.documents (entity_type, entity_id);
@@ -505,14 +522,15 @@ create index if not exists activity_log_record_idx
 alter table public.activity_log enable row level security;
 
 drop policy if exists "activity_log_select_auth" on public.activity_log;
+drop policy if exists "activity_log_select_anon" on public.activity_log;
 
-create policy "activity_log_select_auth"
+create policy "activity_log_select_anon"
   on public.activity_log for select
-  to authenticated
+  to anon, authenticated
   using (true);
 
 revoke insert, update, delete on public.activity_log from anon, authenticated;
-grant select on public.activity_log to authenticated;
+grant select on public.activity_log to anon, authenticated;
 
 create or replace function public.log_row_activity()
 returns trigger
@@ -604,4 +622,473 @@ begin
       t
     );
   end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Proposals
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.proposals (
+  id text primary key,
+  reference_no text not null unique,
+  quote_date date not null,
+  expiry_date date not null,
+  place_of_supply text not null default '',
+  vendor_code text not null default '',
+  entity_code text not null default '',
+  bill_to_name text not null default '',
+  bill_to_company text not null default '',
+  bill_to_address text not null default '',
+  bill_to_gstin text not null default '',
+  ship_to_name text not null default '',
+  ship_to_company text not null default '',
+  ship_to_address text not null default '',
+  ship_to_gstin text not null default '',
+  notes text not null default '',
+  subtotal numeric(14, 2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists proposals_quote_date_idx
+  on public.proposals (quote_date desc);
+create index if not exists proposals_reference_no_idx
+  on public.proposals (reference_no);
+
+drop trigger if exists proposals_set_updated_at on public.proposals;
+create trigger proposals_set_updated_at
+  before update on public.proposals
+  for each row
+  execute function public.set_updated_at();
+
+alter table public.proposals enable row level security;
+
+drop policy if exists "proposals_select_anon" on public.proposals;
+drop policy if exists "proposals_insert_anon" on public.proposals;
+drop policy if exists "proposals_update_anon" on public.proposals;
+drop policy if exists "proposals_delete_anon" on public.proposals;
+
+create policy "proposals_select_anon"
+  on public.proposals for select
+  to anon, authenticated
+  using (true);
+
+create policy "proposals_insert_anon"
+  on public.proposals for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "proposals_update_anon"
+  on public.proposals for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "proposals_delete_anon"
+  on public.proposals for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete on public.proposals to anon, authenticated;
+
+create table if not exists public.proposal_line_items (
+  id text primary key,
+  proposal_id text not null references public.proposals (id) on delete cascade,
+  sort_order int not null default 0,
+  description text not null,
+  monthly_rate numeric(14, 2) not null default 0,
+  months int not null default 0,
+  days int not null default 0,
+  total_rate numeric(14, 2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists proposal_line_items_proposal_idx
+  on public.proposal_line_items (proposal_id, sort_order);
+
+alter table public.proposal_line_items enable row level security;
+
+drop policy if exists "proposal_line_items_select_anon" on public.proposal_line_items;
+drop policy if exists "proposal_line_items_insert_anon" on public.proposal_line_items;
+drop policy if exists "proposal_line_items_update_anon" on public.proposal_line_items;
+drop policy if exists "proposal_line_items_delete_anon" on public.proposal_line_items;
+
+create policy "proposal_line_items_select_anon"
+  on public.proposal_line_items for select
+  to anon, authenticated
+  using (true);
+
+create policy "proposal_line_items_insert_anon"
+  on public.proposal_line_items for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "proposal_line_items_update_anon"
+  on public.proposal_line_items for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "proposal_line_items_delete_anon"
+  on public.proposal_line_items for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete
+  on public.proposal_line_items to anon, authenticated;
+
+-- Ledger triggers for proposals
+do $$
+begin
+  drop trigger if exists proposals_activity_log on public.proposals;
+  create trigger proposals_activity_log
+    after insert or update or delete on public.proposals
+    for each row execute function public.log_row_activity();
+
+  drop trigger if exists proposal_line_items_activity_log
+    on public.proposal_line_items;
+  create trigger proposal_line_items_activity_log
+    after insert or update or delete on public.proposal_line_items
+    for each row execute function public.log_row_activity();
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Employee Purchase Orders (PO PDF + dates)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.employee_purchase_orders (
+  id text primary key,
+  employee_id text not null references public.employees (employee_id) on delete cascade,
+  po_number text not null,
+  start_date date not null,
+  end_date date not null,
+  file_name text not null default '',
+  mime_type text not null default 'application/pdf',
+  file_size_bytes bigint not null default 0,
+  storage_path text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint employee_purchase_orders_dates_chk check (end_date >= start_date)
+);
+
+create index if not exists employee_purchase_orders_employee_idx
+  on public.employee_purchase_orders (employee_id, start_date desc);
+
+drop trigger if exists employee_purchase_orders_set_updated_at
+  on public.employee_purchase_orders;
+create trigger employee_purchase_orders_set_updated_at
+  before update on public.employee_purchase_orders
+  for each row
+  execute function public.set_updated_at();
+
+alter table public.employee_purchase_orders enable row level security;
+
+drop policy if exists "employee_purchase_orders_select_anon"
+  on public.employee_purchase_orders;
+drop policy if exists "employee_purchase_orders_insert_anon"
+  on public.employee_purchase_orders;
+drop policy if exists "employee_purchase_orders_update_anon"
+  on public.employee_purchase_orders;
+drop policy if exists "employee_purchase_orders_delete_anon"
+  on public.employee_purchase_orders;
+
+create policy "employee_purchase_orders_select_anon"
+  on public.employee_purchase_orders for select
+  to anon, authenticated
+  using (true);
+
+create policy "employee_purchase_orders_insert_anon"
+  on public.employee_purchase_orders for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "employee_purchase_orders_update_anon"
+  on public.employee_purchase_orders for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "employee_purchase_orders_delete_anon"
+  on public.employee_purchase_orders for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete
+  on public.employee_purchase_orders to anon, authenticated;
+
+do $$
+begin
+  drop trigger if exists employee_purchase_orders_activity_log
+    on public.employee_purchase_orders;
+  create trigger employee_purchase_orders_activity_log
+    after insert or update or delete on public.employee_purchase_orders
+    for each row execute function public.log_row_activity();
+end $$;
+
+-- Storage bucket for PO PDFs (public read for simple download URLs)
+insert into storage.buckets (id, name, public)
+values ('employee-pos', 'employee-pos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "employee_pos_storage_select" on storage.objects;
+drop policy if exists "employee_pos_storage_insert" on storage.objects;
+drop policy if exists "employee_pos_storage_update" on storage.objects;
+drop policy if exists "employee_pos_storage_delete" on storage.objects;
+
+create policy "employee_pos_storage_select"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'employee-pos');
+
+create policy "employee_pos_storage_insert"
+  on storage.objects for insert
+  to anon, authenticated
+  with check (bucket_id = 'employee-pos');
+
+create policy "employee_pos_storage_update"
+  on storage.objects for update
+  to anon, authenticated
+  using (bucket_id = 'employee-pos')
+  with check (bucket_id = 'employee-pos');
+
+create policy "employee_pos_storage_delete"
+  on storage.objects for delete
+  to anon, authenticated
+  using (bucket_id = 'employee-pos');
+
+-- ---------------------------------------------------------------------------
+-- Tax Invoices
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.invoices (
+  id text primary key,
+  invoice_no text not null unique,
+  invoice_date date not null,
+  po_number text not null default '',
+  place_of_supply text not null default '',
+  buyer_name text not null default '',
+  buyer_company text not null default '',
+  buyer_address text not null default '',
+  buyer_gstin text not null default '',
+  buyer_contact text not null default '',
+  intra_state boolean not null default true,
+  taxable_amount numeric(14, 2) not null default 0,
+  cgst_amount numeric(14, 2) not null default 0,
+  sgst_amount numeric(14, 2) not null default 0,
+  igst_amount numeric(14, 2) not null default 0,
+  total_amount numeric(14, 2) not null default 0,
+  amount_in_words text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists invoices_invoice_date_idx
+  on public.invoices (invoice_date desc);
+create index if not exists invoices_po_number_idx
+  on public.invoices (po_number);
+
+drop trigger if exists invoices_set_updated_at on public.invoices;
+create trigger invoices_set_updated_at
+  before update on public.invoices
+  for each row
+  execute function public.set_updated_at();
+
+alter table public.invoices enable row level security;
+
+drop policy if exists "invoices_select_anon" on public.invoices;
+drop policy if exists "invoices_insert_anon" on public.invoices;
+drop policy if exists "invoices_update_anon" on public.invoices;
+drop policy if exists "invoices_delete_anon" on public.invoices;
+
+create policy "invoices_select_anon"
+  on public.invoices for select
+  to anon, authenticated
+  using (true);
+
+create policy "invoices_insert_anon"
+  on public.invoices for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "invoices_update_anon"
+  on public.invoices for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "invoices_delete_anon"
+  on public.invoices for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete on public.invoices to anon, authenticated;
+
+create table if not exists public.invoice_line_items (
+  id text primary key,
+  invoice_id text not null references public.invoices (id) on delete cascade,
+  sort_order int not null default 0,
+  particulars text not null default '',
+  amount numeric(14, 2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists invoice_line_items_invoice_idx
+  on public.invoice_line_items (invoice_id, sort_order);
+
+alter table public.invoice_line_items enable row level security;
+
+drop policy if exists "invoice_line_items_select_anon" on public.invoice_line_items;
+drop policy if exists "invoice_line_items_insert_anon" on public.invoice_line_items;
+drop policy if exists "invoice_line_items_update_anon" on public.invoice_line_items;
+drop policy if exists "invoice_line_items_delete_anon" on public.invoice_line_items;
+
+create policy "invoice_line_items_select_anon"
+  on public.invoice_line_items for select
+  to anon, authenticated
+  using (true);
+
+create policy "invoice_line_items_insert_anon"
+  on public.invoice_line_items for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "invoice_line_items_update_anon"
+  on public.invoice_line_items for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "invoice_line_items_delete_anon"
+  on public.invoice_line_items for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete
+  on public.invoice_line_items to anon, authenticated;
+
+do $$
+begin
+  drop trigger if exists invoices_activity_log on public.invoices;
+  create trigger invoices_activity_log
+    after insert or update or delete on public.invoices
+    for each row execute function public.log_row_activity();
+
+  drop trigger if exists invoice_line_items_activity_log
+    on public.invoice_line_items;
+  create trigger invoice_line_items_activity_log
+    after insert or update or delete on public.invoice_line_items
+    for each row execute function public.log_row_activity();
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Company details (seller / bank info for invoices)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.company_details (
+  id text primary key,
+  name text not null unique,
+  display_name text not null default '',
+  address text not null default '',
+  gstin text not null default '',
+  pan text not null default '',
+  sac_code text not null default '',
+  telephone text not null default '',
+  email text not null default '',
+  bank_name text not null default '',
+  bank_account_no text not null default '',
+  bank_branch text not null default '',
+  bank_ifsc text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists company_details_name_idx
+  on public.company_details (name);
+
+drop trigger if exists company_details_set_updated_at on public.company_details;
+create trigger company_details_set_updated_at
+  before update on public.company_details
+  for each row
+  execute function public.set_updated_at();
+
+alter table public.company_details enable row level security;
+
+drop policy if exists "company_details_select_anon" on public.company_details;
+drop policy if exists "company_details_insert_anon" on public.company_details;
+drop policy if exists "company_details_update_anon" on public.company_details;
+drop policy if exists "company_details_delete_anon" on public.company_details;
+
+create policy "company_details_select_anon"
+  on public.company_details for select
+  to anon, authenticated
+  using (true);
+
+create policy "company_details_insert_anon"
+  on public.company_details for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "company_details_update_anon"
+  on public.company_details for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "company_details_delete_anon"
+  on public.company_details for delete
+  to anon, authenticated
+  using (true);
+
+grant select, insert, update, delete on public.company_details to anon, authenticated;
+
+insert into public.company_details (
+  id,
+  name,
+  display_name,
+  address,
+  gstin,
+  pan,
+  sac_code,
+  telephone,
+  email,
+  bank_name,
+  bank_account_no,
+  bank_branch,
+  bank_ifsc
+)
+values (
+  'company_sayge',
+  'sayge',
+  'Sayge',
+  'Harsh Co-op society, Pandey Layout, Khamla Rd, Nagpur',
+  '27AEAFS9363N1ZB',
+  'AEAFS9363N',
+  '998311',
+  '8788681499',
+  'humans@sayge.com',
+  'The Maharashtra State Co. Op. Bank Ltd.',
+  '0056107040000517',
+  'Deonagar Branch',
+  'MSCI0082051'
+)
+on conflict (name) do update set
+  display_name = excluded.display_name,
+  address = excluded.address,
+  gstin = excluded.gstin,
+  pan = excluded.pan,
+  sac_code = excluded.sac_code,
+  telephone = excluded.telephone,
+  email = excluded.email,
+  bank_name = excluded.bank_name,
+  bank_account_no = excluded.bank_account_no,
+  bank_branch = excluded.bank_branch,
+  bank_ifsc = excluded.bank_ifsc,
+  updated_at = now();
+
+do $$
+begin
+  drop trigger if exists company_details_activity_log on public.company_details;
+  create trigger company_details_activity_log
+    after insert or update or delete on public.company_details
+    for each row execute function public.log_row_activity();
 end $$;

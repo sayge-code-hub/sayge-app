@@ -14,7 +14,6 @@ class ClientsBloc extends Bloc<ClientsEvent, ClientsState> {
     required this.addClientUseCase,
   }) : super(const ClientsState()) {
     on<ClientsRequested>(_onRequested);
-    on<ClientNameChanged>(_onNameChanged);
     on<ClientSubmitted>(_onSubmitted);
   }
 
@@ -43,24 +42,11 @@ class ClientsBloc extends Bloc<ClientsEvent, ClientsState> {
     );
   }
 
-  void _onNameChanged(
-    ClientNameChanged event,
-    Emitter<ClientsState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        name: event.name,
-        clearError: true,
-        status: ClientsStatus.ready,
-      ),
-    );
-  }
-
   Future<void> _onSubmitted(
     ClientSubmitted event,
     Emitter<ClientsState> emit,
   ) async {
-    if (state.name.trim().isEmpty) {
+    if (event.name.trim().isEmpty) {
       emit(
         state.copyWith(
           status: ClientsStatus.failure,
@@ -71,7 +57,17 @@ class ClientsBloc extends Bloc<ClientsEvent, ClientsState> {
     }
 
     emit(state.copyWith(status: ClientsStatus.saving, clearError: true));
-    final result = await addClientUseCase(state.name);
+    final result = await addClientUseCase(
+      Client(
+        id: '',
+        name: event.name,
+        vendorCode: event.vendorCode,
+        entityCode: event.entityCode,
+        contactName: event.contactName,
+        address: event.address,
+        gstin: event.gstin,
+      ),
+    );
     result.fold(
       (failure) => emit(
         state.copyWith(
@@ -88,7 +84,6 @@ class ClientsBloc extends Bloc<ClientsEvent, ClientsState> {
           state.copyWith(
             status: ClientsStatus.success,
             clients: updated,
-            name: '',
           ),
         );
       },

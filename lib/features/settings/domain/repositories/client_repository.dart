@@ -6,5 +6,5 @@ import '../entities/client.dart';
 abstract class ClientRepository {
   Future<Either<Failure, List<Client>>> getClients();
 
-  Future<Either<Failure, Client>> addClient(String name);
+  Future<Either<Failure, Client>> addClient(Client client);
 }

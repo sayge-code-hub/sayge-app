@@ -285,7 +285,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                           label: 'Client',
                           value: state.selectedClient,
                           items: state.availableClients,
-                          itemLabel: (item) => item.name,
+                          itemLabel: (item) => item.displayLabel,
                           enabled: !isLoading,
                           onChanged: (value) =>
                               context.read<AddEmployeeBloc>().add(
@@ -518,7 +518,6 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
             ),
             AppButton(
               label: 'Save',
-              expand: false,
               isLoading: isLoading,
               onPressed: () => context
                   .read<AddEmployeeBloc>()

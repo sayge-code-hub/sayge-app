@@ -1,18 +1,18 @@
 /// Owner type for documents in the DMS.
 enum DmsEntityType {
-  company,
-  vendor,
   employee,
+  client,
+  vendor,
   candidate;
 
   String get label {
     switch (this) {
-      case DmsEntityType.company:
-        return 'Companies';
-      case DmsEntityType.vendor:
-        return 'Vendors';
       case DmsEntityType.employee:
         return 'Employees';
+      case DmsEntityType.client:
+        return 'Clients';
+      case DmsEntityType.vendor:
+        return 'Vendors';
       case DmsEntityType.candidate:
         return 'Candidates';
     }
@@ -20,25 +20,27 @@ enum DmsEntityType {
 
   String get singular {
     switch (this) {
-      case DmsEntityType.company:
-        return 'Company';
-      case DmsEntityType.vendor:
-        return 'Vendor';
       case DmsEntityType.employee:
         return 'Employee';
+      case DmsEntityType.client:
+        return 'Client';
+      case DmsEntityType.vendor:
+        return 'Vendor';
       case DmsEntityType.candidate:
         return 'Candidate';
     }
   }
 
+  /// Value stored in `documents.entity_type` / `dms_entities.entity_type`.
   String get storageValue {
     switch (this) {
-      case DmsEntityType.company:
+      case DmsEntityType.employee:
+        return 'employee';
+      case DmsEntityType.client:
+        // Historical DB value is "company".
         return 'company';
       case DmsEntityType.vendor:
         return 'vendor';
-      case DmsEntityType.employee:
-        return 'employee';
       case DmsEntityType.candidate:
         return 'candidate';
     }
@@ -46,29 +48,46 @@ enum DmsEntityType {
 
   static DmsEntityType fromStorage(String value) {
     switch (value.toLowerCase()) {
-      case 'company':
-        return DmsEntityType.company;
-      case 'vendor':
-        return DmsEntityType.vendor;
       case 'employee':
         return DmsEntityType.employee;
+      case 'company':
+      case 'client':
+        return DmsEntityType.client;
+      case 'vendor':
+        return DmsEntityType.vendor;
       case 'candidate':
         return DmsEntityType.candidate;
       default:
-        return DmsEntityType.company;
+        return DmsEntityType.employee;
     }
   }
 }
 
-/// A browsable DMS owner (company, vendor, employee, or candidate).
+/// A browsable DMS owner (employee, client, vendor, or candidate).
 class DmsEntity {
   const DmsEntity({
     required this.id,
     required this.name,
     required this.type,
+    this.subtitle = '',
   });
 
   final String id;
   final String name;
   final DmsEntityType type;
+  final String subtitle;
+}
+
+/// Document categories used when attaching / grouping files.
+abstract final class DmsDocumentCategories {
+  static const List<String> all = [
+    'Identity',
+    'Tax',
+    'Contracts',
+    'Compliance',
+    'Payroll',
+    'General',
+  ];
+
+  static const String fallback = 'General';
 }

@@ -18,6 +18,7 @@ abstract class DocumentRepository {
     required String entityName,
     required String title,
     required String fileName,
+    required String category,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',

@@ -16,31 +16,53 @@ import 'features/dms/domain/usecases/add_document.dart';
 import 'features/dms/domain/usecases/get_dms_entities.dart';
 import 'features/dms/domain/usecases/get_documents.dart';
 import 'features/dms/presentation/bloc/dms/dms_bloc.dart';
+import 'features/hrms/data/datasources/employee_purchase_order_remote_datasource.dart';
 import 'features/hrms/data/datasources/employee_remote_datasource.dart';
+import 'features/hrms/data/repositories/employee_purchase_order_repository_impl.dart';
 import 'features/hrms/data/repositories/employee_repository_impl.dart';
+import 'features/hrms/domain/repositories/employee_purchase_order_repository.dart';
 import 'features/hrms/domain/repositories/employee_repository.dart';
 import 'features/hrms/domain/usecases/add_employee.dart';
+import 'features/hrms/domain/usecases/employee_purchase_order_usecases.dart';
 import 'features/hrms/domain/usecases/get_employees.dart';
 import 'features/hrms/domain/usecases/update_employee.dart';
 import 'features/hrms/presentation/bloc/add_employee/add_employee_bloc.dart';
+import 'features/hrms/presentation/bloc/employee_po/employee_po_bloc.dart';
 import 'features/hrms/presentation/bloc/employees/employees_bloc.dart';
+import 'features/invoices/data/datasources/invoice_remote_datasource.dart';
+import 'features/invoices/data/repositories/invoice_repository_impl.dart';
+import 'features/invoices/domain/repositories/invoice_repository.dart';
+import 'features/invoices/domain/usecases/invoice_usecases.dart';
+import 'features/invoices/presentation/bloc/invoices_bloc.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
+import 'features/proposals/data/datasources/proposal_remote_datasource.dart';
+import 'features/proposals/data/repositories/proposal_repository_impl.dart';
+import 'features/proposals/domain/repositories/proposal_repository.dart';
+import 'features/proposals/domain/usecases/proposal_usecases.dart';
+import 'features/proposals/presentation/bloc/proposals_bloc.dart';
 import 'features/settings/data/datasources/client_remote_datasource.dart';
+import 'features/settings/data/datasources/settings_remote_datasource.dart';
 import 'features/settings/data/repositories/client_repository_impl.dart';
+import 'features/settings/data/repositories/settings_repository_impl.dart';
 import 'features/settings/domain/repositories/client_repository.dart';
+import 'features/settings/domain/repositories/settings_repository.dart';
 import 'features/settings/domain/usecases/add_client.dart';
 import 'features/settings/domain/usecases/get_clients.dart';
+import 'features/settings/domain/usecases/settings_usecases.dart';
 import 'features/settings/presentation/bloc/clients/clients_bloc.dart';
+import 'features/settings/presentation/bloc/company_details/company_details_bloc.dart';
+import 'features/settings/presentation/bloc/ledger/ledger_bloc.dart';
+import 'features/settings/presentation/bloc/roles/roles_bloc.dart';
 
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
-  await dotenv.load(fileName: '.env');
+  await dotenv.load(fileName: 'assets/config/app.env');
 
   if (!AppConfig.hasSupabase) {
     throw StateError(
-      'Supabase is required. Copy .env.example to .env and set '
-      'SUPABASE_URL and SUPABASE_ANON_KEY.',
+      'Supabase is required. Set SUPABASE_URL and SUPABASE_ANON_KEY in '
+      'assets/config/app.env.',
     );
   }
 
@@ -73,6 +95,25 @@ Future<void> initDependencies() async {
     () => ClientRepositoryImpl(remoteDataSource: sl()),
   );
 
+  sl.registerLazySingleton<SettingsRemoteDataSource>(
+    () => SettingsRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<SettingsRepository>(
+    () => SettingsRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton(() => GetCompanyDetailsUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateCompanyDetailsUseCase(sl()));
+  sl.registerLazySingleton(() => GetRolesUseCase(sl()));
+  sl.registerLazySingleton(() => GetActivityLogUseCase(sl()));
+  sl.registerFactory(
+    () => CompanyDetailsBloc(
+      getCompanyDetailsUseCase: sl(),
+      updateCompanyDetailsUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(() => RolesBloc(getRolesUseCase: sl()));
+  sl.registerFactory(() => LedgerBloc(getActivityLogUseCase: sl()));
+
   sl.registerFactory(() => EmployeesBloc(getEmployeesUseCase: sl()));
   sl.registerFactory(
     () => AddEmployeeBloc(
@@ -91,7 +132,62 @@ Future<void> initDependencies() async {
     () => EmployeeRepositoryImpl(remoteDataSource: sl()),
   );
 
+  sl.registerFactory(
+    () => EmployeePoBloc(
+      getPosUseCase: sl(),
+      createPoUseCase: sl(),
+      getDownloadUrlUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetEmployeePurchaseOrdersUseCase(sl()));
+  sl.registerLazySingleton(() => GetAllEmployeePurchaseOrdersUseCase(sl()));
+  sl.registerLazySingleton(() => CreateEmployeePurchaseOrderUseCase(sl()));
+  sl.registerLazySingleton(
+    () => GetEmployeePurchaseOrderDownloadUrlUseCase(sl()),
+  );
+  sl.registerLazySingleton<EmployeePurchaseOrderRemoteDataSource>(
+    () => EmployeePurchaseOrderRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<EmployeePurchaseOrderRepository>(
+    () => EmployeePurchaseOrderRepositoryImpl(remoteDataSource: sl()),
+  );
+
   sl.registerFactory(() => PayrollBloc(getEmployeesUseCase: sl()));
+
+  sl.registerFactory(
+    () => InvoicesBloc(
+      getInvoicesUseCase: sl(),
+      createInvoiceUseCase: sl(),
+      updateInvoiceUseCase: sl(),
+      getAllPosUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetInvoicesUseCase(sl()));
+  sl.registerLazySingleton(() => CreateInvoiceUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateInvoiceUseCase(sl()));
+  sl.registerLazySingleton<InvoiceRemoteDataSource>(
+    () => InvoiceRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<InvoiceRepository>(
+    () => InvoiceRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  sl.registerFactory(
+    () => ProposalsBloc(
+      getProposalsUseCase: sl(),
+      createProposalUseCase: sl(),
+      updateProposalUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetProposalsUseCase(sl()));
+  sl.registerLazySingleton(() => CreateProposalUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateProposalUseCase(sl()));
+  sl.registerLazySingleton<ProposalRemoteDataSource>(
+    () => ProposalRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<ProposalRepository>(
+    () => ProposalRepositoryImpl(remoteDataSource: sl()),
+  );
 
   sl.registerFactory(
     () => DmsBloc(

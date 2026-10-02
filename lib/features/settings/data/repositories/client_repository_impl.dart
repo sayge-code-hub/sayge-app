@@ -26,9 +26,9 @@ class ClientRepositoryImpl implements ClientRepository {
   }
 
   @override
-  Future<Either<Failure, Client>> addClient(String name) async {
+  Future<Either<Failure, Client>> addClient(Client client) async {
     try {
-      final created = await remoteDataSource.addClient(name);
+      final created = await remoteDataSource.addClient(client);
       return Right(created);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

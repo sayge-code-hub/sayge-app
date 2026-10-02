@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_list_card.dart';
+import '../../../../core/widgets/app_sticky_actions.dart';
+
+export '../../../../core/widgets/app_sticky_actions.dart' show AppStickyActions;
+
+/// Alias kept for existing HRMS / settings imports.
+typedef EmployeeStickyActions = AppStickyActions;
 
 /// When true, [EmployeeDetailField] right-aligns label and value.
 class DetailFieldAlign extends InheritedWidget {
@@ -141,12 +148,7 @@ class EmployeeDetailSection extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        isDesktop ? 22 : 16,
-        isDesktop ? 18 : 16,
-        isDesktop ? 22 : 16,
-        isDesktop ? 20 : 16,
-      ),
+      padding: AppListCard.sectionPadding,
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(12),
@@ -171,7 +173,7 @@ class EmployeeDetailSection extends StatelessWidget {
               ?trailing,
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           EmployeeFormGrid(
             isDesktop: isDesktop,
             children: children,
@@ -233,42 +235,3 @@ class EmployeeDetailField extends StatelessWidget {
   }
 }
 
-/// Sticky bottom action bar aligned to the right.
-class EmployeeStickyActions extends StatelessWidget {
-  const EmployeeStickyActions({
-    super.key,
-    required this.children,
-  });
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.background,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: AppColors.border,
-            ),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) const SizedBox(width: 12),
-                children[i],
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

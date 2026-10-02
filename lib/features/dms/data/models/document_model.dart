@@ -13,6 +13,7 @@ class DocumentModel extends DocumentRecord {
     required super.fileSizeBytes,
     required super.storagePath,
     required super.notes,
+    required super.category,
     required super.uploadedAt,
   });
 
@@ -28,11 +29,13 @@ class DocumentModel extends DocumentRecord {
       fileSizeBytes: record.fileSizeBytes,
       storagePath: record.storagePath,
       notes: record.notes,
+      category: record.category,
       uploadedAt: record.uploadedAt,
     );
   }
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
+    final category = (json['category'] ?? '').toString().trim();
     return DocumentModel(
       id: (json['id'] ?? '').toString(),
       entityType: DmsEntityType.fromStorage(
@@ -46,6 +49,7 @@ class DocumentModel extends DocumentRecord {
       fileSizeBytes: _asInt(json['file_size_bytes']),
       storagePath: (json['storage_path'] ?? '').toString(),
       notes: (json['notes'] ?? '').toString(),
+      category: category.isEmpty ? DmsDocumentCategories.fallback : category,
       uploadedAt: _asDate(json['uploaded_at']) ?? DateTime.now(),
     );
   }
@@ -62,6 +66,7 @@ class DocumentModel extends DocumentRecord {
       'file_size_bytes': fileSizeBytes,
       'storage_path': storagePath,
       'notes': notes,
+      'category': category,
       'uploaded_at': uploadedAt.toUtc().toIso8601String(),
     };
   }

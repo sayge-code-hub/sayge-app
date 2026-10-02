@@ -17,12 +17,14 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     required this.addDocumentUseCase,
   }) : super(const DmsState()) {
     on<DmsStarted>(_onStarted);
+    on<DmsHubOpened>(_onHubOpened);
     on<DmsEntityTypeSelected>(_onEntityTypeSelected);
     on<DmsEntitySelected>(_onEntitySelected);
     on<DmsSelectionCleared>(_onSelectionCleared);
     on<DmsDocumentTitleChanged>(_onTitleChanged);
     on<DmsDocumentFileNameChanged>(_onFileNameChanged);
     on<DmsDocumentNotesChanged>(_onNotesChanged);
+    on<DmsDocumentCategoryChanged>(_onCategoryChanged);
     on<DmsDocumentSubmitted>(_onSubmitted);
   }
 
@@ -34,19 +36,40 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     DmsStarted event,
     Emitter<DmsState> emit,
   ) async {
-    await _loadEntities(emit, state.entityType);
+    emit(
+      state.copyWith(
+        level: DmsLevel.hub,
+        status: DmsStatus.ready,
+        clearSelectedEntity: true,
+        documents: const [],
+        clearError: true,
+        clearForm: true,
+      ),
+    );
+  }
+
+  void _onHubOpened(DmsHubOpened event, Emitter<DmsState> emit) {
+    emit(
+      state.copyWith(
+        level: DmsLevel.hub,
+        status: DmsStatus.ready,
+        clearSelectedEntity: true,
+        documents: const [],
+        entities: const [],
+        clearError: true,
+        clearForm: true,
+      ),
+    );
   }
 
   Future<void> _onEntityTypeSelected(
     DmsEntityTypeSelected event,
     Emitter<DmsState> emit,
   ) async {
-    if (event.type == state.entityType && state.entities.isNotEmpty) {
-      return;
-    }
     emit(
       state.copyWith(
         entityType: event.type,
+        level: DmsLevel.entities,
         clearSelectedEntity: true,
         documents: const [],
         clearError: true,
@@ -63,6 +86,7 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     emit(
       state.copyWith(
         selectedEntity: event.entity,
+        level: DmsLevel.documents,
         status: DmsStatus.loadingDocuments,
         clearError: true,
         clearForm: true,
@@ -94,6 +118,7 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
   ) {
     emit(
       state.copyWith(
+        level: DmsLevel.entities,
         clearSelectedEntity: true,
         documents: const [],
         clearError: true,
@@ -142,6 +167,19 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     );
   }
 
+  void _onCategoryChanged(
+    DmsDocumentCategoryChanged event,
+    Emitter<DmsState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        documentCategory: event.category,
+        clearError: true,
+        status: DmsStatus.ready,
+      ),
+    );
+  }
+
   Future<void> _onSubmitted(
     DmsDocumentSubmitted event,
     Emitter<DmsState> emit,
@@ -182,6 +220,7 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
       entityName: entity.name,
       title: state.documentTitle,
       fileName: state.documentFileName,
+      category: state.documentCategory,
       notes: state.documentNotes,
     );
     result.fold(

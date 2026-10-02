@@ -12,9 +12,15 @@ import '../../features/hrms/presentation/pages/employee_detail_page.dart';
 import '../../features/hrms/presentation/pages/employees_page.dart';
 import '../../features/hrms/presentation/pages/hrms_overview_page.dart';
 import '../../features/modules/presentation/pages/home_shell.dart';
+import '../../features/invoices/presentation/pages/invoices_page.dart';
 import '../../features/payroll/presentation/pages/payroll_page.dart';
+import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
+import '../../features/settings/presentation/pages/company_details_page.dart';
+import '../../features/settings/presentation/pages/ledger_page.dart';
 import '../../features/settings/presentation/pages/manage_clients_page.dart';
+import '../../features/settings/presentation/pages/roles_page.dart';
+import '../../features/settings/presentation/pages/settings_hub_page.dart';
 import '../auth/auth_session.dart';
 import '../theme/app_colors.dart';
 import 'app_routes.dart';
@@ -25,6 +31,14 @@ void _goBack(BuildContext context, String fallback) {
   } else {
     context.go(fallback);
   }
+}
+
+/// Instant route swap — no fade/slide (avoids perceived navigation lag).
+Page<void> _page(GoRouterState state, Widget child) {
+  return NoTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+  );
 }
 
 GoRouter createAppRouter(AuthSession authSession) {
@@ -38,15 +52,12 @@ GoRouter createAppRouter(AuthSession authSession) {
 
       if (!loggedIn && !loggingIn) return AppRoutes.login;
       if (loggedIn && (loggingIn || atRoot)) return AppRoutes.hrms;
-      if (state.matchedLocation == AppRoutes.settings) {
-        return AppRoutes.clients;
-      }
       return null;
     },
     routes: [
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => _page(state, const LoginPage()),
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -63,79 +74,95 @@ GoRouter createAppRouter(AuthSession authSession) {
         routes: [
           GoRoute(
             path: AppRoutes.hrms,
-            builder: (context, state) => const HrmsOverviewPage(),
+            pageBuilder: (context, state) =>
+                _page(state, const HrmsOverviewPage()),
           ),
           GoRoute(
             path: AppRoutes.employees,
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final user = authSession.user!;
-              return EmployeesPage(
-                user: user,
-                embedded: true,
-                onEmployeeSelected: (employee) {
-                  context.go(AppRoutes.employeeDetail(employee.employeeId));
-                },
+              return _page(
+                state,
+                EmployeesPage(
+                  user: user,
+                  embedded: true,
+                  onEmployeeSelected: (employee) {
+                    context.go(AppRoutes.employeeDetail(employee.employeeId));
+                  },
+                ),
               );
             },
           ),
           GoRoute(
             path: AppRoutes.employeesAdd,
-            builder: (context, state) => AddEmployeePage(
-              embedded: true,
-              onCompleted: () {
-                context.read<EmployeesBloc>().add(const EmployeesRequested());
-                context.go(AppRoutes.employees);
-              },
-              onCancel: () => _goBack(context, AppRoutes.employees),
+            pageBuilder: (context, state) => _page(
+              state,
+              AddEmployeePage(
+                embedded: true,
+                onCompleted: () {
+                  context.read<EmployeesBloc>().add(const EmployeesRequested());
+                  context.go(AppRoutes.employees);
+                },
+                onCancel: () => _goBack(context, AppRoutes.employees),
+              ),
             ),
           ),
           GoRoute(
             path: '/hrms/employees/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return _EmployeeRoutePage(
-                employeeId: id,
-                builder: (employee) => EmployeeDetailPage(
-                  employee: employee,
-                  embedded: true,
-                  onBack: () => _goBack(context, AppRoutes.employees),
-                  onEdit: () => context.go(AppRoutes.employeeEdit(id)),
+              return _page(
+                state,
+                _EmployeeRoutePage(
+                  employeeId: id,
+                  builder: (employee) => EmployeeDetailPage(
+                    employee: employee,
+                    embedded: true,
+                    onBack: () => _goBack(context, AppRoutes.employees),
+                    onEdit: () => context.go(AppRoutes.employeeEdit(id)),
+                  ),
                 ),
               );
             },
             routes: [
               GoRoute(
                 path: 'edit',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id = state.pathParameters['id']!;
-                  return _EmployeeRoutePage(
-                    employeeId: id,
-                    builder: (employee) => AddEmployeePage(
-                      embedded: true,
-                      employee: employee,
-                      onCompleted: () {
-                        context
-                            .read<EmployeesBloc>()
-                            .add(const EmployeesRequested());
-                        context.go(AppRoutes.employeeDetail(id));
-                      },
-                      onCancel: () =>
-                          _goBack(context, AppRoutes.employeeDetail(id)),
+                  return _page(
+                    state,
+                    _EmployeeRoutePage(
+                      employeeId: id,
+                      builder: (employee) => AddEmployeePage(
+                        embedded: true,
+                        employee: employee,
+                        onCompleted: () {
+                          context
+                              .read<EmployeesBloc>()
+                              .add(const EmployeesRequested());
+                          context.go(AppRoutes.employeeDetail(id));
+                        },
+                        onCancel: () =>
+                            _goBack(context, AppRoutes.employeeDetail(id)),
+                      ),
                     ),
                   );
                 },
               ),
               GoRoute(
                 path: 'compensation',
-                builder: (context, state) {
+                pageBuilder: (context, state) {
                   final id = state.pathParameters['id']!;
-                  return _EmployeeRoutePage(
-                    employeeId: id,
-                    builder: (employee) => CompensationBreakupPage(
-                      employee: employee,
-                      embedded: true,
-                      onBack: () =>
-                          _goBack(context, AppRoutes.employeeDetail(id)),
+                  return _page(
+                    state,
+                    _EmployeeRoutePage(
+                      employeeId: id,
+                      builder: (employee) => CompensationBreakupPage(
+                        employee: employee,
+                        embedded: true,
+                        onBack: () =>
+                            _goBack(context, AppRoutes.employeeDetail(id)),
+                      ),
                     ),
                   );
                 },
@@ -144,26 +171,76 @@ GoRouter createAppRouter(AuthSession authSession) {
           ),
           GoRoute(
             path: AppRoutes.dms,
-            builder: (context, state) => const DmsPage(),
+            pageBuilder: (context, state) => _page(state, const DmsPage()),
           ),
           GoRoute(
             path: AppRoutes.payroll,
-            builder: (context, state) => const PayrollPage(),
+            pageBuilder: (context, state) => _page(state, const PayrollPage()),
           ),
           GoRoute(
-            path: AppRoutes.clients,
-            builder: (context, state) => ManageClientsPage(
-              embedded: true,
-              onBack: () => _goBack(context, AppRoutes.hrms),
-              onAddClient: () => context.go(AppRoutes.clientsAdd),
-            ),
+            path: AppRoutes.proposals,
+            pageBuilder: (context, state) =>
+                _page(state, const ProposalsPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.invoices,
+            pageBuilder: (context, state) =>
+                _page(state, const InvoicesPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.settings,
+            pageBuilder: (context, state) =>
+                _page(state, const SettingsHubPage()),
             routes: [
               GoRoute(
-                path: 'add',
-                builder: (context, state) => AddClientsPage(
-                  embedded: true,
-                  onCompleted: () => context.go(AppRoutes.clients),
-                  onCancel: () => _goBack(context, AppRoutes.clients),
+                path: 'clients',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  ManageClientsPage(
+                    embedded: true,
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                    onAddClient: () => context.go(AppRoutes.clientsAdd),
+                  ),
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    pageBuilder: (context, state) => _page(
+                      state,
+                      AddClientsPage(
+                        embedded: true,
+                        onCompleted: () => context.go(AppRoutes.clients),
+                        onCancel: () => _goBack(context, AppRoutes.clients),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'company',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  CompanyDetailsPage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: 'roles',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  RolesPage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: 'ledger',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  LedgerPage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
                 ),
               ),
             ],

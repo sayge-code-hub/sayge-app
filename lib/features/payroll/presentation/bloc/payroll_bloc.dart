@@ -132,23 +132,23 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
   ) async {
     emit(state.copyWith(status: PayrollStatus.generating, clearError: true));
     try {
-      final slips = employees
-          .map(
-            (e) => PayslipCalculator.fromEmployee(
-              employee: e,
-              month: state.month,
-              year: state.year,
-            ),
-          )
-          .toList();
-      final doc = await PayslipPdfBuilder.build(slips);
-      final bytes = await doc.save();
-      final label = employees.length == 1
-          ? 'Payslip_${employees.first.employeeId}_'
-              '${slips.first.periodLabel}.pdf'
-          : 'Payslips_${slips.first.periodLabel}.pdf';
-
-      await savePdfBytes(bytes: bytes, filename: label);
+      for (var i = 0; i < employees.length; i++) {
+        final employee = employees[i];
+        final slip = PayslipCalculator.fromEmployee(
+          employee: employee,
+          month: state.month,
+          year: state.year,
+        );
+        final doc = await PayslipPdfBuilder.build([slip]);
+        final bytes = await doc.save();
+        final filename =
+            'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
+        await savePdfBytes(bytes: bytes, filename: filename);
+        // Give the browser time between downloads so each file is saved.
+        if (i < employees.length - 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 350));
+        }
+      }
       emit(state.copyWith(status: PayrollStatus.ready));
     } catch (e, st) {
       debugPrint('Payslip download failed: $e\n$st');

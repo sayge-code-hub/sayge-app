@@ -9,7 +9,7 @@ class AddClientUseCase {
 
   final ClientRepository _repository;
 
-  Future<Either<Failure, Client>> call(String name) {
-    return _repository.addClient(name);
+  Future<Either<Failure, Client>> call(Client client) {
+    return _repository.addClient(client);
   }
 }

@@ -11,6 +11,10 @@ class DmsStarted extends DmsEvent {
   const DmsStarted();
 }
 
+class DmsHubOpened extends DmsEvent {
+  const DmsHubOpened();
+}
+
 class DmsEntityTypeSelected extends DmsEvent {
   const DmsEntityTypeSelected(this.type);
 
@@ -58,6 +62,15 @@ class DmsDocumentNotesChanged extends DmsEvent {
 
   @override
   List<Object?> get props => [notes];
+}
+
+class DmsDocumentCategoryChanged extends DmsEvent {
+  const DmsDocumentCategoryChanged(this.category);
+
+  final String category;
+
+  @override
+  List<Object?> get props => [category];
 }
 
 class DmsDocumentSubmitted extends DmsEvent {
