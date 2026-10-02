@@ -1,0 +1,88 @@
+part of 'add_employee_bloc.dart';
+
+abstract class AddEmployeeEvent extends Equatable {
+  const AddEmployeeEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class AddEmployeeStarted extends AddEmployeeEvent {
+  const AddEmployeeStarted({this.employee});
+
+  final Employee? employee;
+
+  @override
+  List<Object?> get props => [employee];
+}
+
+class AddEmployeeFieldChanged extends AddEmployeeEvent {
+  const AddEmployeeFieldChanged({
+    this.employeeId,
+    this.employeeName,
+    this.dateOfJoining,
+    this.designation,
+    this.department,
+    this.annualCtc,
+    this.monthlyCtc,
+    this.pfApplicable,
+    this.ptApplicable,
+    this.medicalInsurance,
+    this.retentionAmount,
+    this.bankAccount,
+    this.ifsc,
+    this.pan,
+    this.uan,
+    this.isActive,
+    this.location,
+    this.grade,
+    this.clientId,
+  });
+
+  final String? employeeId;
+  final String? employeeName;
+  final DateTime? dateOfJoining;
+  final String? designation;
+  final String? department;
+  final String? annualCtc;
+  final String? monthlyCtc;
+  final bool? pfApplicable;
+  final bool? ptApplicable;
+  final String? medicalInsurance;
+  final String? retentionAmount;
+  final String? bankAccount;
+  final String? ifsc;
+  final String? pan;
+  final String? uan;
+  final bool? isActive;
+  final String? location;
+  final String? grade;
+  final String? clientId;
+
+  @override
+  List<Object?> get props => [
+        employeeId,
+        employeeName,
+        dateOfJoining,
+        designation,
+        department,
+        annualCtc,
+        monthlyCtc,
+        pfApplicable,
+        ptApplicable,
+        medicalInsurance,
+        retentionAmount,
+        bankAccount,
+        ifsc,
+        pan,
+        uan,
+        isActive,
+        location,
+        grade,
+        clientId,
+      ];
+}
+
+class AddEmployeeSubmitted extends AddEmployeeEvent {
+  const AddEmployeeSubmitted();
+}
