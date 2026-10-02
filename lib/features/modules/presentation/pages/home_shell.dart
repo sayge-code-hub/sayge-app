@@ -74,7 +74,7 @@ class _HomeShellState extends State<HomeShell> {
         ),
         AppNavItem(
           label: 'Expense',
-          icon: Icons.account_balance_outlined,
+          icon: Icons.attach_money,
         ),
       ],
     ),
@@ -132,6 +132,7 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (location == AppRoutes.clientsAdd) return 'Add client';
     if (location.startsWith(AppRoutes.clients)) return 'Manage clients';
+    if (location == AppRoutes.inviteEmployee) return 'Invite employee';
     if (location == AppRoutes.companyDetails) return 'GST & company';
     if (location == AppRoutes.roles) return 'Roles';
     if (location == AppRoutes.ledger) return 'Activity ledger';
@@ -174,7 +175,8 @@ class _HomeShellState extends State<HomeShell> {
     if (location == AppRoutes.clients ||
         location == AppRoutes.companyDetails ||
         location == AppRoutes.roles ||
-        location == AppRoutes.ledger) {
+        location == AppRoutes.ledger ||
+        location == AppRoutes.inviteEmployee) {
       return () => _goBack(AppRoutes.settings);
     }
     return null;

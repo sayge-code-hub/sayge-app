@@ -49,6 +49,7 @@ import 'features/proposals/domain/repositories/proposal_repository.dart';
 import 'features/proposals/domain/usecases/proposal_usecases.dart';
 import 'features/proposals/presentation/bloc/proposals_bloc.dart';
 import 'features/settings/data/datasources/client_remote_datasource.dart';
+import 'features/settings/data/datasources/invite_employee_remote_datasource.dart';
 import 'features/settings/data/datasources/settings_remote_datasource.dart';
 import 'features/settings/data/repositories/client_repository_impl.dart';
 import 'features/settings/data/repositories/settings_repository_impl.dart';
@@ -126,6 +127,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => UpdateCompanyDetailsUseCase(sl()));
   sl.registerLazySingleton(() => GetRolesUseCase(sl()));
   sl.registerLazySingleton(() => GetActivityLogUseCase(sl()));
+  sl.registerLazySingleton(() => InviteEmployeeRemoteDataSource());
   sl.registerFactory(
     () => CompanyDetailsBloc(
       getCompanyDetailsUseCase: sl(),

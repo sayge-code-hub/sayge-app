@@ -13,6 +13,12 @@ class SettingsHubPage extends StatelessWidget {
     final isDesktop = Breakpoints.isDesktop(context);
     const tiles = [
       _SettingsTileData(
+        title: 'Invite employee',
+        subtitle: 'Email invite — they set their password',
+        icon: Icons.person_add_alt_1_outlined,
+        path: AppRoutes.inviteEmployee,
+      ),
+      _SettingsTileData(
         title: 'Manage clients',
         subtitle: 'Vendors, contacts, and GSTIN',
         icon: Icons.apartment_outlined,

@@ -1107,7 +1107,8 @@ create table if not exists public.expenses (
       'Software Tools',
       'Commissions',
       'CA',
-      'Accountant Consulting'
+      'Accountant Consulting',
+      'Misc'
     )
   )
 );

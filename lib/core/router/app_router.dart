@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/set_password_page.dart';
 import '../../features/dms/presentation/pages/dms_page.dart';
 import '../../features/hrms/domain/entities/employee.dart';
 import '../../features/hrms/presentation/bloc/employees/employees_bloc.dart';
@@ -18,6 +19,7 @@ import '../../features/payroll/presentation/pages/payroll_page.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
 import '../../features/settings/presentation/pages/company_details_page.dart';
+import '../../features/settings/presentation/pages/invite_employee_page.dart';
 import '../../features/settings/presentation/pages/ledger_page.dart';
 import '../../features/settings/presentation/pages/manage_clients_page.dart';
 import '../../features/settings/presentation/pages/roles_page.dart';
@@ -49,9 +51,10 @@ GoRouter createAppRouter(AuthSession authSession) {
     redirect: (context, state) {
       final loggedIn = authSession.isAuthenticated;
       final loggingIn = state.matchedLocation == AppRoutes.login;
+      final settingPassword = state.matchedLocation == AppRoutes.setPassword;
       final atRoot = state.matchedLocation == AppRoutes.root;
 
-      if (!loggedIn && !loggingIn) return AppRoutes.login;
+      if (!loggedIn && !loggingIn && !settingPassword) return AppRoutes.login;
       if (loggedIn && (loggingIn || atRoot)) return AppRoutes.hrms;
       return null;
     },
@@ -59,6 +62,11 @@ GoRouter createAppRouter(AuthSession authSession) {
       GoRoute(
         path: AppRoutes.login,
         pageBuilder: (context, state) => _page(state, const LoginPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.setPassword,
+        pageBuilder: (context, state) =>
+            _page(state, const SetPasswordPage()),
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -245,6 +253,15 @@ GoRouter createAppRouter(AuthSession authSession) {
                 pageBuilder: (context, state) => _page(
                   state,
                   LedgerPage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: 'invite',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  InviteEmployeePage(
                     onBack: () => _goBack(context, AppRoutes.settings),
                   ),
                 ),

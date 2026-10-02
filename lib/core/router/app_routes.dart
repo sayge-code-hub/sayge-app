@@ -16,6 +16,8 @@ abstract final class AppRoutes {
   static const companyDetails = '/settings/company';
   static const roles = '/settings/roles';
   static const ledger = '/settings/ledger';
+  static const inviteEmployee = '/settings/invite';
+  static const setPassword = '/set-password';
 
   static String employeeDetail(String id) => '/hrms/employees/$id';
 

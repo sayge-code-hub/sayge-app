@@ -395,8 +395,12 @@ class _SidebarState extends State<_Sidebar> {
             color: AppColors.border,
           ),
           const SizedBox(height: 12),
-          ..._buildNav(context),
-          const Spacer(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 8),
+              children: _buildNav(context),
+            ),
+          ),
           const Divider(
             height: 1,
             color: AppColors.border,

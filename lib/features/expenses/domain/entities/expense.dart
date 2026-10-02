@@ -20,5 +20,6 @@ class Expense {
     'Commissions',
     'CA',
     'Accountant Consulting',
+    'Misc',
   ];
 }
