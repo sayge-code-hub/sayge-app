@@ -3,9 +3,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../theme/app_colors.dart';
 
-/// Displays the app version from package metadata, e.g. `v1.0.0+12`.
+/// Displays the app version from package metadata, e.g. `v1.0.2`.
 ///
-/// Format is `v{version}+{buildNumber}` from [pubspec.yaml] via [PackageInfo].
+/// Always three-part semver (`major.minor.patch`) — never a `+build` suffix.
 class AppVersionLabel extends StatelessWidget {
   const AppVersionLabel({
     super.key,
@@ -34,15 +34,10 @@ class AppVersionLabel extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final build = info?.buildNumber.trim() ?? '';
-        final label = build.isEmpty || build == '0'
-            ? 'v$version'
-            : 'v$version+$build';
-
         return Align(
           alignment: alignment,
           child: Text(
-            label,
+            'v$version',
             textAlign: textAlign,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontSize: fontSize,

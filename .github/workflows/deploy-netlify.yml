@@ -25,17 +25,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Bump build number (+1)
+      - name: Bump patch version (x.y.Z)
         id: bump
         run: |
           set -euo pipefail
           line="$(grep -E '^version:' pubspec.yaml | head -1)"
-          name="$(echo "$line" | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+.*/\1/')"
-          build="$(echo "$line" | sed -E 's/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+([0-9]+)/\1/')"
-          next=$((build + 1))
-          sed -i -E "s/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+/version: ${name}+${next}/" pubspec.yaml
-          echo "version=${name}+${next}" >> "$GITHUB_OUTPUT"
-          echo "Bumped version to ${name}+${next}"
+          # Accept "1.2.3" or legacy "1.2.3+9"; always write three-part semver.
+          name="$(echo "$line" | sed -E 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+          major="$(echo "$name" | cut -d. -f1)"
+          minor="$(echo "$name" | cut -d. -f2)"
+          patch="$(echo "$name" | cut -d. -f3)"
+          next_patch=$((patch + 1))
+          next="${major}.${minor}.${next_patch}"
+          sed -i -E "s/^version:.*/version: ${next}/" pubspec.yaml
+          echo "version=${next}" >> "$GITHUB_OUTPUT"
+          echo "Bumped version to ${next}"
           grep -E '^version:' pubspec.yaml
 
       - name: Commit version bump
@@ -44,7 +48,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pubspec.yaml
-          git commit -m "chore: bump build to ${{ steps.bump.outputs.version }} [skip ci]"
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]"
           git push origin HEAD:main
 
       - name: Set up Flutter
