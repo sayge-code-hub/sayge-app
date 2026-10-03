@@ -241,25 +241,18 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
               24,
             ),
             children: [
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isDesktop ? 28 : 20),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius:
-                      isDesktop ? BorderRadius.circular(12) : BorderRadius.zero,
-                  border: isDesktop
-                      ? Border.all(
-                          color: AppColors.border,
-                        )
-                      : null,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    EmployeeFormGrid(
-                      isDesktop: isDesktop,
-                      children: [
+              // Full-width form surface (no inset card) so top/bottom chrome
+              // and fields share the same main-panel edges.
+              ColoredBox(
+                color: AppColors.background,
+                child: Padding(
+                  padding: EdgeInsets.all(isDesktop ? 28 : 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      EmployeeFormGrid(
+                        isDesktop: isDesktop,
+                        children: [
                         AppTextField(
                           controller: _employeeIdController,
                           label: 'Employee ID',
@@ -487,16 +480,17 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                         ),
                       ],
                     ),
-                    if (state.errorMessage != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        state.errorMessage!,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.error,
+                      if (state.errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          state.errorMessage!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.error,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],

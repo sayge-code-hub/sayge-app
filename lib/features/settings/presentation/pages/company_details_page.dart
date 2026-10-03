@@ -159,10 +159,10 @@ class _CompanyDetailsBodyState extends State<_CompanyDetailsBody> {
                 children: [
                   Text(
                     'GST & identity',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.textLight,
-                          fontSize: 12,
-                          letterSpacing: 0.4,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppColors.highlight,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                   ),
                   const SizedBox(height: 12),
@@ -217,10 +217,10 @@ class _CompanyDetailsBodyState extends State<_CompanyDetailsBody> {
                   const SizedBox(height: 24),
                   Text(
                     'Bank details',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.textLight,
-                          fontSize: 12,
-                          letterSpacing: 0.4,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppColors.highlight,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                   ),
                   const SizedBox(height: 12),

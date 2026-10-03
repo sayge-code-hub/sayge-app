@@ -8,6 +8,7 @@ class ExpenseModel extends Expense {
     required super.paidFrom,
     required super.category,
     super.createdAt,
+    super.createdBy,
   });
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +19,7 @@ class ExpenseModel extends Expense {
       paidFrom: (json['paid_from'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
       createdAt: DateTime.tryParse('${json['created_at'] ?? ''}'),
+      createdBy: json['created_by']?.toString(),
     );
   }
 
@@ -28,6 +30,7 @@ class ExpenseModel extends Expense {
       'amount': amount,
       'paid_from': paidFrom,
       'category': category,
+      if (createdBy != null && createdBy!.isNotEmpty) 'created_by': createdBy,
     };
   }
 
@@ -39,6 +42,7 @@ class ExpenseModel extends Expense {
       paidFrom: expense.paidFrom,
       category: expense.category,
       createdAt: expense.createdAt,
+      createdBy: expense.createdBy,
     );
   }
 }

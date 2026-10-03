@@ -131,17 +131,8 @@ class _DesktopShell extends StatelessWidget {
                         ),
                       ),
                     ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: Breakpoints.contentMax,
-                        ),
-                        child: body,
-                      ),
-                    ),
-                  ),
+                  // Full main-panel width (top header + body + sticky footers).
+                  Expanded(child: body),
                 ],
               ),
             ),
@@ -314,6 +305,13 @@ class _SidebarState extends State<_Sidebar> {
   @override
   void initState() {
     super.initState();
+    // Expand every section that has children so leaves (e.g. Expense) are
+    // visible in the drawer / sidebar without an extra tap.
+    for (final section in widget.sections) {
+      if (section.items.isNotEmpty) {
+        _expanded.add(section.label);
+      }
+    }
     final label = _sectionLabelForIndex(widget.selectedIndex);
     if (label != null) {
       _expanded.add(label);
@@ -531,6 +529,8 @@ class _SidebarState extends State<_Sidebar> {
           final item = section.items[i];
           final index = childIndexes[i];
           final selected = index == widget.selectedIndex;
+          final iconColor =
+              selected ? AppColors.highlight : AppColors.textLight;
           widgets.add(
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
@@ -543,14 +543,14 @@ class _SidebarState extends State<_Sidebar> {
                         item.iconAsset!,
                         width: 18,
                         height: 18,
-                        color: AppColors.textLight,
+                        color: iconColor,
                         colorBlendMode: BlendMode.srcIn,
                       )
                     : item.icon != null
                         ? Icon(
                             item.icon,
                             size: 18,
-                            color: AppColors.textLight,
+                            color: iconColor,
                           )
                         : null,
                 onTap: () => widget.onDestinationSelected(index),

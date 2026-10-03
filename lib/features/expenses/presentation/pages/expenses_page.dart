@@ -91,6 +91,13 @@ class _ExpenseListState extends State<_ExpenseList> {
     final expenses = _filtered;
     final textTheme = Theme.of(context).textTheme;
 
+    final newExpense = AppButton(
+      label: 'New expense',
+      expand: !isDesktop,
+      onPressed: () =>
+          context.read<ExpensesBloc>().add(const ExpenseFormOpened()),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -101,10 +108,23 @@ class _ExpenseListState extends State<_ExpenseList> {
             isDesktop ? 32 : 16,
             12,
           ),
-          child: AppListSearchField(
-            hintText: 'Search expenses…',
-            onChanged: (value) => setState(() => _query = value),
-          ),
+          child: isDesktop
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: AppListSearchField(
+                        hintText: 'Search expenses…',
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    newExpense,
+                  ],
+                )
+              : AppListSearchField(
+                  hintText: 'Search expenses…',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
         ),
         const Divider(height: 1, color: AppColors.border),
         Expanded(
@@ -178,17 +198,7 @@ class _ExpenseListState extends State<_ExpenseList> {
                       },
                     ),
         ),
-        AppStickyActions(
-          children: [
-            AppButton(
-              label: 'New expense',
-              expand: true,
-              onPressed: () => context
-                  .read<ExpensesBloc>()
-                  .add(const ExpenseFormOpened()),
-            ),
-          ],
-        ),
+        if (!isDesktop) AppStickyActions(children: [newExpense]),
       ],
     );
   }

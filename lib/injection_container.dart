@@ -149,7 +149,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => AddEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => UpdateEmployeeUseCase(sl()));
   sl.registerLazySingleton<EmployeeRemoteDataSource>(
-    () => EmployeeRemoteDataSourceImpl(),
+    () => EmployeeRemoteDataSourceImpl(authSession: sl()),
   );
   sl.registerLazySingleton<EmployeeRepository>(
     () => EmployeeRepositoryImpl(remoteDataSource: sl()),
@@ -186,7 +186,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetExpensesUseCase(sl()));
   sl.registerLazySingleton(() => AddExpenseUseCase(sl()));
   sl.registerLazySingleton<ExpenseRemoteDataSource>(
-    () => ExpenseRemoteDataSourceImpl(),
+    () => ExpenseRemoteDataSourceImpl(authSession: sl()),
   );
   sl.registerLazySingleton<ExpenseRepository>(
     () => ExpenseRepositoryImpl(remoteDataSource: sl()),

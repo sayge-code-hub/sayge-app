@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -33,15 +34,16 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
   }
 
   Future<void> _ensureSession() async {
-    // Invite / recovery links hydrate the session from the URL hash.
-    final existing = Supabase.instance.client.auth.currentSession;
+    // Invite / recovery links hydrate the session from the URL hash / query.
+    final client = Supabase.instance.client;
+    final existing = client.auth.currentSession;
     if (existing != null) {
       if (!mounted) return;
       setState(() => _ready = true);
       return;
     }
 
-    final sub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    final sub = client.auth.onAuthStateChange.listen((data) {
       if (!mounted) return;
       if (data.session != null) {
         setState(() {
@@ -51,10 +53,26 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
       }
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    // Give supabase_flutter time to parse the invite fragment after navigation.
+    for (var i = 0; i < 20; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (!mounted) {
+        await sub.cancel();
+        return;
+      }
+      if (client.auth.currentSession != null) {
+        await sub.cancel();
+        setState(() {
+          _ready = true;
+          _error = null;
+        });
+        return;
+      }
+    }
+
     await sub.cancel();
     if (!mounted) return;
-    if (Supabase.instance.client.auth.currentSession == null) {
+    if (client.auth.currentSession == null) {
       setState(() {
         _ready = false;
         _error =
@@ -95,7 +113,10 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
         await sl<AuthSession>().setUser(profile);
       }
       if (!mounted) return;
-      context.go(AppRoutes.hrms);
+      final user = sl<AuthSession>().user;
+      context.go(
+        user != null ? AppAccess.homeRoute(user) : AppRoutes.login,
+      );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {

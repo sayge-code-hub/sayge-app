@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/auth/app_access.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
 import '../models/employee_model.dart';
 
@@ -12,10 +14,13 @@ abstract class EmployeeRemoteDataSource {
 }
 
 class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
-  EmployeeRemoteDataSourceImpl({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+  EmployeeRemoteDataSourceImpl({
+    SupabaseClient? client,
+    this._authSession,
+  }) : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+  final AuthSession? _authSession;
 
   static const _table = 'employees';
   static const _selectWithClient = '*, clients(id, name)';
@@ -23,10 +28,18 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
   @override
   Future<List<EmployeeModel>> getEmployees() async {
     try {
-      final rows = await _client
-          .from(_table)
-          .select(_selectWithClient)
-          .order('employee_name', ascending: true);
+      var query = _client.from(_table).select(_selectWithClient);
+
+      final user = _authSession?.user;
+      if (AppAccess.isEmployeeOnly(user)) {
+        final id = user!.employeeId?.trim();
+        if (id == null || id.isEmpty) {
+          return const [];
+        }
+        query = query.eq('employee_id', id);
+      }
+
+      final rows = await query.order('employee_name', ascending: true);
       return (rows as List<dynamic>)
           .map((row) => EmployeeModel.fromJson(row as Map<String, dynamic>))
           .toList();
@@ -39,6 +52,9 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
 
   @override
   Future<EmployeeModel> addEmployee(EmployeeModel employee) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException('Only owners and admins can add employees.');
+    }
     try {
       final row = await _client
           .from(_table)
@@ -62,6 +78,11 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
 
   @override
   Future<EmployeeModel> updateEmployee(EmployeeModel employee) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException(
+        'Only owners and admins can update employees.',
+      );
+    }
     try {
       final row = await _client
           .from(_table)

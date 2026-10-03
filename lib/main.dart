@@ -4,12 +4,16 @@ import 'package:go_router/go_router.dart';
 
 import 'core/auth/auth_session.dart';
 import 'core/router/app_router.dart';
+import 'core/router/url_strategy.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'injection_container.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Path URLs keep /set-password as the route; Supabase invite tokens stay in
+  // the hash (#…) and must not be parsed as go_router locations (e.g. /sb).
+  configureAppUrlStrategy();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

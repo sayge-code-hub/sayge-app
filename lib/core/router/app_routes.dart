@@ -3,6 +3,8 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const root = '/';
   static const hrms = '/hrms';
+  /// Employee self-service landing when no `employee_id` is linked yet.
+  static const myDetails = '/hrms/me';
   static const employees = '/hrms/employees';
   static const employeesAdd = '/hrms/employees/add';
   static const dms = '/dms';

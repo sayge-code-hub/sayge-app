@@ -106,6 +106,13 @@ class _ProposalListState extends State<_ProposalList> {
     final dateFormat = DateFormat('dd MMM yyyy');
     final proposals = _filtered;
 
+    final newProposal = AppButton(
+      label: 'New proposal',
+      expand: !isDesktop,
+      onPressed: () =>
+          context.read<ProposalsBloc>().add(const ProposalFormOpened()),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -116,10 +123,23 @@ class _ProposalListState extends State<_ProposalList> {
             isDesktop ? 32 : 16,
             12,
           ),
-          child: AppListSearchField(
-            hintText: 'Search proposals…',
-            onChanged: (value) => setState(() => _query = value),
-          ),
+          child: isDesktop
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: AppListSearchField(
+                        hintText: 'Search proposals…',
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    newProposal,
+                  ],
+                )
+              : AppListSearchField(
+                  hintText: 'Search proposals…',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
         ),
         const Divider(height: 1, color: AppColors.border),
         Expanded(
@@ -159,16 +179,7 @@ class _ProposalListState extends State<_ProposalList> {
                       },
                     ),
         ),
-        AppStickyActions(
-          children: [
-            AppButton(
-              label: 'New proposal',
-              onPressed: () => context
-                  .read<ProposalsBloc>()
-                  .add(const ProposalFormOpened()),
-            ),
-          ],
-        ),
+        if (!isDesktop) AppStickyActions(children: [newProposal]),
       ],
     );
   }

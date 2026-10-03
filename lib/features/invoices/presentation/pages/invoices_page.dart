@@ -109,6 +109,13 @@ class _InvoiceListState extends State<_InvoiceList> {
     final dateFormat = DateFormat('dd MMM yyyy');
     final invoices = _filtered;
 
+    final newInvoice = AppButton(
+      label: 'New invoice',
+      expand: !isDesktop,
+      onPressed: () =>
+          context.read<InvoicesBloc>().add(const InvoiceFormOpened()),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -119,10 +126,23 @@ class _InvoiceListState extends State<_InvoiceList> {
             isDesktop ? 32 : 16,
             12,
           ),
-          child: AppListSearchField(
-            hintText: 'Search invoices…',
-            onChanged: (value) => setState(() => _query = value),
-          ),
+          child: isDesktop
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: AppListSearchField(
+                        hintText: 'Search invoices…',
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    newInvoice,
+                  ],
+                )
+              : AppListSearchField(
+                  hintText: 'Search invoices…',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
         ),
         const Divider(height: 1, color: AppColors.border),
         Expanded(
@@ -239,15 +259,7 @@ class _InvoiceListState extends State<_InvoiceList> {
                       },
                     ),
         ),
-        AppStickyActions(
-          children: [
-            AppButton(
-              label: 'New invoice',
-              onPressed: () =>
-                  context.read<InvoicesBloc>().add(const InvoiceFormOpened()),
-            ),
-          ],
-        ),
+        if (!isDesktop) AppStickyActions(children: [newInvoice]),
       ],
     );
   }

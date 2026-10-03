@@ -15,12 +15,16 @@ class EmployeeDetailPage extends StatelessWidget {
     super.key,
     required this.employee,
     this.embedded = false,
+    this.canEdit = true,
+    this.showPurchaseOrders = true,
     this.onBack,
     this.onEdit,
   });
 
   final Employee employee;
   final bool embedded;
+  final bool canEdit;
+  final bool showPurchaseOrders;
   final VoidCallback? onBack;
   final VoidCallback? onEdit;
 
@@ -175,36 +179,41 @@ class EmployeeDetailPage extends StatelessWidget {
                 left: compensation,
                 right: compliance,
               ),
-              const SizedBox(height: 12),
-              EmployeePurchaseOrdersSection(
-                employeeId: employee.employeeId,
-                isDesktop: isDesktop,
-              ),
+              if (showPurchaseOrders) ...[
+                const SizedBox(height: 12),
+                EmployeePurchaseOrdersSection(
+                  employeeId: employee.employeeId,
+                  isDesktop: isDesktop,
+                ),
+              ],
             ],
           ),
         ),
-        EmployeeStickyActions(
-          children: [
-            OutlinedButton(
-              onPressed: () {
-                if (embedded) {
-                  onBack?.call();
-                } else {
-                  Navigator.of(context).maybePop();
-                }
-              },
-              child: const Text('Back'),
-            ),
-            AppButton(
-              label: 'Edit',
-              onPressed: () {
-                if (embedded) {
-                  onEdit?.call();
-                }
-              },
-            ),
-          ],
-        ),
+        if (canEdit || onBack != null)
+          EmployeeStickyActions(
+            children: [
+              if (onBack != null)
+                OutlinedButton(
+                  onPressed: () {
+                    if (embedded) {
+                      onBack?.call();
+                    } else {
+                      Navigator.of(context).maybePop();
+                    }
+                  },
+                  child: const Text('Back'),
+                ),
+              if (canEdit)
+                AppButton(
+                  label: 'Edit',
+                  onPressed: () {
+                    if (embedded) {
+                      onEdit?.call();
+                    }
+                  },
+                ),
+            ],
+          ),
       ],
     );
 

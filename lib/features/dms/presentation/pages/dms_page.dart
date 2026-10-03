@@ -123,13 +123,12 @@ class _HubView extends StatelessWidget {
           itemCount: tiles.length,
           gridDelegate: AppHubGrid.delegate(
             isDesktop: isDesktop,
-            hasSubtitle: true,
+            hasSubtitle: false,
           ),
           itemBuilder: (context, index) {
             final type = tiles[index];
             return AppHubTile(
               title: type.label,
-              subtitle: 'Browse ${type.label.toLowerCase()} documents',
               icon: _iconFor(type),
               onTap: () =>
                   context.read<DmsBloc>().add(DmsEntityTypeSelected(type)),

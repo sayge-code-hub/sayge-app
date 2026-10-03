@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_version_label.dart';
 import '../../../../injection_container.dart';
@@ -33,7 +33,7 @@ class LoginView extends StatelessWidget {
         if (state.status == LoginStatus.success && state.user != null) {
           await sl<AuthSession>().setUser(state.user!);
           if (!context.mounted) return;
-          context.go(AppRoutes.hrms);
+          context.go(AppAccess.homeRoute(state.user!));
         }
       },
       child: Scaffold(

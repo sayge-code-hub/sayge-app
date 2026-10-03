@@ -6,6 +6,7 @@ class Expense {
     required this.paidFrom,
     required this.category,
     this.createdAt,
+    this.createdBy,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class Expense {
   final String paidFrom;
   final String category;
   final DateTime? createdAt;
+  final String? createdBy;
 
   static const categories = <String>[
     'Software Tools',

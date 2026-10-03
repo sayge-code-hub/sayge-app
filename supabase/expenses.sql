@@ -6,6 +6,7 @@ create table if not exists public.expenses (
   amount numeric(14, 2) not null default 0,
   paid_from text not null default '',
   category text not null default '',
+  created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint expenses_category_chk check (

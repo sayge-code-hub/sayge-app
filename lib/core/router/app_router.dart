@@ -12,6 +12,7 @@ import '../../features/hrms/presentation/pages/compensation_breakup_page.dart';
 import '../../features/hrms/presentation/pages/employee_detail_page.dart';
 import '../../features/hrms/presentation/pages/employees_page.dart';
 import '../../features/hrms/presentation/pages/hrms_overview_page.dart';
+import '../../features/hrms/presentation/pages/my_details_page.dart';
 import '../../features/modules/presentation/pages/home_shell.dart';
 import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
@@ -24,6 +25,7 @@ import '../../features/settings/presentation/pages/ledger_page.dart';
 import '../../features/settings/presentation/pages/manage_clients_page.dart';
 import '../../features/settings/presentation/pages/roles_page.dart';
 import '../../features/settings/presentation/pages/settings_hub_page.dart';
+import '../auth/app_access.dart';
 import '../auth/auth_session.dart';
 import '../theme/app_colors.dart';
 import 'app_routes.dart';
@@ -44,18 +46,62 @@ Page<void> _page(GoRouterState state, Widget child) {
   );
 }
 
+/// True when hash-based routing (or a mangled invite URL) turned a Supabase
+/// auth fragment into a bogus path like `/sb`.
+bool _isAuthHashDebris(String location) {
+  final path = Uri.tryParse(location)?.path ?? location;
+  if (path.isEmpty || path == AppRoutes.root) return false;
+  const knownPrefixes = <String>[
+    AppRoutes.login,
+    AppRoutes.setPassword,
+    AppRoutes.hrms,
+    AppRoutes.myDetails,
+    AppRoutes.dms,
+    AppRoutes.payroll,
+    AppRoutes.proposals,
+    AppRoutes.invoices,
+    AppRoutes.expenses,
+    AppRoutes.settings,
+  ];
+  for (final prefix in knownPrefixes) {
+    if (path == prefix || path.startsWith('$prefix/')) return false;
+  }
+  return true;
+}
+
 GoRouter createAppRouter(AuthSession authSession) {
   return GoRouter(
     initialLocation: AppRoutes.login,
     refreshListenable: authSession,
+    onException: (_, GoRouterState state, GoRouter router) {
+      // Invite links: …/set-password#sb… must never surface as /sb 404.
+      if (_isAuthHashDebris(state.uri.path) ||
+          _isAuthHashDebris(state.matchedLocation)) {
+        router.go(AppRoutes.setPassword);
+        return;
+      }
+      router.go(AppRoutes.login);
+    },
     redirect: (context, state) {
-      final loggedIn = authSession.isAuthenticated;
-      final loggingIn = state.matchedLocation == AppRoutes.login;
-      final settingPassword = state.matchedLocation == AppRoutes.setPassword;
-      final atRoot = state.matchedLocation == AppRoutes.root;
+      final location = state.matchedLocation;
+      if (_isAuthHashDebris(location) || _isAuthHashDebris(state.uri.path)) {
+        return AppRoutes.setPassword;
+      }
 
+      final loggedIn = authSession.isAuthenticated;
+      final loggingIn = location == AppRoutes.login;
+      final settingPassword = location == AppRoutes.setPassword;
+      final atRoot = location == AppRoutes.root;
+      final user = authSession.user;
+
+      // Invitees may already have a Supabase session before AuthSession profile
+      // is loaded — never bounce them off set-password.
       if (!loggedIn && !loggingIn && !settingPassword) return AppRoutes.login;
-      if (loggedIn && (loggingIn || atRoot)) return AppRoutes.hrms;
+      if (loggedIn && user != null) {
+        final home = AppAccess.homeRoute(user);
+        if (loggingIn || atRoot) return home;
+        if (!AppAccess.canAccessPath(user, location)) return home;
+      }
       return null;
     },
     routes: [
@@ -85,6 +131,11 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: AppRoutes.hrms,
             pageBuilder: (context, state) =>
                 _page(state, const HrmsOverviewPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.myDetails,
+            pageBuilder: (context, state) =>
+                _page(state, const MyDetailsPage()),
           ),
           GoRoute(
             path: AppRoutes.employees,
@@ -120,6 +171,7 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: '/hrms/employees/:id',
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
+              final staff = AppAccess.isStaff(authSession.user);
               return _page(
                 state,
                 _EmployeeRoutePage(
@@ -127,8 +179,14 @@ GoRouter createAppRouter(AuthSession authSession) {
                   builder: (employee) => EmployeeDetailPage(
                     employee: employee,
                     embedded: true,
-                    onBack: () => _goBack(context, AppRoutes.employees),
-                    onEdit: () => context.go(AppRoutes.employeeEdit(id)),
+                    canEdit: staff,
+                    showPurchaseOrders: staff,
+                    onBack: staff
+                        ? () => _goBack(context, AppRoutes.employees)
+                        : null,
+                    onEdit: staff
+                        ? () => context.go(AppRoutes.employeeEdit(id))
+                        : null,
                   ),
                 ),
               );

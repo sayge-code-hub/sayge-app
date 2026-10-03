@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/app_access.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -194,7 +196,7 @@ class _PayrollStickyActions extends StatelessWidget {
           context.read<PayrollBloc>().add(const PayrollDownloadSelected()),
     );
 
-    if (hasSelection) {
+    if (hasSelection || AppAccess.isEmployeeOnly(sl<AuthSession>().user)) {
       return AppStickyActions(children: [downloadSelected]);
     }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/auth/app_access.dart';
 import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
@@ -30,83 +31,143 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   late final EmployeesBloc _employeesBloc =
       sl<EmployeesBloc>()..add(const EmployeesRequested());
-  late final ClientsBloc _clientsBloc =
-      sl<ClientsBloc>()..add(const ClientsRequested());
+  ClientsBloc? _clientsBloc;
 
-  static const _sections = [
-    AppNavSection(
-      label: 'HRMS',
-      icon: Icons.groups_outlined,
-      selectable: true,
-      items: [
-        AppNavItem(
-          label: 'All Employees',
-          icon: Icons.people_outline,
-        ),
-        AppNavItem(
-          label: 'Add Employee',
-          icon: Icons.person_add_alt_1_outlined,
-        ),
-      ],
-    ),
-    AppNavSection(
-      label: 'DMS',
-      icon: Icons.folder_outlined,
-      selectable: true,
-      items: [],
-    ),
-    AppNavSection(
-      label: 'Finances',
-      icon: Icons.account_balance_wallet_outlined,
-      selectable: false,
-      items: [
-        AppNavItem(
-          label: 'Payroll',
-          icon: Icons.payments_outlined,
-        ),
-        AppNavItem(
-          label: 'Proposals',
-          icon: Icons.request_quote_outlined,
-        ),
-        AppNavItem(
-          label: 'Invoices',
-          icon: Icons.receipt_long_outlined,
-        ),
-        AppNavItem(
-          label: 'Expense',
-          icon: Icons.attach_money,
-        ),
-      ],
-    ),
-    AppNavSection(
-      label: 'Settings',
-      icon: Icons.settings_outlined,
-      selectable: true,
-      items: [],
-    ),
-  ];
+  bool get _isStaff => AppAccess.isStaff(widget.user);
 
-  static const _paths = [
-    AppRoutes.hrms, // 0
-    AppRoutes.employees, // 1
-    AppRoutes.employeesAdd, // 2
-    AppRoutes.dms, // 3
-    AppRoutes.payroll, // 4 Finances → Payroll
-    AppRoutes.proposals, // 5 Finances → Proposals
-    AppRoutes.invoices, // 6 Finances → Invoices
-    AppRoutes.expenses, // 7 Finances → Expense
-    AppRoutes.settings, // 8 Settings hub
-  ];
+  @override
+  void initState() {
+    super.initState();
+    if (_isStaff) {
+      _clientsBloc = sl<ClientsBloc>()..add(const ClientsRequested());
+    }
+  }
 
   @override
   void dispose() {
     _employeesBloc.close();
-    _clientsBloc.close();
+    _clientsBloc?.close();
     super.dispose();
+  }
+
+  List<AppNavSection> get _sections {
+    if (_isStaff) {
+      return const [
+        AppNavSection(
+          label: 'HRMS',
+          icon: Icons.groups_outlined,
+          selectable: true,
+          items: [
+            AppNavItem(
+              label: 'All Employees',
+              icon: Icons.people_outline,
+            ),
+            AppNavItem(
+              label: 'Add Employee',
+              icon: Icons.person_add_alt_1_outlined,
+            ),
+          ],
+        ),
+        AppNavSection(
+          label: 'DMS',
+          icon: Icons.folder_outlined,
+          selectable: true,
+          items: [],
+        ),
+        AppNavSection(
+          label: 'Finances',
+          icon: Icons.account_balance_wallet_outlined,
+          selectable: false,
+          items: [
+            AppNavItem(
+              label: 'Payroll',
+              icon: Icons.payments_outlined,
+            ),
+            AppNavItem(
+              label: 'Proposals',
+              icon: Icons.request_quote_outlined,
+            ),
+            AppNavItem(
+              label: 'Invoices',
+              icon: Icons.receipt_long_outlined,
+            ),
+            AppNavItem(
+              label: 'Expense',
+              icon: Icons.monetization_on_outlined,
+            ),
+          ],
+        ),
+        AppNavSection(
+          label: 'Settings',
+          icon: Icons.settings_outlined,
+          selectable: true,
+          items: [],
+        ),
+      ];
+    }
+
+    return const [
+      AppNavSection(
+        label: 'My details',
+        icon: Icons.badge_outlined,
+        selectable: true,
+        items: [],
+      ),
+      AppNavSection(
+        label: 'Finances',
+        icon: Icons.account_balance_wallet_outlined,
+        selectable: false,
+        items: [
+          AppNavItem(
+            label: 'Payroll',
+            icon: Icons.payments_outlined,
+          ),
+          AppNavItem(
+            label: 'Expense',
+            icon: Icons.monetization_on_outlined,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<String> get _paths {
+    if (_isStaff) {
+      return const [
+        AppRoutes.hrms,
+        AppRoutes.employees,
+        AppRoutes.employeesAdd,
+        AppRoutes.dms,
+        AppRoutes.payroll,
+        AppRoutes.proposals,
+        AppRoutes.invoices,
+        AppRoutes.expenses,
+        AppRoutes.settings,
+      ];
+    }
+
+    final id = widget.user.employeeId?.trim();
+    final myDetails = (id != null && id.isNotEmpty)
+        ? AppRoutes.employeeDetail(id)
+        : AppRoutes.myDetails;
+
+    return [
+      myDetails,
+      AppRoutes.payroll,
+      AppRoutes.expenses,
+    ];
   }
 
   int get _selectedIndex {
     final location = widget.location;
+    final paths = _paths;
+
+    if (!_isStaff) {
+      if (location.startsWith(AppRoutes.expenses)) return 2;
+      if (location.startsWith(AppRoutes.payroll)) return 1;
+      return 0;
+    }
+
     if (location.startsWith(AppRoutes.settings)) return 8;
     if (location.startsWith(AppRoutes.expenses)) return 7;
     if (location.startsWith(AppRoutes.invoices)) return 6;
@@ -117,23 +178,24 @@ class _HomeShellState extends State<HomeShell> {
     if (location.startsWith('${AppRoutes.employees}/')) return 1;
     if (location == AppRoutes.employees) return 1;
     if (location.startsWith(AppRoutes.hrms)) return 0;
-    return 0;
+
+    final exact = paths.indexOf(location);
+    return exact >= 0 ? exact : 0;
   }
 
   String get _title {
     final location = widget.location;
-    if (location == AppRoutes.employeesAdd) {
-      return '';
-    }
+    if (location == AppRoutes.myDetails) return 'My details';
+    if (location == AppRoutes.employeesAdd) return 'Add employee';
     if (location.endsWith('/edit')) return 'Edit employee';
     if (location.endsWith('/compensation')) return 'Compensation breakup';
     if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(location)) {
-      return 'Employee details';
+      return _isStaff ? 'Employee details' : 'My details';
     }
     if (location == AppRoutes.clientsAdd) return 'Add client';
     if (location.startsWith(AppRoutes.clients)) return 'Manage clients';
     if (location == AppRoutes.inviteEmployee) return 'Invite employee';
-    if (location == AppRoutes.companyDetails) return 'GST & company';
+    if (location == AppRoutes.companyDetails) return 'Company Details';
     if (location == AppRoutes.roles) return 'Roles';
     if (location == AppRoutes.ledger) return 'Activity ledger';
     if (location == AppRoutes.settings) return 'Settings';
@@ -146,12 +208,21 @@ class _HomeShellState extends State<HomeShell> {
     return 'HRMS';
   }
 
-  /// Parent destination for nested shell routes (header / system Back).
   VoidCallback? get _onBack {
     final location = widget.location;
+
+    if (!_isStaff) {
+      if (location.endsWith('/compensation')) {
+        final id = widget.user.employeeId?.trim();
+        if (id != null && id.isNotEmpty) {
+          return () => _goBack(AppRoutes.employeeDetail(id));
+        }
+      }
+      return null;
+    }
+
     if (location.endsWith('/edit')) {
       final segments = Uri.parse(location).pathSegments;
-      // /hrms/employees/:id/edit
       if (segments.length >= 4 && segments[2] != 'add') {
         return () => _goBack(AppRoutes.employeeDetail(segments[2]));
       }
@@ -159,7 +230,6 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (location.endsWith('/compensation')) {
       final segments = Uri.parse(location).pathSegments;
-      // /hrms/employees/:id/compensation
       if (segments.length >= 4) {
         return () => _goBack(AppRoutes.employeeDetail(segments[2]));
       }
@@ -191,7 +261,9 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _selectDestination(int index) {
-    final path = _paths[index];
+    final paths = _paths;
+    if (index < 0 || index >= paths.length) return;
+    final path = paths[index];
     if (path != widget.location) {
       context.go(path);
     }
@@ -202,7 +274,7 @@ class _HomeShellState extends State<HomeShell> {
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: _employeesBloc),
-        BlocProvider.value(value: _clientsBloc),
+        if (_clientsBloc != null) BlocProvider.value(value: _clientsBloc!),
       ],
       child: AppShell(
         user: widget.user,
