@@ -45,6 +45,14 @@ import 'features/invoices/domain/repositories/invoice_repository.dart';
 import 'features/invoices/domain/usecases/invoice_usecases.dart';
 import 'features/invoices/presentation/bloc/invoices_bloc.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
+import 'features/pos/data/datasources/pos_remote_datasource.dart';
+import 'features/pos/data/repositories/pos_repository_impl.dart';
+import 'features/pos/domain/repositories/pos_repository.dart';
+import 'features/pos/domain/usecases/pos_usecases.dart';
+import 'features/pos/presentation/bloc/pos_brands_bloc.dart';
+import 'features/pos/presentation/bloc/pos_product_detail_bloc.dart';
+import 'features/pos/presentation/bloc/pos_product_form_bloc.dart';
+import 'features/pos/presentation/bloc/pos_products_bloc.dart';
 import 'features/proposals/data/datasources/proposal_remote_datasource.dart';
 import 'features/proposals/data/repositories/proposal_repository_impl.dart';
 import 'features/proposals/domain/repositories/proposal_repository.dart';
@@ -253,6 +261,59 @@ Future<void> initDependencies() async {
   );
   sl.registerLazySingleton<DocumentRepository>(
     () => DocumentRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  sl.registerFactory(
+    () => PosBrandsBloc(
+      getBrandsUseCase: sl(),
+      upsertBrandUseCase: sl(),
+      deleteBrandUseCase: sl(),
+      publicImageUrlUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => PosProductsBloc(
+      getBrandUseCase: sl(),
+      getProductsUseCase: sl(),
+      deleteProductUseCase: sl(),
+      publicImageUrlUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => PosProductFormBloc(
+      getProductUseCase: sl(),
+      upsertProductUseCase: sl(),
+      deleteProductUseCase: sl(),
+      publicImageUrlUseCase: sl(),
+    ),
+  );
+  sl.registerFactory(
+    () => PosProductDetailBloc(
+      getProductDetailUseCase: sl(),
+      recordPurchaseUseCase: sl(),
+      upsertPriceRuleUseCase: sl(),
+      deletePriceRuleUseCase: sl(),
+      publicImageUrlUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetPosBrandsUseCase(sl()));
+  sl.registerLazySingleton(() => GetPosBrandUseCase(sl()));
+  sl.registerLazySingleton(() => UpsertPosBrandUseCase(sl()));
+  sl.registerLazySingleton(() => DeletePosBrandUseCase(sl()));
+  sl.registerLazySingleton(() => GetPosProductsUseCase(sl()));
+  sl.registerLazySingleton(() => GetPosProductUseCase(sl()));
+  sl.registerLazySingleton(() => GetPosProductDetailUseCase(sl()));
+  sl.registerLazySingleton(() => UpsertPosProductUseCase(sl()));
+  sl.registerLazySingleton(() => DeletePosProductUseCase(sl()));
+  sl.registerLazySingleton(() => RecordPosPurchaseUseCase(sl()));
+  sl.registerLazySingleton(() => UpsertPosPriceRuleUseCase(sl()));
+  sl.registerLazySingleton(() => DeletePosPriceRuleUseCase(sl()));
+  sl.registerLazySingleton(() => PosPublicImageUrlUseCase(sl()));
+  sl.registerLazySingleton<PosRemoteDataSource>(
+    () => PosRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<PosRepository>(
+    () => PosRepositoryImpl(remoteDataSource: sl()),
   );
 }
 

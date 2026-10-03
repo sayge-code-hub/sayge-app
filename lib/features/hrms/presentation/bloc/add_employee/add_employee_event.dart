@@ -30,6 +30,8 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
     this.ptApplicable,
     this.medicalInsurance,
     this.retentionAmount,
+    this.tdsAmount,
+    this.specialAllowance,
     this.bankAccount,
     this.ifsc,
     this.pan,
@@ -52,6 +54,8 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
   final bool? ptApplicable;
   final String? medicalInsurance;
   final String? retentionAmount;
+  final String? tdsAmount;
+  final String? specialAllowance;
   final String? bankAccount;
   final String? ifsc;
   final String? pan;
@@ -75,6 +79,8 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
         ptApplicable,
         medicalInsurance,
         retentionAmount,
+        tdsAmount,
+        specialAllowance,
         bankAccount,
         ifsc,
         pan,

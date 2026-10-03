@@ -19,6 +19,21 @@ abstract final class PayslipPeriod {
     return joinMonth.isAfter(earliestAllowed) ? joinMonth : earliestAllowed;
   }
 
+  /// Month choices for admin payroll (company start → last completed month).
+  static List<DateTime> optionsForAdmin([DateTime? now]) {
+    final start = earliestAllowed;
+    final end = latestAvailable(now);
+    if (start.isAfter(end)) return const [];
+
+    final options = <DateTime>[];
+    var cursor = start;
+    while (!cursor.isAfter(end)) {
+      options.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return options;
+  }
+
   /// Month choices for employee self-service (join month → last completed month).
   static List<DateTime> optionsForEmployee(DateTime dateOfJoining) {
     final start = earliestForEmployee(dateOfJoining);
@@ -34,6 +49,16 @@ abstract final class PayslipPeriod {
     return options;
   }
 
+  /// Whether [employee] had joined by the start of the payroll month.
+  static bool hasJoinedBy(
+    Employee employee, {
+    required int month,
+    required int year,
+  }) {
+    final period = DateTime(year, month, 1);
+    return !period.isBefore(monthOf(employee.dateOfJoining));
+  }
+
   /// Whether [employee] may receive a slip for the given payroll month.
   static bool isEligible(
     Employee employee, {
@@ -43,6 +68,6 @@ abstract final class PayslipPeriod {
     final period = DateTime(year, month, 1);
     if (period.isBefore(earliestAllowed)) return false;
     if (period.isAfter(latestAvailable())) return false;
-    return !period.isBefore(monthOf(employee.dateOfJoining));
+    return hasJoinedBy(employee, month: month, year: year);
   }
 }

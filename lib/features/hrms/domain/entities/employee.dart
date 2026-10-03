@@ -13,6 +13,8 @@ class Employee extends Equatable {
     required this.ptApplicable,
     required this.medicalInsurance,
     required this.retentionAmount,
+    this.tdsAmount = 0,
+    this.specialAllowance = 0,
     required this.bankAccount,
     required this.ifsc,
     required this.pan,
@@ -37,6 +39,10 @@ class Employee extends Equatable {
   final bool ptApplicable;
   final double medicalInsurance;
   final double retentionAmount;
+  /// Monthly income tax (TDS) deduction; stored on employee master.
+  final double tdsAmount;
+  /// Fixed special allowance carved from gross before Basic/HRA split.
+  final double specialAllowance;
   final String bankAccount;
   final String ifsc;
   final String pan;
@@ -63,6 +69,8 @@ class Employee extends Equatable {
         ptApplicable,
         medicalInsurance,
         retentionAmount,
+        tdsAmount,
+        specialAllowance,
         bankAccount,
         ifsc,
         pan,

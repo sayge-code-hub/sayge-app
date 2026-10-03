@@ -105,6 +105,12 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         AppNavSection(
+          label: 'POS',
+          icon: Icons.point_of_sale_outlined,
+          selectable: true,
+          items: [],
+        ),
+        AppNavSection(
           label: 'Settings',
           icon: Icons.settings_outlined,
           selectable: true,
@@ -156,6 +162,7 @@ class _HomeShellState extends State<HomeShell> {
         AppRoutes.proposals,
         AppRoutes.invoices,
         AppRoutes.expenses,
+        AppRoutes.pos,
         AppRoutes.settings,
       ];
     }
@@ -183,7 +190,8 @@ class _HomeShellState extends State<HomeShell> {
       return 0;
     }
 
-    if (location.startsWith(AppRoutes.settings)) return 8;
+    if (location.startsWith(AppRoutes.settings)) return 9;
+    if (location.startsWith(AppRoutes.pos)) return 8;
     if (location.startsWith(AppRoutes.expenses)) return 7;
     if (location.startsWith(AppRoutes.invoices)) return 6;
     if (location.startsWith(AppRoutes.proposals)) return 5;
@@ -221,6 +229,19 @@ class _HomeShellState extends State<HomeShell> {
     if (path == AppRoutes.roles) return 'Roles';
     if (path == AppRoutes.ledger) return 'Activity ledger';
     if (path == AppRoutes.settings) return 'Settings';
+    if (path.startsWith(AppRoutes.pos)) {
+      if (path.endsWith('/edit') && path.contains('/brands/')) {
+        return 'Edit brand';
+      }
+      if (path == AppRoutes.posBrandAdd) return 'Add brand';
+      if (path.contains('/products/add')) return 'New product';
+      if (path.endsWith('/edit') && path.contains('/products/')) {
+        return 'Edit product';
+      }
+      if (path.contains('/products/')) return 'Product';
+      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Products';
+      return 'POS';
+    }
     if (path.startsWith(AppRoutes.expenses)) return 'Expense';
     if (path.startsWith(AppRoutes.invoices)) return 'Invoices';
     if (path.startsWith(AppRoutes.proposals)) return 'Proposals';
@@ -268,6 +289,27 @@ class _HomeShellState extends State<HomeShell> {
         path == AppRoutes.ledger ||
         path == AppRoutes.inviteEmployee) {
       return () => _goBack(AppRoutes.settings);
+    }
+    if (path == AppRoutes.posBrandAdd ||
+        (path.endsWith('/edit') && path.contains('/pos/brands/'))) {
+      return () => _goBack(AppRoutes.posHub);
+    }
+    if (path.contains('/pos/') && path.contains('/products/')) {
+      final segments = Uri.parse(path).pathSegments;
+      if (segments.length >= 2) {
+        if (path.endsWith('/edit') && segments.length >= 4) {
+          return () => _goBack(
+                AppRoutes.posProductDetail(segments[1], segments[3]),
+              );
+        }
+        if (segments.length >= 4 && segments[2] == 'products') {
+          return () => _goBack(AppRoutes.posProducts(segments[1]));
+        }
+        return () => _goBack(AppRoutes.posProducts(segments[1]));
+      }
+    }
+    if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) {
+      return () => _goBack(AppRoutes.posHub);
     }
     return null;
   }

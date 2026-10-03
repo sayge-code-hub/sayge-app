@@ -74,6 +74,8 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
   final _monthlyCtcController = TextEditingController();
   final _medicalController = TextEditingController(text: '650');
   final _retentionController = TextEditingController(text: '2000');
+  final _tdsController = TextEditingController(text: '0');
+  final _specialAllowanceController = TextEditingController(text: '0');
   final _bankController = TextEditingController();
   final _ifscController = TextEditingController();
   final _panController = TextEditingController();
@@ -99,6 +101,8 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _monthlyCtcController.text = state.monthlyCtc;
     _medicalController.text = state.medicalInsurance;
     _retentionController.text = state.retentionAmount;
+    _tdsController.text = state.tdsAmount;
+    _specialAllowanceController.text = state.specialAllowance;
     _bankController.text = state.bankAccount;
     _ifscController.text = state.ifsc;
     _panController.text = state.pan;
@@ -119,6 +123,8 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _monthlyCtcController.dispose();
     _medicalController.dispose();
     _retentionController.dispose();
+    _tdsController.dispose();
+    _specialAllowanceController.dispose();
     _bankController.dispose();
     _ifscController.dispose();
     _panController.dispose();
@@ -453,14 +459,58 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                           label: 'Retention amount',
                           prefixText: AppDisplayConfig.currencySymbol,
                           enabled: !isLoading,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
                           ],
                           onChanged: (value) =>
                               context.read<AddEmployeeBloc>().add(
                                     AddEmployeeFieldChanged(
                                       retentionAmount: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _tdsController,
+                          label: 'TDS (monthly)',
+                          prefixText: AppDisplayConfig.currencySymbol,
+                          enabled: !isLoading,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      tdsAmount: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _specialAllowanceController,
+                          label: 'Special allowance',
+                          prefixText: AppDisplayConfig.currencySymbol,
+                          enabled: !isLoading,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      specialAllowance: value,
                                     ),
                                   ),
                         ),

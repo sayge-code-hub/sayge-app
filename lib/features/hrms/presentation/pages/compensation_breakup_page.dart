@@ -49,7 +49,11 @@ class CompensationBreakupPage extends StatelessWidget {
           value: MoneyFormat.format(employee.annualCtc),
         ),
         EmployeeDetailField(
-          label: 'Monthly CTC / Gross',
+          label: 'Monthly CTC',
+          value: MoneyFormat.format(employee.monthlyCtc),
+        ),
+        EmployeeDetailField(
+          label: 'Gross earnings',
           value: MoneyFormat.format(slip.grossEarnings),
         ),
       ],

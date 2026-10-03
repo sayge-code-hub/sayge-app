@@ -14,10 +14,10 @@ part 'payroll_state.dart';
 
 class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
   PayrollBloc({required this.getEmployeesUseCase})
-      : super(PayrollState(
-          month: DateTime.now().month,
-          year: DateTime.now().year,
-        )) {
+      : super(() {
+          final latest = PayslipPeriod.latestAvailable();
+          return PayrollState(month: latest.month, year: latest.year);
+        }()) {
     on<PayrollStarted>(_onStarted);
     on<PayrollMonthChanged>(_onMonthChanged);
     on<PayrollEmployeeToggled>(_onToggled);
@@ -44,17 +44,17 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
       (employees) {
         final active = employees.where((e) => e.isActive).toList()
           ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
-        // Self-service (single row): pre-select so Download slip works immediately.
-        final selected = active.length == 1
-            ? {active.first.employeeId}
-            : <String>{};
-        emit(
-          state.copyWith(
-            status: PayrollStatus.ready,
-            employees: active,
-            selectedIds: selected,
-          ),
+        final ready = state.copyWith(
+          status: PayrollStatus.ready,
+          employees: active,
+          selectedIds: const {},
         );
+        // Self-service (single row): pre-select so Download slip works immediately.
+        final visible = ready.employeesForPeriod;
+        final selected = visible.length == 1
+            ? {visible.first.employeeId}
+            : <String>{};
+        emit(ready.copyWith(selectedIds: selected));
       },
     );
   }
@@ -63,7 +63,14 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     PayrollMonthChanged event,
     Emitter<PayrollState> emit,
   ) {
-    emit(state.copyWith(month: event.month, year: event.year));
+    final next = state.copyWith(month: event.month, year: event.year);
+    final visibleIds =
+        next.employeesForPeriod.map((e) => e.employeeId).toSet();
+    emit(
+      next.copyWith(
+        selectedIds: state.selectedIds.intersection(visibleIds),
+      ),
+    );
   }
 
   void _onToggled(
@@ -88,7 +95,8 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     } else {
       emit(
         state.copyWith(
-          selectedIds: state.employees.map((e) => e.employeeId).toSet(),
+          selectedIds:
+              state.employeesForPeriod.map((e) => e.employeeId).toSet(),
         ),
       );
     }
@@ -98,7 +106,7 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     PayrollDownloadSelected event,
     Emitter<PayrollState> emit,
   ) async {
-    final selected = state.employees
+    final selected = state.employeesForPeriod
         .where((e) => state.selectedIds.contains(e.employeeId))
         .toList();
     if (selected.isEmpty) {
@@ -118,17 +126,18 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     PayrollDownloadAll event,
     Emitter<PayrollState> emit,
   ) async {
-    if (state.employees.isEmpty) {
+    final visible = state.employeesForPeriod;
+    if (visible.isEmpty) {
       emit(
         state.copyWith(
           status: PayrollStatus.failure,
-          errorMessage: 'No active employees to download.',
+          errorMessage: 'No employees had joined in this payroll month.',
         ),
       );
       emit(state.copyWith(status: PayrollStatus.ready, clearError: true));
       return;
     }
-    await _download(state.employees, emit);
+    await _download(visible, emit);
   }
 
   Future<void> _download(

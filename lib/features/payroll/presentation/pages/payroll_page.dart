@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
+import '../../domain/services/payslip_period.dart';
 import '../bloc/payroll_bloc.dart';
 import '../widgets/payslip_preview_dialog.dart';
 
@@ -74,10 +75,12 @@ class _PayrollBody extends StatelessWidget {
               ),
               const Divider(height: 1, color: AppColors.border),
               Expanded(
-                child: state.employees.isEmpty
+                child: state.employeesForPeriod.isEmpty
                     ? Center(
                         child: Text(
-                          'No active employees.',
+                          state.employees.isEmpty
+                              ? 'No active employees.'
+                              : 'No employees had joined in this month.',
                           style:
                               Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textLight,
@@ -116,21 +119,30 @@ class _PayrollPeriodPicker extends StatelessWidget {
   final PayrollState state;
   final bool isDesktop;
 
-  static List<DateTime> _monthOptions() {
-    final options = <DateTime>[];
-    for (var year = 2025; year <= 2030; year++) {
-      for (var month = 1; month <= 12; month++) {
-        options.add(DateTime(year, month, 1));
-      }
-    }
-    return options;
-  }
+  static List<DateTime> _monthOptions() => PayslipPeriod.optionsForAdmin();
 
   @override
   Widget build(BuildContext context) {
     final generating = state.status == PayrollStatus.generating;
     final options = _monthOptions();
+    if (options.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final selected = DateTime(state.year, state.month, 1);
+    final value = options.any(
+      (d) => d.year == selected.year && d.month == selected.month,
+    )
+        ? selected
+        : options.last;
+
+    if (value.year != state.year || value.month != state.month) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        context.read<PayrollBloc>().add(
+              PayrollMonthChanged(month: value.month, year: value.year),
+            );
+      });
+    }
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -139,11 +151,7 @@ class _PayrollPeriodPicker extends StatelessWidget {
         child: DropdownButtonFormField<DateTime>(
           // Controlled by PayrollBloc month/year.
           // ignore: deprecated_member_use
-          value: options.any(
-            (d) => d.year == selected.year && d.month == selected.month,
-          )
-              ? selected
-              : options.last,
+          value: value,
           decoration: const InputDecoration(
             prefixIcon: Icon(
               Icons.calendar_month_outlined,
@@ -161,12 +169,12 @@ class _PayrollPeriodPicker extends StatelessWidget {
           ],
           onChanged: generating
               ? null
-              : (value) {
-                  if (value == null) return;
+              : (picked) {
+                  if (picked == null) return;
                   context.read<PayrollBloc>().add(
                         PayrollMonthChanged(
-                          month: value.month,
-                          year: value.year,
+                          month: picked.month,
+                          year: picked.year,
                         ),
                       );
                 },
@@ -203,7 +211,7 @@ class _PayrollStickyActions extends StatelessWidget {
     return AppStickyActions(
       children: [
         OutlinedButton(
-          onPressed: generating || state.employees.isEmpty
+          onPressed: generating || state.employeesForPeriod.isEmpty
               ? null
               : () =>
                   context.read<PayrollBloc>().add(const PayrollDownloadAll()),
@@ -232,9 +240,10 @@ class _EmployeePickerState extends State<_EmployeePicker> {
   String _query = '';
 
   List<Employee> get _filtered {
+    final visible = widget.state.employeesForPeriod;
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return widget.state.employees;
-    return widget.state.employees.where((e) {
+    if (q.isEmpty) return visible;
+    return visible.where((e) {
       return e.employeeName.toLowerCase().contains(q) ||
           e.employeeId.toLowerCase().contains(q) ||
           e.designation.toLowerCase().contains(q) ||
@@ -389,54 +398,59 @@ class _EmployeeRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: enabled
-                  ? () => showPayslipPreview(
-                        context: context,
-                        employee: employee,
-                        month: month,
-                        year: year,
-                      )
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            employee.employeeName,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontSize: 14,
+            child: MouseRegion(
+              cursor: enabled
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: enabled
+                    ? () => showPayslipPreview(
+                          context: context,
+                          employee: employee,
+                          month: month,
+                          year: year,
+                        )
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              employee.employeeName,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${employee.employeeId} · ${employee.designation}',
-                            style: textTheme.bodyMedium?.copyWith(
-                              fontSize: 12,
-                              color: AppColors.textLight,
+                            const SizedBox(height: 4),
+                            Text(
+                              '${employee.employeeId} · ${employee.designation}',
+                              style: textTheme.bodyMedium?.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textLight,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        employee.client,
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontSize: 12,
-                          color: AppColors.textLight,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          employee.client,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

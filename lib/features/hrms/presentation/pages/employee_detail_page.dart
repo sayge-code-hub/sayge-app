@@ -123,6 +123,14 @@ class EmployeeDetailPage extends StatelessWidget {
           label: 'Retention amount',
           value: MoneyFormat.format(employee.retentionAmount),
         ),
+        EmployeeDetailField(
+          label: 'TDS (monthly)',
+          value: MoneyFormat.format(employee.tdsAmount),
+        ),
+        EmployeeDetailField(
+          label: 'Special allowance',
+          value: MoneyFormat.format(employee.specialAllowance),
+        ),
       ],
     );
 

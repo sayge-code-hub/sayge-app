@@ -28,9 +28,9 @@ Future<void> showPayslipPreview({
 
   final isDesktop = Breakpoints.isDesktop(context);
   final size = MediaQuery.sizeOf(context);
-  // Landscape-oriented dialog.
-  final width = isDesktop ? 980.0 : size.width * 0.96;
-  final height = isDesktop ? 620.0 : size.height * 0.82;
+  // Near-fullscreen so the landscape slip is readable without tiny padding.
+  final width = isDesktop ? size.width * 0.96 : size.width * 0.98;
+  final height = isDesktop ? size.height * 0.94 : size.height * 0.92;
 
   return showDialog<void>(
     context: context,
@@ -40,8 +40,8 @@ Future<void> showPayslipPreview({
         backgroundColor: AppColors.background,
         surfaceTintColor: AppColors.background,
         insetPadding: EdgeInsets.symmetric(
-          horizontal: isDesktop ? 48 : 16,
-          vertical: 24,
+          horizontal: isDesktop ? 16 : 8,
+          vertical: isDesktop ? 16 : 12,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -114,10 +114,12 @@ Future<void> showPayslipPreview({
                 child: ColoredBox(
                   color: AppColors.surface,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 920),
+                        constraints: BoxConstraints(
+                          maxWidth: isDesktop ? 1200 : double.infinity,
+                        ),
                         child: _PayslipPreviewCard(slip: slip),
                       ),
                     ),

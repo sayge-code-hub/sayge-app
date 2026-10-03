@@ -149,6 +149,8 @@ create table if not exists public.employees (
   pt_applicable boolean not null default true,
   medical_insurance numeric(14, 2) not null default 650,
   retention_amount numeric(14, 2) not null default 2000,
+  tds_amount numeric(14, 2) not null default 0,
+  special_allowance numeric(14, 2) not null default 0,
   bank_account text not null default '',
   ifsc text not null default '',
   pan text not null,

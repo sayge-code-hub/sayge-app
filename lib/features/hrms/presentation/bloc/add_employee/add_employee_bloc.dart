@@ -31,6 +31,12 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
   final GetClientsUseCase getClientsUseCase;
   final GetEmployeesUseCase getEmployeesUseCase;
 
+  /// Formats money for form fields without forcing whole-rupee rounding.
+  static String _moneyField(double value) {
+    if (value == value.roundToDouble()) return value.round().toString();
+    return value.toStringAsFixed(2);
+  }
+
   Future<void> _onStarted(
     AddEmployeeStarted event,
     Emitter<AddEmployeeState> emit,
@@ -65,12 +71,14 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         dateOfBirth: employee.dateOfBirth,
         designation: employee.designation,
         department: employee.department,
-        annualCtc: employee.annualCtc.round().toString(),
-        monthlyCtc: employee.monthlyCtc.round().toString(),
+        annualCtc: _moneyField(employee.annualCtc),
+        monthlyCtc: _moneyField(employee.monthlyCtc),
         pfApplicable: employee.pfApplicable,
         ptApplicable: employee.ptApplicable,
-        medicalInsurance: employee.medicalInsurance.round().toString(),
-        retentionAmount: employee.retentionAmount.round().toString(),
+        medicalInsurance: _moneyField(employee.medicalInsurance),
+        retentionAmount: _moneyField(employee.retentionAmount),
+        tdsAmount: _moneyField(employee.tdsAmount),
+        specialAllowance: _moneyField(employee.specialAllowance),
         bankAccount: employee.bankAccount,
         ifsc: employee.ifsc,
         pan: employee.pan,
@@ -116,6 +124,8 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         ptApplicable: event.ptApplicable,
         medicalInsurance: event.medicalInsurance,
         retentionAmount: event.retentionAmount,
+        tdsAmount: event.tdsAmount,
+        specialAllowance: event.specialAllowance,
         bankAccount: event.bankAccount,
         ifsc: event.ifsc,
         pan: event.pan,
@@ -168,6 +178,8 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
       ptApplicable: state.ptApplicable!,
       medicalInsurance: double.parse(state.medicalInsurance.trim()),
       retentionAmount: double.parse(state.retentionAmount.trim()),
+      tdsAmount: double.parse(state.tdsAmount.trim()),
+      specialAllowance: double.parse(state.specialAllowance.trim()),
       bankAccount: state.bankAccount.trim(),
       ifsc: state.ifsc.trim(),
       pan: state.pan.trim().toUpperCase(),

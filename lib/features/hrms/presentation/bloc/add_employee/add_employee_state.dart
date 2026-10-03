@@ -18,6 +18,8 @@ class AddEmployeeState extends Equatable {
     this.ptApplicable,
     this.medicalInsurance = '650',
     this.retentionAmount = '2000',
+    this.tdsAmount = '0',
+    this.specialAllowance = '0',
     this.bankAccount = '',
     this.ifsc = '',
     this.pan = '',
@@ -44,6 +46,8 @@ class AddEmployeeState extends Equatable {
   final bool? ptApplicable;
   final String medicalInsurance;
   final String retentionAmount;
+  final String tdsAmount;
+  final String specialAllowance;
   final String bankAccount;
   final String ifsc;
   final String pan;
@@ -84,6 +88,12 @@ class AddEmployeeState extends Equatable {
     if (double.tryParse(retentionAmount.trim()) == null) {
       return 'Enter a valid retention amount';
     }
+    if (double.tryParse(tdsAmount.trim()) == null) {
+      return 'Enter a valid TDS amount';
+    }
+    if (double.tryParse(specialAllowance.trim()) == null) {
+      return 'Enter a valid special allowance';
+    }
     if (pan.trim().isEmpty) return 'PAN is required';
     if (isActive == null) return 'Select active status';
     if (location.trim().isEmpty) return 'Location is required';
@@ -109,6 +119,8 @@ class AddEmployeeState extends Equatable {
     bool? ptApplicable,
     String? medicalInsurance,
     String? retentionAmount,
+    String? tdsAmount,
+    String? specialAllowance,
     String? bankAccount,
     String? ifsc,
     String? pan,
@@ -136,6 +148,8 @@ class AddEmployeeState extends Equatable {
       ptApplicable: ptApplicable ?? this.ptApplicable,
       medicalInsurance: medicalInsurance ?? this.medicalInsurance,
       retentionAmount: retentionAmount ?? this.retentionAmount,
+      tdsAmount: tdsAmount ?? this.tdsAmount,
+      specialAllowance: specialAllowance ?? this.specialAllowance,
       bankAccount: bankAccount ?? this.bankAccount,
       ifsc: ifsc ?? this.ifsc,
       pan: pan ?? this.pan,
@@ -165,6 +179,8 @@ class AddEmployeeState extends Equatable {
         ptApplicable,
         medicalInsurance,
         retentionAmount,
+        tdsAmount,
+        specialAllowance,
         bankAccount,
         ifsc,
         pan,

@@ -24,6 +24,9 @@ abstract final class AppRoutes {
   static const ledger = '/settings/ledger';
   static const inviteEmployee = '/settings/invite';
   static const setPassword = '/set-password';
+  static const pos = '/pos';
+  static const posHub = '/pos?hub=1';
+  static const posBrandAdd = '/pos/brands/add';
 
   static String employeeDetail(String id) => '/hrms/employees/$id';
 
@@ -31,4 +34,19 @@ abstract final class AppRoutes {
 
   static String employeeCompensation(String id) =>
       '/hrms/employees/$id/compensation';
+
+  static String posBrand(String brandId) => '/pos/$brandId';
+
+  static String posBrandEdit(String brandId) => '/pos/brands/$brandId/edit';
+
+  static String posProducts(String brandId) => '/pos/$brandId';
+
+  static String posProductAdd(String brandId) =>
+      '/pos/$brandId/products/add';
+
+  static String posProductEdit(String brandId, String productId) =>
+      '/pos/$brandId/products/$productId/edit';
+
+  static String posProductDetail(String brandId, String productId) =>
+      '/pos/$brandId/products/$productId';
 }

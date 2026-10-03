@@ -4,6 +4,36 @@ import '../../../hrms/domain/entities/employee.dart';
 import '../entities/payslip.dart';
 
 abstract final class PayslipCalculator {
+  /// Full-month gross + basic derived from Monthly CTC.
+  ///
+  /// When PF applies:
+  /// `Monthly CTC = Gross + Employer PF + Retention`
+  /// `Basic = 2/3 × Gross`, `Employer PF = 12% × Basic`
+  /// ⇒ `Monthly CTC − Retention = Basic × (3/2 + 0.12)`
+  static ({double gross, double basic}) fullMonthEarnings(Employee employee) {
+    final retention = AppPayrollConfig.monthlyCtcIncludesRetention
+        ? employee.retentionAmount
+        : 0.0;
+    final remaining =
+        (employee.monthlyCtc - retention).clamp(0.0, double.infinity).toDouble();
+
+    if (employee.pfApplicable &&
+        AppPayrollConfig.monthlyCtcIncludesEmployerPf) {
+      // remaining = basic/share + basic*pfRate = basic * (1/share + pfRate)
+      final basicFactor =
+          (1 / AppPayrollConfig.basicShareOfGross) +
+              AppPayrollConfig.pfRateOnBasic;
+      final basic = _round(remaining / basicFactor);
+      final employerPf = _round(basic * AppPayrollConfig.pfRateOnBasic);
+      final gross = _round(remaining - employerPf);
+      return (gross: gross, basic: basic);
+    }
+
+    final gross = _round(remaining);
+    final basic = _round(gross * AppPayrollConfig.basicShareOfGross);
+    return (gross: gross, basic: basic);
+  }
+
   static Payslip fromEmployee({
     required Employee employee,
     required int month,
@@ -12,17 +42,27 @@ abstract final class PayslipCalculator {
   }) {
     final daysInMonth = DateTime(year, month + 1, 0).day;
     final payableDays = (daysInMonth - lopDays).clamp(0, daysInMonth);
-
-    final fullGross = AppPayrollConfig.monthlyCtcIsGross
-        ? employee.monthlyCtc
-        : employee.monthlyCtc;
     final dayFactor = daysInMonth == 0 ? 1.0 : payableDays / daysInMonth;
-    final gross = _round(fullGross * dayFactor);
 
-    final basic = _round(gross * AppPayrollConfig.basicShareOfGross);
-    final hra = _round(basic * AppPayrollConfig.hraShareOfBasic);
-    var special = _round(gross - basic - hra);
-    if (special < 0) special = 0;
+    final full = fullMonthEarnings(employee);
+    final gross = _round(full.gross * dayFactor);
+    final specialCap = _round(employee.specialAllowance * dayFactor);
+
+    late final double basic;
+    late final double hra;
+    late final double special;
+    if (specialCap > 0) {
+      // Carve fixed special first, then split the rest Basic 2/3 : HRA 1/3.
+      final pool = (gross - specialCap).clamp(0.0, gross).toDouble();
+      basic = _round(pool * AppPayrollConfig.basicShareOfGross);
+      hra = _round(basic * AppPayrollConfig.hraShareOfBasic);
+      special = _round(gross - basic - hra);
+    } else {
+      basic = _round(full.basic * dayFactor);
+      hra = _round(basic * AppPayrollConfig.hraShareOfBasic);
+      final residual = _round(gross - basic - hra);
+      special = residual < 0 ? 0.0 : residual;
+    }
 
     final earnings = <PayslipLine>[
       PayslipLine(description: 'Basic', amount: basic),
@@ -36,13 +76,13 @@ abstract final class PayslipCalculator {
     final pt = employee.ptApplicable
         ? AppPayrollConfig.professionalTaxAmount
         : 0.0;
-    final medical = employee.medicalInsurance;
-    final tds = AppPayrollConfig.defaultTdsAmount;
-    final retirals = employee.retentionAmount;
+    final medical = _round(employee.medicalInsurance * dayFactor);
+    final tds = _round(employee.tdsAmount * dayFactor);
+    final retirals = _round(employee.retentionAmount * dayFactor);
 
     final deductions = <PayslipLine>[
-      PayslipLine(description: 'Provident Fund', amount: pf),
-      PayslipLine(description: 'Professional Tax', amount: pt),
+      if (pf > 0) PayslipLine(description: 'Provident Fund', amount: pf),
+      if (pt > 0) PayslipLine(description: 'Professional Tax', amount: pt),
       PayslipLine(description: 'Medical Insurance', amount: medical),
       PayslipLine(description: 'Income Tax (TDS)', amount: tds),
       PayslipLine(description: 'Retirals', amount: retirals),

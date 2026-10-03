@@ -18,6 +18,11 @@ import '../../features/modules/presentation/pages/home_shell.dart';
 import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
 import '../../features/payroll/presentation/pages/payroll_page.dart';
+import '../../features/pos/presentation/pages/pos_brand_form_page.dart';
+import '../../features/pos/presentation/pages/pos_brands_page.dart';
+import '../../features/pos/presentation/pages/pos_product_detail_page.dart';
+import '../../features/pos/presentation/pages/pos_product_form_page.dart';
+import '../../features/pos/presentation/pages/pos_products_page.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
 import '../../features/settings/presentation/pages/company_details_page.dart';
@@ -64,6 +69,7 @@ bool _isAuthHashDebris(String location) {
     AppRoutes.invoices,
     AppRoutes.expenses,
     AppRoutes.settings,
+    AppRoutes.pos,
   ];
   for (final prefix in knownPrefixes) {
     if (path == prefix || path.startsWith('$prefix/')) return false;
@@ -285,6 +291,69 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: AppRoutes.expenses,
             pageBuilder: (context, state) =>
                 _page(state, const ExpensesPage()),
+          ),
+          // Flat POS routes so each screen remounts (no stale parent hub).
+          GoRoute(
+            path: AppRoutes.pos,
+            pageBuilder: (context, state) => _page(
+              state,
+              PosBrandsPage(
+                key: ValueKey('pos-hub-${state.uri}'),
+                forceHub: state.uri.queryParameters['hub'] == '1',
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.posBrandAdd,
+            pageBuilder: (context, state) =>
+                _page(state, const PosBrandFormPage()),
+          ),
+          GoRoute(
+            path: '/pos/brands/:brandId/edit',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosBrandFormPage(
+                brandId: state.pathParameters['brandId'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/products/add',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosProductFormPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/products/:productId/edit',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosProductFormPage(
+                brandId: state.pathParameters['brandId']!,
+                productId: state.pathParameters['productId'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/products/:productId',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosProductDetailPage(
+                brandId: state.pathParameters['brandId']!,
+                productId: state.pathParameters['productId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosProductsPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.settings,
