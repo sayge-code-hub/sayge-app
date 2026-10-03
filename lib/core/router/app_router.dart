@@ -18,11 +18,15 @@ import '../../features/modules/presentation/pages/home_shell.dart';
 import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
 import '../../features/payroll/presentation/pages/payroll_page.dart';
+import '../../features/pos/presentation/pages/pos_analytics_page.dart';
+import '../../features/pos/presentation/pages/pos_brand_dashboard_page.dart';
 import '../../features/pos/presentation/pages/pos_brand_form_page.dart';
 import '../../features/pos/presentation/pages/pos_brands_page.dart';
+import '../../features/pos/presentation/pages/pos_inventory_page.dart';
 import '../../features/pos/presentation/pages/pos_product_detail_page.dart';
 import '../../features/pos/presentation/pages/pos_product_form_page.dart';
 import '../../features/pos/presentation/pages/pos_products_page.dart';
+import '../../features/pos/presentation/pages/pos_terminal_page.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
 import '../../features/settings/presentation/pages/company_details_page.dart';
@@ -347,10 +351,46 @@ GoRouter createAppRouter(AuthSession authSession) {
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId',
+            path: '/pos/:brandId/products',
             pageBuilder: (context, state) => _page(
               state,
               PosProductsPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/inventory',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosInventoryPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/terminal',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosTerminalPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId/analytics',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosAnalyticsPage(
+                brandId: state.pathParameters['brandId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:brandId',
+            pageBuilder: (context, state) => _page(
+              state,
+              PosBrandDashboardPage(
                 brandId: state.pathParameters['brandId']!,
               ),
             ),

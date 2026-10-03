@@ -167,7 +167,6 @@ class EmployeesTable extends StatefulWidget {
 class _EmployeesTableState extends State<EmployeesTable> {
   final int _pageSize = 10;
   int _page = 0;
-  final Set<String> _selectedIds = {};
   String? _sortColumn;
   bool _sortAscending = true;
 
@@ -276,33 +275,6 @@ class _EmployeesTableState extends State<EmployeesTable> {
                               fontWeight: FontWeight.w400,
                             ),
                             columns: [
-                              DataColumn(
-                                label: Checkbox(
-                                  value: pageItems.isNotEmpty &&
-                                      pageItems.every(
-                                        (e) =>
-                                            _selectedIds.contains(e.employeeId),
-                                      ),
-                                  tristate: true,
-                                  side: const BorderSide(
-                                    color: AppColors.border,
-                                    width: 1.5,
-                                  ),
-                                  onChanged: (checked) {
-                                    setState(() {
-                                      if (checked == true) {
-                                        _selectedIds.addAll(
-                                          pageItems.map((e) => e.employeeId),
-                                        );
-                                      } else {
-                                        for (final e in pageItems) {
-                                          _selectedIds.remove(e.employeeId);
-                                        }
-                                      }
-                                    });
-                                  },
-                                ),
-                              ),
                               _sortableHeader('NAME', 'name'),
                               _sortableHeader('DATE EMPLOYED', 'doj'),
                               _sortableHeader('STATUS', 'status'),
@@ -312,31 +284,8 @@ class _EmployeesTableState extends State<EmployeesTable> {
                               const DataColumn(label: Text('LOCATION')),
                             ],
                             rows: pageItems.map((employee) {
-                              final selected =
-                                  _selectedIds.contains(employee.employeeId);
                               return DataRow(
-                                selected: selected,
                                 cells: [
-                                  DataCell(
-                                    Checkbox(
-                                      value: selected,
-                                      side: const BorderSide(
-                                        color: AppColors.border,
-                                        width: 1.5,
-                                      ),
-                                      onChanged: (checked) {
-                                        setState(() {
-                                          if (checked == true) {
-                                            _selectedIds
-                                                .add(employee.employeeId);
-                                          } else {
-                                            _selectedIds
-                                                .remove(employee.employeeId);
-                                          }
-                                        });
-                                      },
-                                    ),
-                                  ),
                                   DataCell(
                                     Row(
                                       children: [

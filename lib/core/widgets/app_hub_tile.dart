@@ -124,12 +124,12 @@ abstract final class AppHubGrid {
     required bool hasSubtitle,
   }) {
     return SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: isDesktop ? 2 : 1,
+      crossAxisCount: isDesktop ? 3 : 1,
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
       // Short, wide cards read as professional density — not hollow squares.
       childAspectRatio: isDesktop
-          ? (hasSubtitle ? 4.6 : 5.2)
+          ? (hasSubtitle ? 3.2 : 3.6)
           : (hasSubtitle ? 3.6 : 4.2),
     );
   }

@@ -39,7 +39,13 @@ abstract final class AppRoutes {
 
   static String posBrandEdit(String brandId) => '/pos/brands/$brandId/edit';
 
-  static String posProducts(String brandId) => '/pos/$brandId';
+  static String posProducts(String brandId) => '/pos/$brandId/products';
+
+  static String posInventory(String brandId) => '/pos/$brandId/inventory';
+
+  static String posTerminal(String brandId) => '/pos/$brandId/terminal';
+
+  static String posAnalytics(String brandId) => '/pos/$brandId/analytics';
 
   static String posProductAdd(String brandId) =>
       '/pos/$brandId/products/add';

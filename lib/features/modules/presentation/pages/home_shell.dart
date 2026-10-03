@@ -238,8 +238,12 @@ class _HomeShellState extends State<HomeShell> {
       if (path.endsWith('/edit') && path.contains('/products/')) {
         return 'Edit product';
       }
+      if (path.endsWith('/products')) return 'All products';
       if (path.contains('/products/')) return 'Product';
-      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Products';
+      if (path.endsWith('/inventory')) return 'Manage inventory';
+      if (path.endsWith('/terminal')) return 'POS';
+      if (path.endsWith('/analytics')) return 'Analytics';
+      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Brand';
       return 'POS';
     }
     if (path.startsWith(AppRoutes.expenses)) return 'Expense';
@@ -306,6 +310,16 @@ class _HomeShellState extends State<HomeShell> {
           return () => _goBack(AppRoutes.posProducts(segments[1]));
         }
         return () => _goBack(AppRoutes.posProducts(segments[1]));
+      }
+    }
+    if (path.contains('/pos/') &&
+        (path.endsWith('/products') ||
+            path.endsWith('/inventory') ||
+            path.endsWith('/terminal') ||
+            path.endsWith('/analytics'))) {
+      final segments = Uri.parse(path).pathSegments;
+      if (segments.length >= 2) {
+        return () => _goBack(AppRoutes.posBrand(segments[1]));
       }
     }
     if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) {

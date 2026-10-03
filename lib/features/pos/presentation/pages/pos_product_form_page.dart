@@ -10,6 +10,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
+import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -126,7 +127,6 @@ class _PosProductFormBodyState extends State<_PosProductFormBody> {
   String _unit = 'Piece';
   bool _isActive = true;
   bool _seeded = false;
-  bool _showMore = false;
   final List<_AttrDraft> _attributes = [];
   final List<_PendingImage> _pendingUploads = [];
   final Set<String> _removedImageIds = {};
@@ -309,14 +309,68 @@ class _PosProductFormBodyState extends State<_PosProductFormBody> {
         );
   }
 
-  Widget _sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+  Widget _sectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    final spaced = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) spaced.add(const SizedBox(height: 12));
+      spaced.add(children[i]);
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: AppListCard.sectionPadding,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.highlight,
+                ),
+          ),
+          const SizedBox(height: 16),
+          ...spaced,
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionRow({
+    required bool isDesktop,
+    required Widget left,
+    Widget? right,
+  }) {
+    if (!isDesktop || right == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          left,
+          if (right != null) ...[
+            const SizedBox(height: 12),
+            right,
+          ],
+        ],
+      );
+    }
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: 12),
+          Expanded(child: right),
+        ],
       ),
     );
   }
@@ -398,6 +452,290 @@ class _PosProductFormBodyState extends State<_PosProductFormBody> {
           onPressed: () => _submit(state.product),
         );
 
+        final basicCard = _sectionCard(
+          title: 'Basic Information',
+          children: [
+            AppTextField(
+              controller: _name,
+              label: 'Product name *',
+              enabled: !busy,
+              textCapitalization: TextCapitalization.words,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            AppTextField(
+              controller: _sku,
+              label: 'SKU / Product code *',
+              enabled: !busy,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            AppTextField(
+              controller: _category,
+              label: 'Category *',
+              enabled: !busy,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            AppTextField(
+              controller: _labelBrand,
+              label: 'Brand',
+              enabled: !busy,
+            ),
+            AppDropdown<PosProductType>(
+              label: 'Product type *',
+              value: _productType,
+              items: PosProductType.values,
+              itemLabel: (t) =>
+                  t == PosProductType.service ? 'Service' : 'Product',
+              enabled: !busy,
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _productType = v;
+                  if (v == PosProductType.service) {
+                    _trackInventory = false;
+                    _unit = 'Service';
+                  }
+                });
+              },
+            ),
+            AppTextField(
+              controller: _shortDescription,
+              label: 'Short description',
+              enabled: !busy,
+              maxLines: 2,
+            ),
+          ],
+        );
+
+        final pricingCard = _sectionCard(
+          title: 'Pricing',
+          children: [
+            AppTextField(
+              controller: _purchaseCost,
+              label: 'Purchase cost / current cost',
+              enabled: !busy,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            AppTextField(
+              controller: _sellingPrice,
+              label: 'Selling price *',
+              enabled: !busy,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            AppTextField(
+              controller: _mrp,
+              label: 'MRP',
+              enabled: !busy,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            AppTextField(
+              controller: _taxRate,
+              label: 'Tax rate (%)',
+              enabled: !busy,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Price includes tax',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              value: _priceIncludesTax,
+              activeThumbColor: AppColors.background,
+              activeTrackColor: AppColors.highlight,
+              onChanged:
+                  busy ? null : (v) => setState(() => _priceIncludesTax = v),
+            ),
+          ],
+        );
+
+        final inventoryCard = _sectionCard(
+          title: 'Inventory',
+          children: [
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Track inventory',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              value: _trackInventory,
+              activeThumbColor: AppColors.background,
+              activeTrackColor: AppColors.highlight,
+              onChanged:
+                  busy ? null : (v) => setState(() => _trackInventory = v),
+            ),
+            AppDropdown<String>(
+              label: 'Unit of measure *',
+              value: PosUnits.values.contains(_unit) ? _unit : 'Other',
+              items: PosUnits.values,
+              itemLabel: (u) => u,
+              enabled: !busy,
+              onChanged: (v) {
+                if (v != null) setState(() => _unit = v);
+              },
+            ),
+            if (showInventory) ...[
+              AppTextField(
+                controller: _openingStock,
+                label: 'Opening stock',
+                enabled: !busy && !_isEdit,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+              AppTextField(
+                controller: _reorderLevel,
+                label: 'Reorder level',
+                enabled: !busy,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+              AppTextField(
+                controller: _unitsPerPack,
+                label: 'Units per pack',
+                enabled: !busy,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ],
+        );
+
+        final attributesCard = _sectionCard(
+          title: 'Attributes',
+          children: [
+            ...List.generate(_attributes.length, (i) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _AttrField(
+                      key: ValueKey(
+                        'attr-name-$i-${_attributes[i].hashCode}',
+                      ),
+                      label: 'Attribute name',
+                      initial: _attributes[i].name,
+                      enabled: !busy,
+                      onChanged: (v) => _attributes[i].name = v,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AttrField(
+                      key: ValueKey(
+                        'attr-value-$i-${_attributes[i].hashCode}',
+                      ),
+                      label: 'Value',
+                      initial: _attributes[i].value,
+                      enabled: !busy,
+                      onChanged: (v) => _attributes[i].value = v,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: busy
+                        ? null
+                        : () => setState(() => _attributes.removeAt(i)),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              );
+            }),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: busy
+                    ? null
+                    : () => setState(() => _attributes.add(_AttrDraft())),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add attribute'),
+              ),
+            ),
+          ],
+        );
+
+        final descriptionCard = _sectionCard(
+          title: 'Description',
+          children: [
+            AppTextField(
+              controller: _description,
+              label: 'Description',
+              enabled: !busy,
+              maxLines: 6,
+            ),
+          ],
+        );
+
+        final mediaCard = _sectionCard(
+          title: 'Media & status',
+          children: [
+            AppTextField(
+              controller: _barcode,
+              label: 'Barcode',
+              enabled: !busy,
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Active',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              value: _isActive,
+              activeThumbColor: AppColors.background,
+              activeTrackColor: AppColors.highlight,
+              onChanged: busy ? null : (v) => setState(() => _isActive = v),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...existingImages.map((img) {
+                  final url = bloc.imageUrl(img.storagePath);
+                  return _ImageThumb(
+                    url: url,
+                    onRemove: busy
+                        ? null
+                        : () => setState(() => _removedImageIds.add(img.id)),
+                  );
+                }),
+                ..._pendingUploads.asMap().entries.map((entry) {
+                  return _ImageThumb(
+                    bytes: entry.value.bytes,
+                    onRemove: busy
+                        ? null
+                        : () => setState(
+                              () => _pendingUploads.removeAt(entry.key),
+                            ),
+                  );
+                }),
+                InkWell(
+                  onTap: busy ? null : _pickImages,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.surfaceMuted,
+                    ),
+                    child: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
         return Column(
           children: [
             Expanded(
@@ -411,304 +749,28 @@ class _PosProductFormBodyState extends State<_PosProductFormBody> {
                     24,
                   ),
                   children: [
-                    _sectionTitle('Basic Information'),
-                    AppTextField(
-                      controller: _name,
-                      label: 'Product name *',
-                      enabled: !busy,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    _sectionRow(
+                      isDesktop: isDesktop,
+                      left: basicCard,
+                      right: pricingCard,
                     ),
                     const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _sku,
-                      label: 'SKU / Product code *',
-                      enabled: !busy,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _category,
-                      label: 'Category *',
-                      enabled: !busy,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _labelBrand,
-                      label: 'Brand',
-                      enabled: !busy,
-                    ),
-                    const SizedBox(height: 12),
-                    AppDropdown<PosProductType>(
-                      label: 'Product type *',
-                      value: _productType,
-                      items: PosProductType.values,
-                      itemLabel: (t) =>
-                          t == PosProductType.service ? 'Service' : 'Product',
-                      enabled: !busy,
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() {
-                          _productType = v;
-                          if (v == PosProductType.service) {
-                            _trackInventory = false;
-                            _unit = 'Service';
-                          }
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    AppTextField(
-                      controller: _shortDescription,
-                      label: 'Short description',
-                      enabled: !busy,
-                      maxLines: 2,
-                    ),
-                    _sectionTitle('Pricing'),
-                    AppTextField(
-                      controller: _purchaseCost,
-                      label: 'Purchase cost / current cost',
-                      enabled: !busy,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _sellingPrice,
-                      label: 'Selling price *',
-                      enabled: !busy,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _mrp,
-                      label: 'MRP',
-                      enabled: !busy,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      controller: _taxRate,
-                      label: 'Tax rate (%)',
-                      enabled: !busy,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                    ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Price includes tax',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      value: _priceIncludesTax,
-                      activeThumbColor: AppColors.background,
-                      activeTrackColor: AppColors.highlight,
-                      onChanged: busy
-                          ? null
-                          : (v) => setState(() => _priceIncludesTax = v),
-                    ),
                     if (!isService) ...[
-                      _sectionTitle('Inventory'),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Track inventory',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        value: _trackInventory,
-                        activeThumbColor: AppColors.background,
-                        activeTrackColor: AppColors.highlight,
-                        onChanged: busy
-                            ? null
-                            : (v) => setState(() => _trackInventory = v),
+                      _sectionRow(
+                        isDesktop: isDesktop,
+                        left: inventoryCard,
+                        right: attributesCard,
                       ),
-                      AppDropdown<String>(
-                        label: 'Unit of measure *',
-                        value: PosUnits.values.contains(_unit) ? _unit : 'Other',
-                        items: PosUnits.values,
-                        itemLabel: (u) => u,
-                        enabled: !busy,
-                        onChanged: (v) {
-                          if (v != null) setState(() => _unit = v);
-                        },
-                      ),
-                      if (showInventory) ...[
-                        const SizedBox(height: 12),
-                        AppTextField(
-                          controller: _openingStock,
-                          label: _isEdit ? 'Opening stock' : 'Opening stock',
-                          enabled: !busy && !_isEdit,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        AppTextField(
-                          controller: _reorderLevel,
-                          label: 'Reorder level',
-                          enabled: !busy,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        AppTextField(
-                          controller: _unitsPerPack,
-                          label: 'Units per pack',
-                          enabled: !busy,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 12),
+                    ] else ...[
+                      attributesCard,
+                      const SizedBox(height: 12),
                     ],
-                    _sectionTitle('Attributes'),
-                    ...List.generate(_attributes.length, (i) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _AttrField(
-                                key: ValueKey('attr-name-$i-${_attributes[i].hashCode}'),
-                                label: 'Attribute name',
-                                initial: _attributes[i].name,
-                                enabled: !busy,
-                                onChanged: (v) => _attributes[i].name = v,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _AttrField(
-                                key: ValueKey('attr-value-$i-${_attributes[i].hashCode}'),
-                                label: 'Value',
-                                initial: _attributes[i].value,
-                                enabled: !busy,
-                                onChanged: (v) => _attributes[i].value = v,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: busy
-                                  ? null
-                                  : () => setState(
-                                        () => _attributes.removeAt(i),
-                                      ),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: busy
-                            ? null
-                            : () => setState(
-                                  () => _attributes.add(_AttrDraft()),
-                                ),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add attribute'),
-                      ),
+                    _sectionRow(
+                      isDesktop: isDesktop,
+                      left: descriptionCard,
+                      right: mediaCard,
                     ),
-                    _sectionTitle('Description'),
-                    AppTextField(
-                      controller: _description,
-                      label: 'Description',
-                      enabled: !busy,
-                      maxLines: 5,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () =>
-                          setState(() => _showMore = !_showMore),
-                      child: Text(_showMore ? 'Less details' : 'More details'),
-                    ),
-                    if (_showMore) ...[
-                      _sectionTitle('More details'),
-                      AppTextField(
-                        controller: _barcode,
-                        label: 'Barcode',
-                        enabled: !busy,
-                      ),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Active',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        value: _isActive,
-                        activeThumbColor: AppColors.background,
-                        activeTrackColor: AppColors.highlight,
-                        onChanged: busy
-                            ? null
-                            : (v) => setState(() => _isActive = v),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Images',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ...existingImages.map((img) {
-                            final url = bloc.imageUrl(img.storagePath);
-                            return _ImageThumb(
-                              url: url,
-                              onRemove: busy
-                                  ? null
-                                  : () => setState(
-                                        () => _removedImageIds.add(img.id),
-                                      ),
-                            );
-                          }),
-                          ..._pendingUploads.asMap().entries.map((entry) {
-                            return _ImageThumb(
-                              bytes: entry.value.bytes,
-                              onRemove: busy
-                                  ? null
-                                  : () => setState(
-                                        () => _pendingUploads
-                                            .removeAt(entry.key),
-                                      ),
-                            );
-                          }),
-                          InkWell(
-                            onTap: busy ? null : _pickImages,
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 88,
-                              height: 88,
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: AppColors.border),
-                                borderRadius: BorderRadius.circular(8),
-                                color: AppColors.surfaceMuted,
-                              ),
-                              child: const Icon(
-                                Icons.add_photo_alternate_outlined,
-                                color: AppColors.textLight,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
