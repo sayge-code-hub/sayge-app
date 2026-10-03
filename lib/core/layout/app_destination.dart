@@ -8,6 +8,7 @@ class AppNavSection {
     this.iconAsset,
     this.icon,
     this.selectable = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -17,6 +18,9 @@ class AppNavSection {
 
   /// When true, tapping the section label selects its own destination index.
   final bool selectable;
+
+  /// When false, the row is shown grayed out and is not tappable.
+  final bool enabled;
 }
 
 /// Clickable leaf item under a section.
@@ -25,9 +29,11 @@ class AppNavItem {
     required this.label,
     this.icon,
     this.iconAsset,
+    this.enabled = true,
   });
 
   final String label;
   final IconData? icon;
   final String? iconAsset;
+  final bool enabled;
 }

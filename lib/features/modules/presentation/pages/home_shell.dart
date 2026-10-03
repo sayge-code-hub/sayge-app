@@ -115,6 +115,20 @@ class _HomeShellState extends State<HomeShell> {
         selectable: true,
         items: [],
       ),
+      AppNavSection(
+        label: 'Salary Slips',
+        icon: Icons.payments_outlined,
+        selectable: false,
+        enabled: false,
+        items: [],
+      ),
+      AppNavSection(
+        label: 'Salary Breakup',
+        icon: Icons.account_balance_wallet_outlined,
+        selectable: false,
+        enabled: false,
+        items: [],
+      ),
     ];
   }
 

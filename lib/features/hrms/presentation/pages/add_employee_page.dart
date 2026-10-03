@@ -178,6 +178,10 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
           previous.isEditMode != current.isEditMode ||
           previous.employeeId != current.employeeId,
       listener: (context, state) async {
+        if (state.employeeId.isNotEmpty &&
+            _employeeIdController.text != state.employeeId) {
+          _employeeIdController.text = state.employeeId;
+        }
         if (state.isEditMode && state.employeeId.isNotEmpty) {
           _hydrateControllers(state);
         }
@@ -256,11 +260,8 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                         AppTextField(
                           controller: _employeeIdController,
                           label: 'Employee ID',
-                          enabled: !isLoading && !state.isEditMode,
-                          onChanged: (value) =>
-                              context.read<AddEmployeeBloc>().add(
-                                    AddEmployeeFieldChanged(employeeId: value),
-                                  ),
+                          enabled: false,
+                          readOnly: true,
                         ),
                         AppTextField(
                           controller: _employeeNameController,

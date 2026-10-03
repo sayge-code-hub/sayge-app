@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import 'core/auth/auth_local_storage.dart';
 import 'core/auth/auth_session.dart';
+import 'core/auth/password_setup.dart';
 import 'core/config/app_config.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -96,8 +97,13 @@ Future<void> initDependencies() async {
     storage: authStorage,
     remote: sl<AuthRemoteDataSource>(),
   );
+  final needsPasswordSetup = PasswordSetup.currentUserRequiresSetup();
   sl.registerLazySingleton(
-    () => AuthSession(storage: authStorage, initialUser: restoredUser),
+    () => AuthSession(
+      storage: authStorage,
+      initialUser: restoredUser,
+      needsPasswordSetup: needsPasswordSetup,
+    ),
   );
 
   sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
@@ -145,6 +151,7 @@ Future<void> initDependencies() async {
       addEmployeeUseCase: sl(),
       updateEmployeeUseCase: sl(),
       getClientsUseCase: sl(),
+      getEmployeesUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetEmployeesUseCase(sl()));

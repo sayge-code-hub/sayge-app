@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
+import '../../../../core/auth/password_setup.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
@@ -106,11 +107,19 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
 
     try {
       await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: _password.text),
+        UserAttributes(
+          password: _password.text,
+          data: const {PasswordSetup.metaKey: false},
+        ),
       );
       final profile = await sl<AuthRemoteDataSource>().restoreSession();
       if (profile != null) {
-        await sl<AuthSession>().setUser(profile);
+        await sl<AuthSession>().setUser(
+          profile,
+          needsPasswordSetup: false,
+        );
+      } else {
+        await sl<AuthSession>().markPasswordSetupComplete();
       }
       if (!mounted) return;
       final user = sl<AuthSession>().user;
@@ -141,6 +150,15 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Image.asset(
+                      'assets/images/sayge_logo.webp',
+                      height: 36,
+                      semanticLabel: 'Sayge',
+                    ),
+                  ),
+                  const SizedBox(height: 40),
                   Text(
                     'Set your password',
                     style: textTheme.headlineMedium?.copyWith(fontSize: 24),
@@ -184,13 +202,6 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
                     isLoading: _saving,
                     enabled: _ready && !_saving,
                     onPressed: _submit,
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => context.go(AppRoutes.login),
-                    child: const Text('Back to login'),
                   ),
                 ],
               ),

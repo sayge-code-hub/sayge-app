@@ -13,28 +13,41 @@ class AppHubTile extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.subtitle,
+    this.enabled = true,
   });
 
   final String title;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? subtitle;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDesktop = Breakpoints.isDesktop(context);
     final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+    final titleColor =
+        enabled ? AppColors.text : AppColors.textLight.withValues(alpha: 0.55);
+    final iconColor =
+        enabled ? AppColors.text : AppColors.textLight.withValues(alpha: 0.55);
+    final chevronColor = enabled
+        ? AppColors.textLight.withValues(alpha: 0.7)
+        : AppColors.textLight.withValues(alpha: 0.35);
 
     return Material(
       color: AppColors.background,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(
+          color: enabled
+              ? AppColors.border
+              : AppColors.border.withValues(alpha: 0.7),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 18 : 14,
@@ -54,7 +67,7 @@ class AppHubTile extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: isDesktop ? 20 : 18,
-                  color: AppColors.text,
+                  color: iconColor,
                 ),
               ),
               SizedBox(width: isDesktop ? 14 : 12),
@@ -71,7 +84,7 @@ class AppHubTile extends StatelessWidget {
                         fontSize: isDesktop ? 14 : 13,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
-                        color: AppColors.text,
+                        color: titleColor,
                       ),
                     ),
                     if (hasSubtitle) ...[
@@ -94,7 +107,7 @@ class AppHubTile extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 size: 20,
-                color: AppColors.textLight.withValues(alpha: 0.7),
+                color: chevronColor,
               ),
             ],
           ),

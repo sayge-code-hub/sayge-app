@@ -5,6 +5,7 @@ import '../../../../settings/domain/entities/client.dart';
 import '../../../../settings/domain/usecases/get_clients.dart';
 import '../../../domain/entities/employee.dart';
 import '../../../domain/usecases/add_employee.dart';
+import '../../../domain/usecases/get_employees.dart';
 import '../../../domain/usecases/update_employee.dart';
 
 part 'add_employee_event.dart';
@@ -15,15 +16,20 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
     required this.addEmployeeUseCase,
     required this.updateEmployeeUseCase,
     required this.getClientsUseCase,
+    required this.getEmployeesUseCase,
   }) : super(const AddEmployeeState()) {
     on<AddEmployeeStarted>(_onStarted);
     on<AddEmployeeFieldChanged>(_onFieldChanged);
     on<AddEmployeeSubmitted>(_onSubmitted);
   }
 
+  /// First auto-assigned id when no higher numeric id exists yet.
+  static const int employeeIdSequenceStart = 2127;
+
   final AddEmployeeUseCase addEmployeeUseCase;
   final UpdateEmployeeUseCase updateEmployeeUseCase;
   final GetClientsUseCase getClientsUseCase;
+  final GetEmployeesUseCase getEmployeesUseCase;
 
   Future<void> _onStarted(
     AddEmployeeStarted event,
@@ -37,7 +43,14 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
 
     final employee = event.employee;
     if (employee == null) {
-      emit(AddEmployeeState(availableClients: clients));
+      final nextId = await _nextEmployeeId();
+      emit(
+        AddEmployeeState(
+          availableClients: clients,
+          employeeId: nextId,
+          status: AddEmployeeStatus.editing,
+        ),
+      );
       return;
     }
 
@@ -69,13 +82,28 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
     );
   }
 
+  Future<String> _nextEmployeeId() async {
+    final result = await getEmployeesUseCase();
+    var highest = employeeIdSequenceStart - 1;
+    result.fold((_) {}, (employees) {
+      for (final employee in employees) {
+        final parsed = int.tryParse(employee.employeeId.trim());
+        if (parsed != null && parsed > highest) {
+          highest = parsed;
+        }
+      }
+    });
+    return '${highest + 1}';
+  }
+
   void _onFieldChanged(
     AddEmployeeFieldChanged event,
     Emitter<AddEmployeeState> emit,
   ) {
     emit(
       state.copyWith(
-        employeeId: event.employeeId,
+        // Employee ID is allocated automatically on create; ignore edits.
+        employeeId: state.isEditMode ? event.employeeId : null,
         employeeName: event.employeeName,
         dateOfJoining: event.dateOfJoining,
         designation: event.designation,
@@ -117,9 +145,16 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
 
     emit(state.copyWith(status: AddEmployeeStatus.loading, clearError: true));
 
+    var employeeId = state.employeeId.trim();
+    if (!state.isEditMode) {
+      // Re-allocate at submit to reduce collision if another hire was saved.
+      employeeId = await _nextEmployeeId();
+      emit(state.copyWith(employeeId: employeeId));
+    }
+
     final selected = state.selectedClient;
     final employee = Employee(
-      employeeId: state.employeeId.trim(),
+      employeeId: employeeId,
       employeeName: state.employeeName.trim(),
       dateOfJoining: state.dateOfJoining!,
       designation: state.designation.trim(),

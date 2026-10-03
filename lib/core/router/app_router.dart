@@ -96,10 +96,15 @@ GoRouter createAppRouter(AuthSession authSession) {
       final atRoot = location == AppRoutes.root;
       final user = authSession.user;
 
+      // Invite / recovery: force password setup before any app module.
+      if (authSession.needsPasswordSetup && !settingPassword) {
+        return AppRoutes.setPassword;
+      }
+
       // Invitees may already have a Supabase session before AuthSession profile
       // is loaded — never bounce them off set-password.
       if (!loggedIn && !loggingIn && !settingPassword) return AppRoutes.login;
-      if (loggedIn && user != null) {
+      if (loggedIn && user != null && !authSession.needsPasswordSetup) {
         final home = AppAccess.homeRoute(user);
         if (loggingIn || atRoot) return home;
         if (!AppAccess.canAccessPath(user, location)) return home;

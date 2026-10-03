@@ -31,7 +31,10 @@ class LoginView extends StatelessWidget {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) async {
         if (state.status == LoginStatus.success && state.user != null) {
-          await sl<AuthSession>().setUser(state.user!);
+          await sl<AuthSession>().setUser(
+            state.user!,
+            needsPasswordSetup: false,
+          );
           if (!context.mounted) return;
           context.go(AppAccess.homeRoute(state.user!));
         }

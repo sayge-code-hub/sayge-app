@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
         full_name: fullName || emailRaw.split('@')[0],
         name: fullName || emailRaw.split('@')[0],
         role_id: roleId,
+        must_set_password: 'true',
       },
     }
     if (redirectTo) {

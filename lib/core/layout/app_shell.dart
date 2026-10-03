@@ -408,7 +408,29 @@ class _SidebarState extends State<_Sidebar> {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.only(bottom: 8),
-              children: _buildNav(context),
+              children: [
+                ..._buildNav(context),
+                if (widget.onLogout != null) ...[
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                    child: _NavTile(
+                      label: 'Log out',
+                      selected: false,
+                      enabled: true,
+                      accentColor: AppColors.error,
+                      fontSize: _navFontSize,
+                      indent: false,
+                      leading: const Icon(
+                        Icons.logout_rounded,
+                        size: 18,
+                        color: AppColors.error,
+                      ),
+                      onTap: widget.onLogout,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const Divider(
@@ -416,8 +438,9 @@ class _SidebarState extends State<_Sidebar> {
             color: AppColors.border,
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 CircleAvatar(
                   radius: 18,
@@ -433,6 +456,7 @@ class _SidebarState extends State<_Sidebar> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         widget.user.name ?? widget.user.email,
@@ -440,45 +464,25 @@ class _SidebarState extends State<_Sidebar> {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               fontSize: 13,
+                              height: 1.2,
+                              color: AppColors.text,
                             ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         widget.user.roleLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontSize: 12,
+                              height: 1.2,
+                              color: AppColors.textLight,
                             ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
-          ),
-          if (widget.onLogout != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: TextButton.icon(
-                  onPressed: widget.onLogout,
-                  icon: const Icon(Icons.logout_rounded, size: 18),
-                  label: const Text('Log out'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.text,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                ),
-              ),
-            ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: AppVersionLabel(
-              alignment: Alignment.centerLeft,
-              textAlign: TextAlign.left,
-              fontSize: 11,
             ),
           ),
         ],
@@ -491,6 +495,27 @@ class _SidebarState extends State<_Sidebar> {
     var nextIndex = 0;
 
     for (final section in widget.sections) {
+      if (!section.enabled) {
+        final muted = AppColors.textLight.withValues(alpha: 0.55);
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+            child: _NavTile(
+              label: section.label,
+              selected: false,
+              enabled: false,
+              fontSize: _navFontSize,
+              indent: false,
+              leading: section.icon != null
+                  ? Icon(section.icon, size: 18, color: muted)
+                  : null,
+            ),
+          ),
+        );
+        widgets.add(const SizedBox(height: 4));
+        continue;
+      }
+
       final sectionIndex = section.selectable ? nextIndex++ : null;
       final sectionSelected =
           sectionIndex != null && sectionIndex == widget.selectedIndex;
@@ -504,6 +529,9 @@ class _SidebarState extends State<_Sidebar> {
       nextIndex += section.items.length;
 
       final childSelected = childIndexes.contains(widget.selectedIndex);
+      final sectionIconColor = sectionSelected || childSelected
+          ? AppColors.highlight
+          : AppColors.text;
 
       widgets.add(
         Padding(
@@ -517,19 +545,19 @@ class _SidebarState extends State<_Sidebar> {
                     section.iconAsset!,
                     width: 18,
                     height: 18,
-                    color: AppColors.text,
+                    color: sectionIconColor,
                     colorBlendMode: BlendMode.srcIn,
-                    errorBuilder: (_, _, _) => const Icon(
+                    errorBuilder: (_, _, _) => Icon(
                       Icons.groups_outlined,
                       size: 18,
-                      color: AppColors.text,
+                      color: sectionIconColor,
                     ),
                   )
                 : section.icon != null
                     ? Icon(
                         section.icon,
                         size: 18,
-                        color: AppColors.text,
+                        color: sectionIconColor,
                       )
                     : null,
             trailing: hasChildren
@@ -559,6 +587,25 @@ class _SidebarState extends State<_Sidebar> {
           final item = section.items[i];
           final index = childIndexes[i];
           final selected = index == widget.selectedIndex;
+          if (!item.enabled) {
+            final muted = AppColors.textLight.withValues(alpha: 0.55);
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+                child: _NavTile(
+                  label: item.label,
+                  selected: false,
+                  enabled: false,
+                  fontSize: _navFontSize,
+                  indent: true,
+                  leading: item.icon != null
+                      ? Icon(item.icon, size: 18, color: muted)
+                      : null,
+                ),
+              ),
+            );
+            continue;
+          }
           final iconColor =
               selected ? AppColors.highlight : AppColors.textLight;
           widgets.add(
@@ -612,6 +659,8 @@ class _NavTile extends StatelessWidget {
     required this.selected,
     required this.fontSize,
     required this.indent,
+    this.enabled = true,
+    this.accentColor,
     this.leading,
     this.trailing,
     this.onTap,
@@ -619,6 +668,8 @@ class _NavTile extends StatelessWidget {
 
   final String label;
   final bool selected;
+  final bool enabled;
+  final Color? accentColor;
   final double fontSize;
   final bool indent;
   final Widget? leading;
@@ -628,7 +679,11 @@ class _NavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color textColor;
-    if (selected) {
+    if (!enabled) {
+      textColor = AppColors.textLight.withValues(alpha: 0.55);
+    } else if (accentColor != null) {
+      textColor = accentColor!;
+    } else if (selected) {
       textColor = AppColors.highlight;
     } else if (onTap == null) {
       textColor = AppColors.text;
@@ -639,7 +694,7 @@ class _NavTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         hoverColor: Colors.transparent,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth/auth_session.dart';
+import 'core/auth/password_setup.dart';
 import 'core/router/app_router.dart';
 import 'core/router/url_strategy.dart';
 import 'core/theme/app_colors.dart';
@@ -47,6 +49,18 @@ class SaygeApp extends StatefulWidget {
 
 class _SaygeAppState extends State<SaygeApp> {
   late final GoRouter _router = createAppRouter(widget.authSession);
+
+  @override
+  void initState() {
+    super.initState();
+    // Invite links hydrate the session after startup — keep password gate on.
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.session == null) return;
+      if (PasswordSetup.currentUserRequiresSetup()) {
+        widget.authSession.requirePasswordSetup();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
