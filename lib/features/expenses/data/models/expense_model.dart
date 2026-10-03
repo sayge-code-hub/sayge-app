@@ -7,8 +7,11 @@ class ExpenseModel extends Expense {
     required super.amount,
     required super.paidFrom,
     required super.category,
+    super.approvalStatus,
     super.createdAt,
     super.createdBy,
+    super.approvedBy,
+    super.approvedAt,
   });
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
@@ -18,8 +21,13 @@ class ExpenseModel extends Expense {
       amount: double.tryParse('${json['amount'] ?? 0}') ?? 0,
       paidFrom: (json['paid_from'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
+      approvalStatus: ExpenseApprovalStatus.fromDb(
+        json['approval_status']?.toString(),
+      ),
       createdAt: DateTime.tryParse('${json['created_at'] ?? ''}'),
       createdBy: json['created_by']?.toString(),
+      approvedBy: json['approved_by']?.toString(),
+      approvedAt: DateTime.tryParse('${json['approved_at'] ?? ''}'),
     );
   }
 
@@ -41,8 +49,11 @@ class ExpenseModel extends Expense {
       amount: expense.amount,
       paidFrom: expense.paidFrom,
       category: expense.category,
+      approvalStatus: expense.approvalStatus,
       createdAt: expense.createdAt,
       createdBy: expense.createdBy,
+      approvedBy: expense.approvedBy,
+      approvedAt: expense.approvedAt,
     );
   }
 }

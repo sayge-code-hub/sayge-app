@@ -190,10 +190,12 @@ Future<void> initDependencies() async {
     () => ExpensesBloc(
       getExpensesUseCase: sl(),
       addExpenseUseCase: sl(),
+      setExpenseApprovalUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetExpensesUseCase(sl()));
   sl.registerLazySingleton(() => AddExpenseUseCase(sl()));
+  sl.registerLazySingleton(() => SetExpenseApprovalUseCase(sl()));
   sl.registerLazySingleton<ExpenseRemoteDataSource>(
     () => ExpenseRemoteDataSourceImpl(authSession: sl()),
   );
@@ -265,11 +267,7 @@ Future<User?> _restoreAuthUser({
     return null;
   }
 
-  final cached = storage.readUser();
-  if (cached != null && cached.id == session.user.id) {
-    return cached;
-  }
-
+  // Always refresh from DB so links like users.employee_id stay current.
   final fresh = await remote.restoreSession();
   if (fresh == null) {
     await storage.clear();

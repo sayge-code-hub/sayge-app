@@ -9,6 +9,7 @@ class AddEmployeeState extends Equatable {
     this.employeeId = '',
     this.employeeName = '',
     this.dateOfJoining,
+    this.dateOfBirth,
     this.designation = '',
     this.department = '',
     this.annualCtc = '',
@@ -34,6 +35,7 @@ class AddEmployeeState extends Equatable {
   final String employeeId;
   final String employeeName;
   final DateTime? dateOfJoining;
+  final DateTime? dateOfBirth;
   final String designation;
   final String department;
   final String annualCtc;
@@ -98,6 +100,7 @@ class AddEmployeeState extends Equatable {
     String? employeeId,
     String? employeeName,
     DateTime? dateOfJoining,
+    DateTime? dateOfBirth,
     String? designation,
     String? department,
     String? annualCtc,
@@ -124,6 +127,7 @@ class AddEmployeeState extends Equatable {
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
       dateOfJoining: dateOfJoining ?? this.dateOfJoining,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       designation: designation ?? this.designation,
       department: department ?? this.department,
       annualCtc: annualCtc ?? this.annualCtc,
@@ -152,6 +156,7 @@ class AddEmployeeState extends Equatable {
         employeeId,
         employeeName,
         dateOfJoining,
+        dateOfBirth,
         designation,
         department,
         annualCtc,

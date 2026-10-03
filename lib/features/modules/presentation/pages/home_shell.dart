@@ -37,6 +37,11 @@ class _HomeShellState extends State<HomeShell> {
 
   bool get _isStaff => AppAccess.isStaff(widget.user);
 
+  bool get _employeeLinked {
+    final id = widget.user.employeeId?.trim();
+    return id != null && id.isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -108,8 +113,9 @@ class _HomeShellState extends State<HomeShell> {
       ];
     }
 
-    return const [
-      AppNavSection(
+    final linked = _employeeLinked;
+    return [
+      const AppNavSection(
         label: 'Dashboard',
         icon: Icons.dashboard_outlined,
         selectable: true,
@@ -118,16 +124,23 @@ class _HomeShellState extends State<HomeShell> {
       AppNavSection(
         label: 'Salary Slips',
         icon: Icons.payments_outlined,
-        selectable: false,
-        enabled: false,
-        items: [],
+        selectable: linked,
+        enabled: linked,
+        items: const [],
       ),
       AppNavSection(
-        label: 'Salary Breakup',
+        label: 'Pay & Compliance',
         icon: Icons.account_balance_wallet_outlined,
-        selectable: false,
-        enabled: false,
-        items: [],
+        selectable: linked,
+        enabled: linked,
+        items: const [],
+      ),
+      AppNavSection(
+        label: 'Expense',
+        icon: Icons.monetization_on_outlined,
+        selectable: linked,
+        enabled: linked,
+        items: const [],
       ),
     ];
   }
@@ -147,7 +160,16 @@ class _HomeShellState extends State<HomeShell> {
       ];
     }
 
-    return const [AppRoutes.dashboard];
+    final id = widget.user.employeeId?.trim();
+    if (id == null || id.isEmpty) {
+      return const [AppRoutes.dashboard];
+    }
+    return [
+      AppRoutes.dashboard,
+      AppRoutes.dashboardSlips,
+      AppRoutes.employeeCompensation(id),
+      AppRoutes.expenses,
+    ];
   }
 
   int get _selectedIndex {
@@ -155,6 +177,9 @@ class _HomeShellState extends State<HomeShell> {
     final paths = _paths;
 
     if (!_isStaff) {
+      if (location.startsWith(AppRoutes.expenses)) return 3;
+      if (location.contains('/compensation')) return 2;
+      if (location.contains('section=slips')) return 1;
       return 0;
     }
 
@@ -175,66 +200,73 @@ class _HomeShellState extends State<HomeShell> {
 
   String get _title {
     final location = widget.location;
-    if (location == AppRoutes.dashboard) return 'Dashboard';
-    if (location == AppRoutes.myDetails) return 'Dashboard';
-    if (location == AppRoutes.employeesAdd) return 'Add employee';
-    if (location.endsWith('/edit')) return 'Edit employee';
-    if (location.endsWith('/compensation')) return 'Compensation breakup';
-    if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(location)) {
+    final path = Uri.tryParse(location)?.path ?? location;
+    if (path == AppRoutes.dashboard) {
+      if (location.contains('section=slips')) return 'Salary Slips';
+      return 'Dashboard';
+    }
+    if (path == AppRoutes.myDetails) return 'Dashboard';
+    if (path == AppRoutes.employeesAdd) return 'Add employee';
+    if (path.endsWith('/edit')) return 'Edit employee';
+    if (path.endsWith('/compensation')) {
+      return _isStaff ? 'Compensation breakup' : 'Pay & Compliance';
+    }
+    if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(path)) {
       return 'Employee details';
     }
-    if (location == AppRoutes.clientsAdd) return 'Add client';
-    if (location.startsWith(AppRoutes.clients)) return 'Manage clients';
-    if (location == AppRoutes.inviteEmployee) return 'Invite employee';
-    if (location == AppRoutes.companyDetails) return 'Company Details';
-    if (location == AppRoutes.roles) return 'Roles';
-    if (location == AppRoutes.ledger) return 'Activity ledger';
-    if (location == AppRoutes.settings) return 'Settings';
-    if (location.startsWith(AppRoutes.expenses)) return 'Expense';
-    if (location.startsWith(AppRoutes.invoices)) return 'Invoices';
-    if (location.startsWith(AppRoutes.proposals)) return 'Proposals';
-    if (location.startsWith(AppRoutes.payroll)) return 'Payroll';
-    if (location.startsWith(AppRoutes.dms)) return 'DMS';
-    if (location == AppRoutes.employees) return 'All employees';
+    if (path == AppRoutes.clientsAdd) return 'Add client';
+    if (path.startsWith(AppRoutes.clients)) return 'Manage clients';
+    if (path == AppRoutes.inviteEmployee) return 'Invite employee';
+    if (path == AppRoutes.companyDetails) return 'Company Details';
+    if (path == AppRoutes.roles) return 'Roles';
+    if (path == AppRoutes.ledger) return 'Activity ledger';
+    if (path == AppRoutes.settings) return 'Settings';
+    if (path.startsWith(AppRoutes.expenses)) return 'Expense';
+    if (path.startsWith(AppRoutes.invoices)) return 'Invoices';
+    if (path.startsWith(AppRoutes.proposals)) return 'Proposals';
+    if (path.startsWith(AppRoutes.payroll)) return 'Payroll';
+    if (path.startsWith(AppRoutes.dms)) return 'DMS';
+    if (path == AppRoutes.employees) return 'All employees';
     return 'HRMS';
   }
 
   VoidCallback? get _onBack {
     final location = widget.location;
+    final path = Uri.tryParse(location)?.path ?? location;
 
     if (!_isStaff) {
-      if (location.endsWith('/compensation')) {
+      if (path.endsWith('/compensation')) {
         return () => _goBack(AppRoutes.dashboard);
       }
       return null;
     }
 
-    if (location.endsWith('/edit')) {
-      final segments = Uri.parse(location).pathSegments;
+    if (path.endsWith('/edit')) {
+      final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 4 && segments[2] != 'add') {
         return () => _goBack(AppRoutes.employeeDetail(segments[2]));
       }
       return null;
     }
-    if (location.endsWith('/compensation')) {
-      final segments = Uri.parse(location).pathSegments;
+    if (path.endsWith('/compensation')) {
+      final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 4) {
         return () => _goBack(AppRoutes.employeeDetail(segments[2]));
       }
       return null;
     }
-    if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(location) &&
-        location != AppRoutes.employeesAdd) {
+    if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(path) &&
+        path != AppRoutes.employeesAdd) {
       return () => _goBack(AppRoutes.employees);
     }
-    if (location == AppRoutes.clientsAdd) {
+    if (path == AppRoutes.clientsAdd) {
       return () => _goBack(AppRoutes.clients);
     }
-    if (location == AppRoutes.clients ||
-        location == AppRoutes.companyDetails ||
-        location == AppRoutes.roles ||
-        location == AppRoutes.ledger ||
-        location == AppRoutes.inviteEmployee) {
+    if (path == AppRoutes.clients ||
+        path == AppRoutes.companyDetails ||
+        path == AppRoutes.roles ||
+        path == AppRoutes.ledger ||
+        path == AppRoutes.inviteEmployee) {
       return () => _goBack(AppRoutes.settings);
     }
     return null;

@@ -127,17 +127,27 @@ GoRouter createAppRouter(AuthSession authSession) {
           if (user == null) {
             return const SizedBox.shrink();
           }
+          final uri = state.uri;
+          final location = uri.hasQuery
+              ? '${uri.path}?${uri.query}'
+              : uri.path;
           return HomeShell(
             user: user,
-            location: state.uri.path,
+            location: location,
             child: child,
           );
         },
         routes: [
           GoRoute(
             path: AppRoutes.dashboard,
-            pageBuilder: (context, state) =>
-                _page(state, const EmployeeDashboardPage()),
+            pageBuilder: (context, state) => _page(
+              state,
+              EmployeeDashboardPage(
+                key: ValueKey(state.uri.toString()),
+                showSalarySlips:
+                    state.uri.queryParameters['section'] == 'slips',
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.hrms,

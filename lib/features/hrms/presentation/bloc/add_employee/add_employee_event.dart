@@ -21,6 +21,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
     this.employeeId,
     this.employeeName,
     this.dateOfJoining,
+    this.dateOfBirth,
     this.designation,
     this.department,
     this.annualCtc,
@@ -42,6 +43,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
   final String? employeeId;
   final String? employeeName;
   final DateTime? dateOfJoining;
+  final DateTime? dateOfBirth;
   final String? designation;
   final String? department;
   final String? annualCtc;
@@ -64,6 +66,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
         employeeId,
         employeeName,
         dateOfJoining,
+        dateOfBirth,
         designation,
         department,
         annualCtc,

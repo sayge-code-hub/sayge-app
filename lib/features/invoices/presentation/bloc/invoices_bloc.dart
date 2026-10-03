@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/config/app_invoice_config.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../hrms/domain/entities/employee_purchase_order.dart';
 import '../../../hrms/domain/usecases/employee_purchase_order_usecases.dart';
@@ -72,6 +73,8 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     final latest = await getInvoicesUseCase();
     final invoices = latest.fold((_) => state.invoices, (list) => list);
     final existing = invoices.map((e) => e.invoiceNo);
+    final posResult = await getAllPosUseCase();
+    final pos = posResult.fold((_) => state.purchaseOrders, (list) => list);
     emit(
       state.copyWith(
         view: InvoicesView.form,
@@ -79,6 +82,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
         clearError: true,
         clearEditingId: true,
         invoices: invoices,
+        purchaseOrders: pos,
         draftInvoiceNo: InvoiceCalculator.generateInvoiceNo(
           existing: existing,
           at: now,
@@ -239,6 +243,44 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
         ),
       );
       return;
+    }
+
+    final poNumber = event.poNumber.trim();
+    if (poNumber.isNotEmpty) {
+      final matches = state.purchaseOrders
+          .where(
+            (po) =>
+                po.poNumber.trim().toLowerCase() == poNumber.toLowerCase(),
+          )
+          .toList(growable: false);
+
+      if (matches.isEmpty) {
+        emit(
+          state.copyWith(
+            status: InvoicesStatus.failure,
+            errorMessage:
+                'P.O. "$poNumber" was not found. Select a purchase order '
+                'from the list.',
+          ),
+        );
+        return;
+      }
+
+      final covering = matches.where((po) => po.coversDate(event.invoiceDate));
+      if (covering.isEmpty) {
+        final po = matches.first;
+        final start = AppDates.compact.format(po.startDate);
+        final end = AppDates.compact.format(po.endDate);
+        emit(
+          state.copyWith(
+            status: InvoicesStatus.failure,
+            errorMessage:
+                'P.O. $poNumber is not valid for this invoice date. '
+                'Valid period: $start to $end.',
+          ),
+        );
+        return;
+      }
     }
 
     final editingId = state.editingId;

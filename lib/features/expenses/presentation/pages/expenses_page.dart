@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/app_access.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
@@ -36,12 +38,13 @@ class _ExpensesBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<ExpensesBloc, ExpensesState>(
       listenWhen: (prev, next) =>
-          prev.status != next.status && next.status == ExpensesStatus.success,
+          next.successMessage != null &&
+          next.successMessage != prev.successMessage,
       listener: (context, state) async {
-        await showAppMessageDialog(
-          context,
-          message: 'Expense saved',
-        );
+        final message = state.successMessage;
+        if (message != null) {
+          await showAppMessageDialog(context, message: message);
+        }
       },
       builder: (context, state) {
         if (state.status == ExpensesStatus.initial ||
@@ -80,6 +83,7 @@ class _ExpenseListState extends State<_ExpenseList> {
       return e.madeFor.toLowerCase().contains(q) ||
           e.paidFrom.toLowerCase().contains(q) ||
           e.category.toLowerCase().contains(q) ||
+          e.approvalStatus.label.toLowerCase().contains(q) ||
           e.amount.toString().contains(q);
     }).toList();
   }
@@ -87,13 +91,16 @@ class _ExpenseListState extends State<_ExpenseList> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
+    final isStaff = AppAccess.isStaff(sl<AuthSession>().user);
     final dateFormat = DateFormat('dd MMM yyyy');
     final expenses = _filtered;
     final textTheme = Theme.of(context).textTheme;
+    final busy = widget.state.status == ExpensesStatus.saving;
 
     final newExpense = AppButton(
       label: 'New expense',
       expand: !isDesktop,
+      enabled: !busy,
       onPressed: () =>
           context.read<ExpensesBloc>().add(const ExpenseFormOpened()),
     );
@@ -160,8 +167,11 @@ class _ExpenseListState extends State<_ExpenseList> {
                         final dateLabel = expense.createdAt == null
                             ? ''
                             : dateFormat.format(expense.createdAt!.toLocal());
+                        final approving =
+                            widget.state.approvingId == expense.id;
                         return AppListCard(
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
                                 child: Column(
@@ -184,13 +194,102 @@ class _ExpenseListState extends State<_ExpenseList> {
                                         color: AppColors.textLight,
                                       ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    _ApprovalBadge(
+                                      status: expense.approvalStatus,
+                                    ),
                                   ],
                                 ),
                               ),
-                              Text(
-                                MoneyFormat.format(expense.amount),
-                                style: textTheme.titleMedium
-                                    ?.copyWith(fontSize: 13),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    MoneyFormat.format(expense.amount),
+                                    style: textTheme.titleMedium
+                                        ?.copyWith(fontSize: 13),
+                                  ),
+                                  if (isStaff &&
+                                      expense.approvalStatus ==
+                                          ExpenseApprovalStatus.pending) ...[
+                                    const SizedBox(height: 8),
+                                    if (approving)
+                                      const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.text,
+                                        ),
+                                      )
+                                    else
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          TextButton(
+                                            onPressed: busy
+                                                ? null
+                                                : () => context
+                                                    .read<ExpensesBloc>()
+                                                    .add(
+                                                      ExpenseApprovalChanged(
+                                                        expenseId: expense.id,
+                                                        status:
+                                                            ExpenseApprovalStatus
+                                                                .rejected,
+                                                      ),
+                                                    ),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: AppColors.error,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                              ),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                            child: const Text(
+                                              'Reject',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: busy
+                                                ? null
+                                                : () => context
+                                                    .read<ExpensesBloc>()
+                                                    .add(
+                                                      ExpenseApprovalChanged(
+                                                        expenseId: expense.id,
+                                                        status:
+                                                            ExpenseApprovalStatus
+                                                                .approved,
+                                                      ),
+                                                    ),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor:
+                                                  AppColors.success,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                              ),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                            child: const Text(
+                                              'Approve',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -200,6 +299,41 @@ class _ExpenseListState extends State<_ExpenseList> {
         ),
         if (!isDesktop) AppStickyActions(children: [newExpense]),
       ],
+    );
+  }
+}
+
+class _ApprovalBadge extends StatelessWidget {
+  const _ApprovalBadge({required this.status});
+
+  final ExpenseApprovalStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    switch (status) {
+      case ExpenseApprovalStatus.approved:
+        color = AppColors.success;
+      case ExpenseApprovalStatus.rejected:
+        color = AppColors.error;
+      case ExpenseApprovalStatus.pending:
+        color = AppColors.highlight;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+      ),
     );
   }
 }

@@ -1,411 +1,413 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
-import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
-import '../../../../core/widgets/app_hub_tile.dart';
-import '../../../../core/widgets/app_list_card.dart';
-import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
-import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
-import '../../../expenses/domain/entities/expense.dart';
-import '../../../expenses/presentation/bloc/expenses_bloc.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
-import '../../../hrms/presentation/widgets/employee_form_layout.dart';
+import '../../../payroll/domain/services/payslip_period.dart';
 import '../../../payroll/presentation/bloc/payroll_bloc.dart';
 
-/// Single home for employees: profile, compensation, salary slip, expenses.
+/// Employee home. Dashboard = profile only; Salary Slips = download only.
 class EmployeeDashboardPage extends StatelessWidget {
-  const EmployeeDashboardPage({super.key});
+  const EmployeeDashboardPage({
+    super.key,
+    this.showSalarySlips = false,
+  });
+
+  final bool showSalarySlips;
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => sl<PayrollBloc>()..add(const PayrollStarted()),
-        ),
-        BlocProvider(
-          create: (_) => sl<ExpensesBloc>()..add(const ExpensesStarted()),
-        ),
-      ],
-      child: const _DashboardBody(),
+    if (!showSalarySlips) {
+      return const _DashboardBody(isSlips: false);
+    }
+    return BlocProvider(
+      create: (_) => sl<PayrollBloc>()..add(const PayrollStarted()),
+      child: const _DashboardBody(isSlips: true),
     );
   }
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody();
+  const _DashboardBody({required this.isSlips});
+
+  final bool isSlips;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ExpensesBloc, ExpensesState>(
-      builder: (context, expenseState) {
-        if (expenseState.showingForm) {
-          return const _DashboardExpenseForm();
+    return BlocBuilder<EmployeesBloc, EmployeesState>(
+      builder: (context, empState) {
+        if (empState.status == EmployeesStatus.loading ||
+            empState.status == EmployeesStatus.initial) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.text),
+          );
         }
 
-        return BlocBuilder<EmployeesBloc, EmployeesState>(
-          builder: (context, empState) {
-            if (empState.status == EmployeesStatus.loading ||
-                empState.status == EmployeesStatus.initial) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.text),
-              );
+        final user = sl<AuthSession>().user;
+        final id = user?.employeeId?.trim();
+        Employee? me;
+        if (id != null && id.isNotEmpty) {
+          for (final e in empState.employees) {
+            if (e.employeeId == id) {
+              me = e;
+              break;
             }
+          }
+        }
 
-            final user = sl<AuthSession>().user;
-            final id = user?.employeeId?.trim();
-            Employee? me;
-            if (id != null && id.isNotEmpty) {
-              for (final e in empState.employees) {
-                if (e.employeeId == id) {
-                  me = e;
-                  break;
-                }
-              }
-            }
-
-            return _DashboardScroll(employee: me);
-          },
-        );
+        if (isSlips) {
+          return _SalarySlipsView(employee: me);
+        }
+        return _ProfileView(employee: me, user: user);
       },
     );
   }
 }
 
-class _DashboardScroll extends StatefulWidget {
-  const _DashboardScroll({this.employee});
+class _ProfileView extends StatelessWidget {
+  const _ProfileView({this.employee, this.user});
 
   final Employee? employee;
-
-  @override
-  State<_DashboardScroll> createState() => _DashboardScrollState();
-}
-
-class _DashboardScrollState extends State<_DashboardScroll> {
-  final _detailsKey = GlobalKey();
-  final _slipsKey = GlobalKey();
-
-  Future<void> _scrollTo(GlobalKey key) async {
-    final ctx = key.currentContext;
-    if (ctx == null) return;
-    await Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      alignment: 0.05,
-    );
-  }
+  final User? user;
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
     final horizontal = isDesktop ? 32.0 : 16.0;
-    final employee = widget.employee;
     final linked = employee != null;
-    final user = sl<AuthSession>().user;
     final dateFormat = AppDates.compact;
 
     final displayName = linked
-        ? employee.employeeName
+        ? employee!.employeeName
         : (user?.name?.trim().isNotEmpty == true
             ? user!.name!.trim()
             : (user?.email ?? 'Profile'));
 
-    final profileHeader = Padding(
-      key: _detailsKey,
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: isDesktop ? 28 : 24,
-            backgroundColor: AppColors.text.withValues(alpha: 0.08),
-            child: Text(
-              _initials(displayName),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: isDesktop ? 18 : 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.text,
-                  ),
+    final fields = linked
+        ? <({String label, String value})>[
+            (label: 'Employee ID', value: employee!.employeeId),
+            (label: 'Client', value: employee!.client),
+            (label: 'Grade', value: employee!.grade),
+            (label: 'Email', value: user?.email ?? '—'),
+            (label: 'Department', value: employee!.department),
+            (
+              label: 'Joining date',
+              value: dateFormat.format(employee!.dateOfJoining),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: isDesktop ? 18 : 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.text,
-                  ),
+            (
+              label: 'Birth date',
+              value: employee!.dateOfBirth == null
+                  ? '—'
+                  : dateFormat.format(employee!.dateOfBirth!),
             ),
-          ),
-        ],
-      ),
-    );
+          ]
+        : <({String label, String value})>[
+            (label: 'Email', value: user?.email ?? '—'),
+            (label: 'Role', value: user?.roleLabel ?? '—'),
+          ];
 
-    final details = linked
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              profileHeader,
-              EmployeeDetailSectionRow(
-                isDesktop: isDesktop,
-                left: EmployeeDetailSection(
-                  title: 'Identity',
-                  isDesktop: isDesktop,
-                  children: [
-                    EmployeeDetailField(
-                      label: 'Employee ID',
-                      value: employee.employeeId,
-                    ),
-                    EmployeeDetailField(
-                      label: 'Email',
-                      value: user?.email ?? '—',
-                    ),
-                    EmployeeDetailField(
-                      label: 'Active',
-                      value: employee.isActive ? 'Yes' : 'No',
-                    ),
-                    EmployeeDetailField(
-                      label: 'Location',
-                      value: employee.location,
-                    ),
-                  ],
-                ),
-                right: EmployeeDetailSection(
-                  title: 'Role & allocation',
-                  isDesktop: isDesktop,
-                  children: [
-                    EmployeeDetailField(label: 'Client', value: employee.client),
-                    EmployeeDetailField(
-                      label: 'Designation',
-                      value: employee.designation,
-                    ),
-                    EmployeeDetailField(
-                      label: 'Department',
-                      value: employee.department,
-                    ),
-                    EmployeeDetailField(label: 'Grade', value: employee.grade),
-                    EmployeeDetailField(
-                      label: 'Date of joining',
-                      value: dateFormat.format(employee.dateOfJoining),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              EmployeeDetailSectionRow(
-                isDesktop: isDesktop,
-                left: EmployeeDetailSection(
-                  title: 'Compensation',
-                  isDesktop: isDesktop,
-                  children: [
-                    EmployeeDetailField(
-                      label: 'Annual CTC',
-                      value: MoneyFormat.format(employee.annualCtc),
-                    ),
-                    EmployeeDetailField(
-                      label: 'Monthly CTC',
-                      value: MoneyFormat.format(employee.monthlyCtc),
-                    ),
-                    EmployeeDetailField(
-                      label: 'Medical insurance',
-                      value: MoneyFormat.format(employee.medicalInsurance),
-                    ),
-                    EmployeeDetailField(
-                      label: 'Retention amount',
-                      value: MoneyFormat.format(employee.retentionAmount),
-                    ),
-                  ],
-                ),
-                right: EmployeeDetailSection(
-                  title: 'Compliance & bank',
-                  isDesktop: isDesktop,
-                  children: [
-                    EmployeeDetailField(
-                      label: 'PF applicable',
-                      value: employee.pfApplicable ? 'Yes' : 'No',
-                    ),
-                    EmployeeDetailField(
-                      label: 'PT applicable',
-                      value: employee.ptApplicable ? 'Yes' : 'No',
-                    ),
-                    EmployeeDetailField(label: 'PAN', value: employee.pan),
-                    EmployeeDetailField(label: 'UAN', value: employee.uan),
-                    EmployeeDetailField(
-                      label: 'Bank A/C',
-                      value: employee.bankAccount,
-                    ),
-                    EmployeeDetailField(label: 'IFSC', value: employee.ifsc),
-                  ],
-                ),
-              ),
-            ],
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              profileHeader,
-              EmployeeDetailSection(
-                title: 'Account',
-                isDesktop: isDesktop,
-                children: [
-                  EmployeeDetailField(
-                    label: 'Email',
-                    value: user?.email ?? '—',
-                  ),
-                  EmployeeDetailField(
-                    label: 'Contact',
-                    value: '—',
-                  ),
-                  EmployeeDetailField(
-                    label: 'Address',
-                    value: '—',
-                  ),
-                  EmployeeDetailField(
-                    label: 'Role',
-                    value: user?.roleLabel ?? '—',
-                  ),
-                  if (user?.employeeId?.trim().isNotEmpty == true)
-                    EmployeeDetailField(
-                      label: 'Employee ID',
-                      value: user!.employeeId!.trim(),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your profile is not linked to an employee record yet. '
-                'Ask an owner to link your account, then you can view your '
-                'details, compensation, and salary slips here.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textLight,
-                      height: 1.45,
-                      fontSize: 13,
-                    ),
-              ),
-            ],
-          );
-
-    final tiles = [
-      (
-        title: 'Salary Slips',
-        icon: Icons.payments_outlined,
-        onTap: linked ? () => _scrollTo(_slipsKey) : null,
-      ),
-      (
-        title: 'Salary Breakup',
-        icon: Icons.account_balance_wallet_outlined,
-        onTap: linked
-            ? () => context.go(
-                  AppRoutes.employeeCompensation(employee.employeeId),
-                )
-            : null,
-      ),
-    ];
-
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-        horizontal,
-        isDesktop ? 12 : 8,
-        horizontal,
-        32,
-      ),
-      children: [
-        details,
-        const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 720;
-            final tileWidgets = [
-              for (final tile in tiles)
-                AppHubTile(
-                  title: tile.title,
-                  icon: tile.icon,
-                  enabled: tile.onTap != null,
-                  onTap: tile.onTap,
-                ),
-            ];
-            if (!wide) {
-              return Column(
-                children: [
-                  for (var i = 0; i < tileWidgets.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
-                    tileWidgets[i],
-                  ],
-                ],
-              );
-            }
-            return GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 4.2,
-              children: tileWidgets,
-            );
-          },
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          horizontal,
+          isDesktop ? 16 : 12,
+          horizontal,
+          40,
         ),
-        if (linked) ...[
-          const SizedBox(height: 24),
-          KeyedSubtree(
-            key: _slipsKey,
-            child: const _SectionHeading('Salary slip'),
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktop ? 720 : double.infinity,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ProfileHero(
+                  name: displayName,
+                  employeeId: linked ? employee!.employeeId : null,
+                  isDesktop: isDesktop,
+                ),
+                const SizedBox(height: 16),
+                _DetailsGrid(fields: fields, isDesktop: isDesktop),
+                if (!linked) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Your profile is not linked to an employee record yet. '
+                    'Ask an owner to link your account, then you can view your '
+                    'details, compensation, and salary slips here.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textLight,
+                          height: 1.45,
+                          fontSize: 13,
+                        ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          _SalarySlipCard(employee: employee),
-          const SizedBox(height: 20),
-          _ExpensesSection(isDesktop: isDesktop),
         ],
-      ],
+      ),
     );
-  }
-
-  String _initials(String source) {
-    final parts = source.trim().split(RegExp(r'\s+|@'));
-    if (parts.isEmpty || parts.first.isEmpty) return 'S';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 }
 
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading(this.label);
+class _SalarySlipsView extends StatelessWidget {
+  const _SalarySlipsView({this.employee});
 
-  final String label;
+  final Employee? employee;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppColors.highlight,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+    final isDesktop = Breakpoints.isDesktop(context);
+    final horizontal = isDesktop ? 32.0 : 16.0;
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppColors.textLight,
+          fontSize: 13,
+          height: 1.45,
+        );
+
+    if (employee == null) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 32),
+        child: Text(
+          'Your profile is not linked to an employee record yet.',
+          style: textStyle,
+        ),
+      );
+    }
+
+    final options = PayslipPeriod.optionsForEmployee(employee!.dateOfJoining);
+    if (options.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 32),
+        child: Text(
+          'No salary slips are available yet. Slips unlock after the month ends.',
+            style: textStyle,
+        ),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          horizontal,
+          isDesktop ? 24 : 16,
+          horizontal,
+          32,
+        ),
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktop ? 420 : double.infinity,
+            ),
+            child: _SalarySlipDownload(monthOptions: options),
           ),
+        ],
+      ),
     );
   }
 }
 
-class _SalarySlipCard extends StatelessWidget {
-  const _SalarySlipCard({required this.employee});
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.name,
+    required this.isDesktop,
+    this.employeeId,
+  });
 
-  final Employee employee;
+  final String name;
+  final String? employeeId;
+  final bool isDesktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final id = employeeId?.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 22 : 16,
+        isDesktop ? 20 : 16,
+        isDesktop ? 22 : 16,
+        isDesktop ? 20 : 16,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: isDesktop ? 56 : 48,
+            height: isDesktop ? 56 : 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              _initials(name),
+              style: textTheme.titleMedium?.copyWith(
+                fontSize: isDesktop ? 18 : 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.text,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontSize: isDesktop ? 20 : 17,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+                if (id != null && id.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      'ID $id',
+                      style: textTheme.labelLarge?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailsGrid extends StatelessWidget {
+  const _DetailsGrid({
+    required this.fields,
+    required this.isDesktop,
+  });
+
+  final List<({String label, String value})> fields;
+  final bool isDesktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final columns = isDesktop && fields.length > 1 ? 2 : 1;
+
+    Widget cell(({String label, String value}) field) {
+      final value = field.value.trim().isEmpty ? '—' : field.value.trim();
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              field.label,
+              style: textTheme.labelLarge?.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+                color: AppColors.textLight,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: textTheme.bodyLarge?.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.text,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: columns == 1
+          ? Column(
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 1, color: AppColors.border),
+                  cell(fields[i]),
+                ],
+              ],
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < fields.length; i += 2) ...[
+                  if (i > 0)
+                    const Divider(height: 1, color: AppColors.border),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: cell(fields[i])),
+                        Container(width: 1, color: AppColors.border),
+                        Expanded(
+                          child: i + 1 < fields.length
+                              ? cell(fields[i + 1])
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _SalarySlipDownload extends StatelessWidget {
+  const _SalarySlipDownload({required this.monthOptions});
+
+  final List<DateTime> monthOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -422,356 +424,90 @@ class _SalarySlipCard extends StatelessWidget {
       },
       builder: (context, state) {
         final generating = state.status == PayrollStatus.generating;
-        final monthLabel = DateFormat('MMMM yyyy').format(
-          DateTime(state.year, state.month),
-        );
+        final options = monthOptions;
+        final selected = DateTime(state.year, state.month, 1);
+        final value = options.any(
+          (d) => d.year == selected.year && d.month == selected.month,
+        )
+            ? selected
+            : options.last;
 
-        return AppListCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: AppColors.textLight,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      monthLabel,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontSize: 14,
-                          ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: generating
-                        ? null
-                        : () => _pickMonth(context, state),
-                    child: const Text('Change'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment:
-                    isDesktop ? Alignment.centerRight : Alignment.center,
-                child: SizedBox(
-                  width: isDesktop ? 200 : double.infinity,
-                  child: AppButton(
-                    label: generating ? 'Downloading…' : 'Download slip',
-                    expand: true,
-                    isLoading: generating,
-                    enabled: !generating && state.employees.isNotEmpty,
-                    onPressed: () => context
-                        .read<PayrollBloc>()
-                        .add(const PayrollDownloadSelected()),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _pickMonth(BuildContext context, PayrollState state) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(state.year, state.month),
-      firstDate: DateTime(now.year - 5, 1),
-      lastDate: DateTime(now.year + 1, 12),
-      helpText: 'Select payroll month',
-    );
-    if (picked == null || !context.mounted) return;
-    context.read<PayrollBloc>().add(
-          PayrollMonthChanged(month: picked.month, year: picked.year),
-        );
-  }
-}
-
-class _ExpensesSection extends StatefulWidget {
-  const _ExpensesSection({required this.isDesktop});
-
-  final bool isDesktop;
-
-  @override
-  State<_ExpensesSection> createState() => _ExpensesSectionState();
-}
-
-class _ExpensesSectionState extends State<_ExpensesSection> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final isDesktop = widget.isDesktop;
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final textTheme = Theme.of(context).textTheme;
-
-    return BlocBuilder<ExpensesBloc, ExpensesState>(
-      builder: (context, state) {
-        if (state.status == ExpensesStatus.loading ||
-            state.status == ExpensesStatus.initial) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.text),
-            ),
-          );
+        if (value.year != state.year || value.month != state.month) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            context.read<PayrollBloc>().add(
+                  PayrollMonthChanged(month: value.month, year: value.year),
+                );
+          });
         }
-
-        final expenses = state.expenses.where((e) {
-          final q = _query.trim().toLowerCase();
-          if (q.isEmpty) return true;
-          return e.madeAtForSearch(q);
-        }).toList();
-
-        final newExpense = AppButton(
-          label: 'New expense',
-          expand: !isDesktop,
-          onPressed: () =>
-              context.read<ExpensesBloc>().add(const ExpenseFormOpened()),
-        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                const Expanded(child: _SectionHeading('Expense')),
-                if (isDesktop) ...[
-                  const SizedBox(width: 12),
-                  newExpense,
-                ],
-              ],
+            AppDropdown<DateTime>(
+              label: 'Month',
+              value: value,
+              items: options,
+              itemLabel: (d) => DateFormat('MMMM yyyy').format(d),
+              enabled: !generating,
+              onChanged: (picked) {
+                if (picked == null) return;
+                context.read<PayrollBloc>().add(
+                      PayrollMonthChanged(
+                        month: picked.month,
+                        year: picked.year,
+                      ),
+                    );
+              },
             ),
-            const SizedBox(height: 10),
-            AppListSearchField(
-              hintText: 'Search expenses…',
-              onChanged: (value) => setState(() => _query = value),
-            ),
-            const SizedBox(height: 12),
-            if (state.expenses.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'No expenses yet.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textLight,
-                  ),
-                ),
-              )
-            else if (expenses.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'No matching expenses.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textLight,
-                  ),
-                ),
-              )
-            else
-              ...[
-                for (var i = 0; i < expenses.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 8),
-                  Builder(
-                    builder: (context) {
-                      final expense = expenses[i];
-                      final dateLabel = expense.createdAt == null
-                          ? ''
-                          : dateFormat.format(expense.createdAt!.toLocal());
-                      return AppListCard(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    expense.madeFor,
-                                    style: textTheme.titleMedium
-                                        ?.copyWith(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    [
-                                      expense.category,
-                                      expense.paidFrom,
-                                      if (dateLabel.isNotEmpty) dateLabel,
-                                    ].where((e) => e.isNotEmpty).join(' · '),
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      fontSize: 12,
-                                      color: AppColors.textLight,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              MoneyFormat.format(expense.amount),
-                              style: textTheme.titleMedium
-                                  ?.copyWith(fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ],
-            if (!isDesktop) ...[
-              const SizedBox(height: 16),
-              newExpense,
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-extension on Expense {
-  bool madeAtForSearch(String q) {
-    return madeFor.toLowerCase().contains(q) ||
-        paidFrom.toLowerCase().contains(q) ||
-        category.toLowerCase().contains(q) ||
-        amount.toString().contains(q);
-  }
-}
-
-class _DashboardExpenseForm extends StatefulWidget {
-  const _DashboardExpenseForm();
-
-  @override
-  State<_DashboardExpenseForm> createState() => _DashboardExpenseFormState();
-}
-
-class _DashboardExpenseFormState extends State<_DashboardExpenseForm> {
-  final _madeFor = TextEditingController();
-  final _amount = TextEditingController();
-  final _paidFrom = TextEditingController();
-  String? _category;
-
-  @override
-  void dispose() {
-    _madeFor.dispose();
-    _amount.dispose();
-    _paidFrom.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final amount = double.tryParse(
-          _amount.text.trim().replaceAll(',', ''),
-        ) ??
-        0;
-    context.read<ExpensesBloc>().add(
-          ExpenseSubmitted(
-            Expense(
-              id: '',
-              madeFor: _madeFor.text,
-              amount: amount,
-              paidFrom: _paidFrom.text,
-              category: _category ?? '',
-            ),
-          ),
-        );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDesktop = Breakpoints.isDesktop(context);
-    final horizontal = isDesktop ? 32.0 : 16.0;
-
-    return BlocConsumer<ExpensesBloc, ExpensesState>(
-      listenWhen: (prev, next) =>
-          prev.status != next.status && next.status == ExpensesStatus.success,
-      listener: (context, state) async {
-        await showAppMessageDialog(context, message: 'Expense saved');
-      },
-      builder: (context, state) {
-        final saving = state.status == ExpensesStatus.saving;
-        return Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
-                children: [
-                  AppTextField(
-                    label: 'Expense made for',
-                    controller: _madeFor,
-                    enabled: !saving,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                  const SizedBox(height: 12),
-                  AppTextField(
-                    label: 'Amount',
-                    controller: _amount,
-                    enabled: !saving,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    prefixText: '₹ ',
-                  ),
-                  const SizedBox(height: 12),
-                  AppTextField(
-                    label: 'Paid from',
-                    controller: _paidFrom,
-                    enabled: !saving,
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  AppDropdown<String>(
-                    label: 'Category',
-                    value: _category,
-                    items: Expense.categories,
-                    itemLabel: (item) => item,
-                    enabled: !saving,
-                    onChanged: (value) => setState(() => _category = value),
-                  ),
-                  if (state.errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      state.errorMessage!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.error,
-                            fontSize: 13,
-                          ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            AppStickyActions(
-              children: [
-                OutlinedButton(
-                  onPressed: saving
+            const SizedBox(height: 16),
+            Align(
+              alignment: isDesktop ? Alignment.centerRight : Alignment.center,
+              child: SizedBox(
+                height: 36,
+                child: ElevatedButton(
+                  onPressed: generating || state.employees.isEmpty
                       ? null
                       : () => context
-                          .read<ExpensesBloc>()
-                          .add(const ExpenseFormCancelled()),
-                  child: const Text('Back'),
+                          .read<PayrollBloc>()
+                          .add(const PayrollDownloadSelected()),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.text,
+                    foregroundColor: AppColors.background,
+                    disabledBackgroundColor: AppColors.textLight,
+                    disabledForegroundColor: AppColors.background,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: generating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.background,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Download slip',
+                          style: TextStyle(fontSize: 13),
+                        ),
                 ),
-                AppButton(
-                  label: saving ? 'Saving…' : 'Save',
-                  expand: true,
-                  isLoading: saving,
-                  enabled: !saving,
-                  onPressed: _submit,
-                ),
-              ],
+              ),
             ),
           ],
         );
       },
     );
   }
+}
+
+String _initials(String source) {
+  final parts = source.trim().split(RegExp(r'\s+|@'));
+  if (parts.isEmpty || parts.first.isEmpty) return 'S';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }

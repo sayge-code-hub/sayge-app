@@ -411,8 +411,20 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
   }
 
   void _applyPo(EmployeePurchaseOrder? po) {
+    if (po == null) return;
+    if (!po.coversDate(_invoiceDate)) {
+      final start = AppDates.compact.format(po.startDate);
+      final end = AppDates.compact.format(po.endDate);
+      showAppMessageDialog(
+        context,
+        title: 'Purchase order expired',
+        message:
+            'P.O. ${po.poNumber} is not valid for this invoice date. '
+            'Valid period: $start to $end.',
+      );
+      return;
+    }
     setState(() {
-      if (po == null) return;
       _poNumber.text = po.poNumber;
     });
   }
@@ -496,6 +508,28 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                               _invoiceDate = picked;
                               _dateCtrl.text = _dateFormat.format(picked);
                             });
+                            final poNo = _poNumber.text.trim();
+                            if (poNo.isEmpty || !mounted) return;
+                            EmployeePurchaseOrder? match;
+                            for (final po in pos) {
+                              if (po.poNumber.trim().toLowerCase() ==
+                                  poNo.toLowerCase()) {
+                                match = po;
+                                break;
+                              }
+                            }
+                            if (match == null || match.coversDate(picked)) {
+                              return;
+                            }
+                            if (!context.mounted) return;
+                            final end = AppDates.compact.format(match.endDate);
+                            await showAppMessageDialog(
+                              context,
+                              title: 'Purchase order expired',
+                              message:
+                                  'P.O. $poNo ended on $end and is not valid '
+                                  'for this invoice date. Clear or change the P.O.',
+                            );
                           },
                   ),
                   AppTextField(
@@ -516,8 +550,12 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                               for (final po in pos)
                                 PopupMenuItem(
                                   value: po,
+                                  enabled: po.coversDate(_invoiceDate),
                                   child: Text(
-                                    '${po.poNumber} (${po.employeeId})',
+                                    po.coversDate(_invoiceDate)
+                                        ? '${po.poNumber} (${po.employeeId})'
+                                        : '${po.poNumber} · expired '
+                                            '${AppDates.compact.format(po.endDate)}',
                                   ),
                                 ),
                             ],

@@ -65,6 +65,7 @@ class _AddEmployeeView extends StatefulWidget {
 class _AddEmployeeViewState extends State<_AddEmployeeView> {
   final _dateFormat = AppDates.compact;
   final _dojController = TextEditingController();
+  final _dobController = TextEditingController();
   final _employeeIdController = TextEditingController();
   final _employeeNameController = TextEditingController();
   final _designationController = TextEditingController();
@@ -87,6 +88,9 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     if (state.dateOfJoining != null) {
       _dojController.text = _dateFormat.format(state.dateOfJoining!);
     }
+    if (state.dateOfBirth != null) {
+      _dobController.text = _dateFormat.format(state.dateOfBirth!);
+    }
     _employeeIdController.text = state.employeeId;
     _employeeNameController.text = state.employeeName;
     _designationController.text = state.designation;
@@ -106,6 +110,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
   @override
   void dispose() {
     _dojController.dispose();
+    _dobController.dispose();
     _employeeIdController.dispose();
     _employeeNameController.dispose();
     _designationController.dispose();
@@ -123,7 +128,10 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     super.dispose();
   }
 
-  Future<void> _pickDate(BuildContext context, AddEmployeeState state) async {
+  Future<void> _pickJoiningDate(
+    BuildContext context,
+    AddEmployeeState state,
+  ) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -149,6 +157,39 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
       _dojController.text = _dateFormat.format(picked);
       context.read<AddEmployeeBloc>().add(
             AddEmployeeFieldChanged(dateOfJoining: picked),
+          );
+    }
+  }
+
+  Future<void> _pickBirthDate(
+    BuildContext context,
+    AddEmployeeState state,
+  ) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: state.dateOfBirth ?? DateTime(now.year - 25),
+      firstDate: DateTime(1950),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.text,
+              onPrimary: AppColors.background,
+              surface: AppColors.background,
+              onSurface: AppColors.text,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && context.mounted) {
+      _dobController.text = _dateFormat.format(picked);
+      context.read<AddEmployeeBloc>().add(
+            AddEmployeeFieldChanged(dateOfBirth: picked),
           );
     }
   }
@@ -296,9 +337,24 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                           hintText: 'Select date',
                           onTap: isLoading
                               ? null
-                              : () => _pickDate(context, state),
+                              : () => _pickJoiningDate(context, state),
                           suffixIcon: const Icon(
                             Icons.calendar_today_outlined,
+                            size: 18,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                        AppTextField(
+                          label: 'Date of birth',
+                          readOnly: true,
+                          enabled: !isLoading,
+                          controller: _dobController,
+                          hintText: 'Select date',
+                          onTap: isLoading
+                              ? null
+                              : () => _pickBirthDate(context, state),
+                          suffixIcon: const Icon(
+                            Icons.cake_outlined,
                             size: 18,
                             color: AppColors.textLight,
                           ),

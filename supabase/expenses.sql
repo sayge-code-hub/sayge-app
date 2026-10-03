@@ -7,6 +7,9 @@ create table if not exists public.expenses (
   paid_from text not null default '',
   category text not null default '',
   created_by uuid references auth.users (id) on delete set null,
+  approval_status text not null default 'pending',
+  approved_by uuid references auth.users (id) on delete set null,
+  approved_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint expenses_category_chk check (
@@ -17,6 +20,9 @@ create table if not exists public.expenses (
       'Accountant Consulting',
       'Misc'
     )
+  ),
+  constraint expenses_approval_status_chk check (
+    approval_status in ('pending', 'approved', 'rejected')
   )
 );
 

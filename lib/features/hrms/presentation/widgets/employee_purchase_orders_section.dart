@@ -52,7 +52,6 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
     return BlocConsumer<EmployeePoBloc, EmployeePoState>(
       listenWhen: (prev, next) =>
           prev.errorMessage != next.errorMessage ||
-          prev.successMessage != next.successMessage ||
           prev.downloadUrl != next.downloadUrl,
       listener: (context, state) async {
         if (state.errorMessage != null && context.mounted) {
@@ -60,13 +59,6 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
             context,
             title: 'Purchase order',
             message: state.errorMessage!,
-          );
-        }
-        if (state.successMessage != null && context.mounted) {
-          await showAppMessageDialog(
-            context,
-            title: 'Purchase order',
-            message: state.successMessage!,
           );
         }
         final url = state.downloadUrl;
@@ -219,8 +211,8 @@ class _PoRow extends StatelessWidget {
   }
 }
 
-Future<void> _showAddPoDialog(BuildContext context, String employeeId) {
-  return showDialog<void>(
+Future<void> _showAddPoDialog(BuildContext context, String employeeId) async {
+  final saved = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) {
@@ -230,6 +222,14 @@ Future<void> _showAddPoDialog(BuildContext context, String employeeId) {
       );
     },
   );
+
+  if (saved == true && context.mounted) {
+    await showAppMessageDialog(
+      context,
+      title: 'Purchase order',
+      message: 'Purchase order added.',
+    );
+  }
 }
 
 class _AddPoDialog extends StatefulWidget {
@@ -355,13 +355,12 @@ class _AddPoDialogState extends State<_AddPoDialog> {
   Widget build(BuildContext context) {
     return BlocConsumer<EmployeePoBloc, EmployeePoState>(
       listenWhen: (prev, next) =>
-          prev.status != next.status &&
+          prev.status == EmployeePoStatus.saving &&
           next.status == EmployeePoStatus.ready &&
           next.successMessage != null,
       listener: (context, state) {
-        if (state.successMessage != null && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
+        if (!Navigator.of(context).canPop()) return;
+        Navigator.of(context).pop(true);
       },
       builder: (context, state) {
         final saving = state.status == EmployeePoStatus.saving;

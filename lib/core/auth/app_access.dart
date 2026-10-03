@@ -35,6 +35,10 @@ abstract final class AppAccess {
     final id = user.employeeId?.trim();
     if (id != null && id.isNotEmpty) {
       if (location == AppRoutes.employeeCompensation(id)) return true;
+      if (location == AppRoutes.expenses ||
+          location.startsWith('${AppRoutes.expenses}/')) {
+        return true;
+      }
     }
 
     return false;

@@ -25,6 +25,14 @@ class EmployeePurchaseOrder extends Equatable {
 
   bool get hasFile => storagePath.trim().isNotEmpty;
 
+  /// Inclusive coverage: invoice/service date must fall in [startDate, endDate].
+  bool coversDate(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    return !day.isBefore(start) && !day.isAfter(end);
+  }
+
   @override
   List<Object?> get props => [
         id,

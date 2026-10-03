@@ -5,6 +5,8 @@ abstract final class AppRoutes {
   static const hrms = '/hrms';
   /// Employee single-page home (profile, slip, expenses).
   static const dashboard = '/dashboard';
+  /// Dashboard focused on salary slip download.
+  static const dashboardSlips = '/dashboard?section=slips';
   /// Employee self-service landing when no `employee_id` is linked yet.
   static const myDetails = '/hrms/me';
   static const employees = '/hrms/employees';

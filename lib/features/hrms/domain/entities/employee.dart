@@ -22,11 +22,13 @@ class Employee extends Equatable {
     required this.grade,
     required this.clientId,
     required this.client,
+    this.dateOfBirth,
   });
 
   final String employeeId;
   final String employeeName;
   final DateTime dateOfJoining;
+  final DateTime? dateOfBirth;
   final String designation;
   final String department;
   final double annualCtc;
@@ -52,6 +54,7 @@ class Employee extends Equatable {
         employeeId,
         employeeName,
         dateOfJoining,
+        dateOfBirth,
         designation,
         department,
         annualCtc,

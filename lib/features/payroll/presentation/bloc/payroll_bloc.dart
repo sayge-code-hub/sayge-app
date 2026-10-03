@@ -7,6 +7,7 @@ import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/domain/usecases/get_employees.dart';
 import '../../data/payslip_pdf_builder.dart';
 import '../../domain/services/payslip_calculator.dart';
+import '../../domain/services/payslip_period.dart';
 
 part 'payroll_event.dart';
 part 'payroll_state.dart';
@@ -134,10 +135,33 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     List<Employee> employees,
     Emitter<PayrollState> emit,
   ) async {
+    final eligible = employees
+        .where(
+          (e) => PayslipPeriod.isEligible(
+            e,
+            month: state.month,
+            year: state.year,
+          ),
+        )
+        .toList(growable: false);
+
+    if (eligible.isEmpty) {
+      emit(
+        state.copyWith(
+          status: PayrollStatus.failure,
+          errorMessage: employees.length == 1
+              ? 'No salary slip for this month — joining date is later.'
+              : 'No selected employees had joined in this payroll month.',
+        ),
+      );
+      emit(state.copyWith(status: PayrollStatus.ready, clearError: true));
+      return;
+    }
+
     emit(state.copyWith(status: PayrollStatus.generating, clearError: true));
     try {
-      for (var i = 0; i < employees.length; i++) {
-        final employee = employees[i];
+      for (var i = 0; i < eligible.length; i++) {
+        final employee = eligible[i];
         final slip = PayslipCalculator.fromEmployee(
           employee: employee,
           month: state.month,
@@ -149,7 +173,7 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
             'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
         await savePdfBytes(bytes: bytes, filename: filename);
         // Give the browser time between downloads so each file is saved.
-        if (i < employees.length - 1) {
+        if (i < eligible.length - 1) {
           await Future<void>.delayed(const Duration(milliseconds: 350));
         }
       }

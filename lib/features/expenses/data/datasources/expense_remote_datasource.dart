@@ -10,6 +10,11 @@ abstract class ExpenseRemoteDataSource {
   Future<List<ExpenseModel>> getExpenses();
 
   Future<ExpenseModel> addExpense(Expense expense);
+
+  Future<ExpenseModel> setApprovalStatus({
+    required String expenseId,
+    required ExpenseApprovalStatus status,
+  });
 }
 
 class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
@@ -124,6 +129,42 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to save expense.');
+    }
+  }
+
+  @override
+  Future<ExpenseModel> setApprovalStatus({
+    required String expenseId,
+    required ExpenseApprovalStatus status,
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException('Only owner or admin can approve expenses.');
+    }
+    final id = expenseId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Expense id is required.');
+    }
+    if (status == ExpenseApprovalStatus.pending) {
+      throw const ServerException('Choose approved or rejected.');
+    }
+
+    try {
+      final row = await _client
+          .from(_table)
+          .update({
+            'approval_status': status.dbValue,
+            'approved_by': _client.auth.currentUser?.id,
+            'approved_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', id)
+          .select()
+          .single();
+      return ExpenseModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update approval.');
     }
   }
 }

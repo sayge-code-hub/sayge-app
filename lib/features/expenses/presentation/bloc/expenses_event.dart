@@ -27,3 +27,16 @@ class ExpenseSubmitted extends ExpensesEvent {
   @override
   List<Object?> get props => [expense];
 }
+
+class ExpenseApprovalChanged extends ExpensesEvent {
+  const ExpenseApprovalChanged({
+    required this.expenseId,
+    required this.status,
+  });
+
+  final String expenseId;
+  final ExpenseApprovalStatus status;
+
+  @override
+  List<Object?> get props => [expenseId, status];
+}

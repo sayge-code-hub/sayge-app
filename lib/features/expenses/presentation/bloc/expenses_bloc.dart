@@ -11,15 +11,18 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
   ExpensesBloc({
     required this.getExpensesUseCase,
     required this.addExpenseUseCase,
+    required this.setExpenseApprovalUseCase,
   }) : super(const ExpensesState()) {
     on<ExpensesStarted>(_onStarted);
     on<ExpenseFormOpened>(_onFormOpened);
     on<ExpenseFormCancelled>(_onFormCancelled);
     on<ExpenseSubmitted>(_onSubmitted);
+    on<ExpenseApprovalChanged>(_onApprovalChanged);
   }
 
   final GetExpensesUseCase getExpensesUseCase;
   final AddExpenseUseCase addExpenseUseCase;
+  final SetExpenseApprovalUseCase setExpenseApprovalUseCase;
 
   Future<void> _onStarted(
     ExpensesStarted event,
@@ -89,6 +92,7 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
             state.copyWith(
               status: ExpensesStatus.success,
               showingForm: false,
+              successMessage: 'Expense saved',
               errorMessage: failure.message,
             ),
           ),
@@ -97,7 +101,57 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
               status: ExpensesStatus.success,
               expenses: expenses,
               showingForm: false,
+              successMessage: 'Expense saved',
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onApprovalChanged(
+    ExpenseApprovalChanged event,
+    Emitter<ExpensesState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        status: ExpensesStatus.saving,
+        approvingId: event.expenseId,
+        clearError: true,
+      ),
+    );
+    final result = await setExpenseApprovalUseCase(
+      expenseId: event.expenseId,
+      status: event.status,
+    );
+    await result.fold(
+      (failure) async {
+        emit(
+          state.copyWith(
+            status: ExpensesStatus.failure,
+            errorMessage: failure.message,
+            clearApprovingId: true,
+          ),
+        );
+        emit(
+          state.copyWith(
+            status: ExpensesStatus.ready,
+            clearApprovingId: true,
+          ),
+        );
+      },
+      (updated) async {
+        final next = state.expenses
+            .map((e) => e.id == updated.id ? updated : e)
+            .toList(growable: false);
+        emit(
+          state.copyWith(
+            status: ExpensesStatus.success,
+            expenses: next,
+            successMessage: event.status == ExpenseApprovalStatus.approved
+                ? 'Expense approved'
+                : 'Expense rejected',
+            clearApprovingId: true,
           ),
         );
       },

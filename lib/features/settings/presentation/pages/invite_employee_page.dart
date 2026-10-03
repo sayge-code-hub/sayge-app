@@ -10,6 +10,8 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
+import '../../../hrms/domain/entities/employee.dart';
+import '../../../hrms/domain/usecases/get_employees.dart';
 import '../../data/datasources/invite_employee_remote_datasource.dart';
 import '../../domain/entities/settings_entities.dart';
 import '../bloc/roles/roles_bloc.dart';
@@ -41,8 +43,32 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   final _localPart = TextEditingController();
   final _fullName = TextEditingController();
   String? _roleId = 'role_employee';
+  String? _employeeId;
+  List<Employee> _employees = const [];
+  bool _loadingEmployees = true;
   bool _sending = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    final result = await sl<GetEmployeesUseCase>()();
+    if (!mounted) return;
+    result.fold(
+      (_) => setState(() {
+        _employees = const [];
+        _loadingEmployees = false;
+      }),
+      (list) => setState(() {
+        _employees = list;
+        _loadingEmployees = false;
+      }),
+    );
+  }
 
   @override
   void dispose() {
@@ -57,6 +83,10 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
       setState(() => _error = localError);
       return;
     }
+    if (_employeeId == null || _employeeId!.trim().isEmpty) {
+      setState(() => _error = 'Select the HRMS employee to link');
+      return;
+    }
     final email = Validators.composeEmail(_localPart.text);
     setState(() {
       _sending = true;
@@ -67,6 +97,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
         email: email,
         fullName: _fullName.text.trim(),
         roleId: _roleId ?? 'role_employee',
+        employeeId: _employeeId!,
       );
       if (!mounted) return;
       await showAppMessageDialog(
@@ -77,7 +108,10 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
       if (!mounted) return;
       _localPart.clear();
       _fullName.clear();
-      setState(() => _roleId = 'role_employee');
+      setState(() {
+        _roleId = 'role_employee';
+        _employeeId = null;
+      });
     } catch (e) {
       final raw = e.toString();
       setState(() {
@@ -96,6 +130,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     final isDesktop = Breakpoints.isDesktop(context);
     final horizontal = isDesktop ? 32.0 : 16.0;
     final textTheme = Theme.of(context).textTheme;
+    final employeeIds = _employees.map((e) => e.employeeId).toList();
 
     return Column(
       children: [
@@ -105,7 +140,8 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
             children: [
               Text(
                 'Send an invite to a @${Validators.allowedEmailDomain} address. '
-                'They choose their own password from the email link — you never set it.',
+                'Link an existing HRMS employee so their dashboard shows '
+                'details and salary slips. They set their own password.',
                 style: textTheme.bodyMedium?.copyWith(
                   fontSize: 13,
                   color: AppColors.textLight,
@@ -138,6 +174,46 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                 enabled: !_sending,
                 textCapitalization: TextCapitalization.words,
               ),
+              const SizedBox(height: 12),
+              if (_loadingEmployees)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                AppDropdown<String>(
+                  label: 'Link HRMS employee',
+                  value: employeeIds.contains(_employeeId) ? _employeeId : null,
+                  items: employeeIds,
+                  itemLabel: (id) {
+                    final match = _employees.where((e) => e.employeeId == id);
+                    if (match.isEmpty) return id;
+                    final e = match.first;
+                    return '${e.employeeName} ($id)';
+                  },
+                  enabled: !_sending && employeeIds.isNotEmpty,
+                  onChanged: (id) {
+                    setState(() {
+                      _employeeId = id;
+                      if (_fullName.text.trim().isEmpty && id != null) {
+                        final match =
+                            _employees.where((e) => e.employeeId == id);
+                        if (match.isNotEmpty) {
+                          _fullName.text = match.first.employeeName;
+                        }
+                      }
+                    });
+                  },
+                ),
               const SizedBox(height: 12),
               BlocBuilder<RolesBloc, RolesState>(
                 builder: (context, state) {

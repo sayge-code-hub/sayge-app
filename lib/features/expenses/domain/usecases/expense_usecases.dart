@@ -21,3 +21,19 @@ class AddExpenseUseCase {
     return _repository.addExpense(expense);
   }
 }
+
+class SetExpenseApprovalUseCase {
+  const SetExpenseApprovalUseCase(this._repository);
+
+  final ExpenseRepository _repository;
+
+  Future<Either<Failure, Expense>> call({
+    required String expenseId,
+    required ExpenseApprovalStatus status,
+  }) {
+    return _repository.setApprovalStatus(
+      expenseId: expenseId,
+      status: status,
+    );
+  }
+}

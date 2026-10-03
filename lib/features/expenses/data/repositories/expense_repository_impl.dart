@@ -36,4 +36,25 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       return const Left(NetworkFailure('Failed to save expense.'));
     }
   }
+
+  @override
+  Future<Either<Failure, Expense>> setApprovalStatus({
+    required String expenseId,
+    required ExpenseApprovalStatus status,
+  }) async {
+    try {
+      return Right(
+        await remoteDataSource.setApprovalStatus(
+          expenseId: expenseId,
+          status: status,
+        ),
+      );
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update approval.'));
+    }
+  }
 }

@@ -22,6 +22,7 @@ class EmployeeModel extends Employee {
     required super.grade,
     required super.clientId,
     required super.client,
+    super.dateOfBirth,
   });
 
   factory EmployeeModel.fromEntity(Employee employee) {
@@ -29,6 +30,7 @@ class EmployeeModel extends Employee {
       employeeId: employee.employeeId,
       employeeName: employee.employeeName,
       dateOfJoining: employee.dateOfJoining,
+      dateOfBirth: employee.dateOfBirth,
       designation: employee.designation,
       department: employee.department,
       annualCtc: employee.annualCtc,
@@ -67,10 +69,17 @@ class EmployeeModel extends Employee {
       return value?.toString().toLowerCase() == 'true';
     }
 
-    final dojRaw = json['date_of_joining'] ?? json['dateOfJoining'];
-    final doj = dojRaw is DateTime
-        ? dojRaw
-        : DateTime.parse(dojRaw.toString());
+    DateTime? readDate(String snake, [String? camel]) {
+      final raw = json[snake] ?? (camel == null ? null : json[camel]);
+      if (raw == null) return null;
+      if (raw is DateTime) return raw;
+      final text = raw.toString().trim();
+      if (text.isEmpty) return null;
+      return DateTime.tryParse(text);
+    }
+
+    final doj = readDate('date_of_joining', 'dateOfJoining') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
 
     final clientJoin = json['clients'];
     final clientMap =
@@ -84,6 +93,7 @@ class EmployeeModel extends Employee {
       employeeId: readString('employee_id', 'employeeId'),
       employeeName: readString('employee_name', 'employeeName'),
       dateOfJoining: doj,
+      dateOfBirth: readDate('date_of_birth', 'dateOfBirth'),
       designation: readString('designation'),
       department: readString('department'),
       annualCtc: readNum('annual_ctc', 'annualCtc').toDouble(),
@@ -115,6 +125,7 @@ class EmployeeModel extends Employee {
       'employee_name': employeeName,
       'date_of_joining':
           dateOfJoining.toIso8601String().split('T').first,
+      'date_of_birth': dateOfBirth?.toIso8601String().split('T').first,
       'designation': designation,
       'department': department,
       'annual_ctc': annualCtc,
