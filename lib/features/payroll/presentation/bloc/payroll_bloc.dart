@@ -43,11 +43,15 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
       (employees) {
         final active = employees.where((e) => e.isActive).toList()
           ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
+        // Self-service (single row): pre-select so Download slip works immediately.
+        final selected = active.length == 1
+            ? {active.first.employeeId}
+            : <String>{};
         emit(
           state.copyWith(
             status: PayrollStatus.ready,
             employees: active,
-            selectedIds: {},
+            selectedIds: selected,
           ),
         );
       },

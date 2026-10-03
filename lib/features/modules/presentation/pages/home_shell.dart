@@ -8,6 +8,7 @@ import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
+import '../../../auth/domain/usecases/sign_out_usecase.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
 
@@ -32,6 +33,7 @@ class _HomeShellState extends State<HomeShell> {
   late final EmployeesBloc _employeesBloc =
       sl<EmployeesBloc>()..add(const EmployeesRequested());
   ClientsBloc? _clientsBloc;
+  bool _loggingOut = false;
 
   bool get _isStaff => AppAccess.isStaff(widget.user);
 
@@ -108,25 +110,10 @@ class _HomeShellState extends State<HomeShell> {
 
     return const [
       AppNavSection(
-        label: 'My details',
-        icon: Icons.badge_outlined,
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
         selectable: true,
         items: [],
-      ),
-      AppNavSection(
-        label: 'Finances',
-        icon: Icons.account_balance_wallet_outlined,
-        selectable: false,
-        items: [
-          AppNavItem(
-            label: 'Payroll',
-            icon: Icons.payments_outlined,
-          ),
-          AppNavItem(
-            label: 'Expense',
-            icon: Icons.monetization_on_outlined,
-          ),
-        ],
       ),
     ];
   }
@@ -146,16 +133,7 @@ class _HomeShellState extends State<HomeShell> {
       ];
     }
 
-    final id = widget.user.employeeId?.trim();
-    final myDetails = (id != null && id.isNotEmpty)
-        ? AppRoutes.employeeDetail(id)
-        : AppRoutes.myDetails;
-
-    return [
-      myDetails,
-      AppRoutes.payroll,
-      AppRoutes.expenses,
-    ];
+    return const [AppRoutes.dashboard];
   }
 
   int get _selectedIndex {
@@ -163,8 +141,6 @@ class _HomeShellState extends State<HomeShell> {
     final paths = _paths;
 
     if (!_isStaff) {
-      if (location.startsWith(AppRoutes.expenses)) return 2;
-      if (location.startsWith(AppRoutes.payroll)) return 1;
       return 0;
     }
 
@@ -185,12 +161,13 @@ class _HomeShellState extends State<HomeShell> {
 
   String get _title {
     final location = widget.location;
-    if (location == AppRoutes.myDetails) return 'My details';
+    if (location == AppRoutes.dashboard) return 'Dashboard';
+    if (location == AppRoutes.myDetails) return 'Dashboard';
     if (location == AppRoutes.employeesAdd) return 'Add employee';
     if (location.endsWith('/edit')) return 'Edit employee';
     if (location.endsWith('/compensation')) return 'Compensation breakup';
     if (RegExp(r'^/hrms/employees/[^/]+$').hasMatch(location)) {
-      return _isStaff ? 'Employee details' : 'My details';
+      return 'Employee details';
     }
     if (location == AppRoutes.clientsAdd) return 'Add client';
     if (location.startsWith(AppRoutes.clients)) return 'Manage clients';
@@ -213,10 +190,7 @@ class _HomeShellState extends State<HomeShell> {
 
     if (!_isStaff) {
       if (location.endsWith('/compensation')) {
-        final id = widget.user.employeeId?.trim();
-        if (id != null && id.isNotEmpty) {
-          return () => _goBack(AppRoutes.employeeDetail(id));
-        }
+        return () => _goBack(AppRoutes.dashboard);
       }
       return null;
     }
@@ -269,6 +243,14 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _logout() async {
+    if (_loggingOut) return;
+    setState(() => _loggingOut = true);
+    await sl<SignOutUseCase>()();
+    if (!mounted) return;
+    context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -283,6 +265,7 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: _selectDestination,
         onBack: _onBack,
+        onLogout: _loggingOut ? null : _logout,
         body: widget.child,
       ),
     );

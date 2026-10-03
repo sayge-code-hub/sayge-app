@@ -20,6 +20,7 @@ class AppShell extends StatelessWidget {
     required this.onDestinationSelected,
     required this.body,
     this.onBack,
+    this.onLogout,
     this.actions,
   });
 
@@ -34,6 +35,7 @@ class AppShell extends StatelessWidget {
   final Widget body;
   /// When set, shows a leading back control in the content header / app bar.
   final VoidCallback? onBack;
+  final VoidCallback? onLogout;
   final List<Widget>? actions;
 
   @override
@@ -46,6 +48,7 @@ class AppShell extends StatelessWidget {
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
             onBack: onBack,
+            onLogout: onLogout,
             actions: actions,
             body: body,
           )
@@ -56,6 +59,7 @@ class AppShell extends StatelessWidget {
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
             onBack: onBack,
+            onLogout: onLogout,
             actions: actions,
             body: body,
           );
@@ -83,6 +87,7 @@ class _DesktopShell extends StatelessWidget {
     required this.onDestinationSelected,
     required this.body,
     this.onBack,
+    this.onLogout,
     this.actions,
   });
 
@@ -93,6 +98,7 @@ class _DesktopShell extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final Widget body;
   final VoidCallback? onBack;
+  final VoidCallback? onLogout;
   final List<Widget>? actions;
 
   @override
@@ -106,6 +112,7 @@ class _DesktopShell extends StatelessWidget {
             sections: sections,
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
+            onLogout: onLogout,
           ),
           Expanded(
             child: ColoredBox(
@@ -152,6 +159,7 @@ class _MobileShell extends StatelessWidget {
     required this.onDestinationSelected,
     required this.body,
     this.onBack,
+    this.onLogout,
     this.actions,
   });
 
@@ -162,6 +170,7 @@ class _MobileShell extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final Widget body;
   final VoidCallback? onBack;
+  final VoidCallback? onLogout;
   final List<Widget>? actions;
 
   @override
@@ -209,6 +218,7 @@ class _MobileShell extends StatelessWidget {
               Navigator.of(context).pop();
               onDestinationSelected(index);
             },
+            onLogout: onLogout,
             compact: false,
           ),
         ),
@@ -283,6 +293,7 @@ class _Sidebar extends StatefulWidget {
     required this.sections,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.onLogout,
     this.compact = true,
   });
 
@@ -290,6 +301,7 @@ class _Sidebar extends StatefulWidget {
   final List<AppNavSection> sections;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final VoidCallback? onLogout;
   final bool compact;
 
   @override
@@ -404,7 +416,7 @@ class _SidebarState extends State<_Sidebar> {
             color: AppColors.border,
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
               children: [
                 CircleAvatar(
@@ -443,6 +455,24 @@ class _SidebarState extends State<_Sidebar> {
               ],
             ),
           ),
+          if (widget.onLogout != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: TextButton.icon(
+                  onPressed: widget.onLogout,
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: const Text('Log out'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.text,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+              ),
+            ),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: AppVersionLabel(

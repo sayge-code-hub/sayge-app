@@ -42,4 +42,9 @@ class AuthLocalStorage {
   Future<void> clear() async {
     await _prefs.remove(_userKey);
   }
+
+  /// Wipes all SharedPreferences keys so no login/profile residue remains.
+  Future<void> clearAll() async {
+    await _prefs.clear();
+  }
 }

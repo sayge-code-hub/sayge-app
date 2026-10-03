@@ -11,6 +11,7 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/entities/user.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
+import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/presentation/bloc/login_bloc.dart';
 import 'features/dms/data/datasources/document_remote_datasource.dart';
 import 'features/dms/data/repositories/document_repository_impl.dart';
@@ -101,6 +102,7 @@ Future<void> initDependencies() async {
 
   sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
   sl.registerLazySingleton(() => LoginUseCase(sl()));
+  sl.registerLazySingleton(() => SignOutUseCase(sl(), sl()));
 
   sl.registerFactory(
     () => ClientsBloc(

@@ -13,6 +13,7 @@ import '../../features/hrms/presentation/pages/employee_detail_page.dart';
 import '../../features/hrms/presentation/pages/employees_page.dart';
 import '../../features/hrms/presentation/pages/hrms_overview_page.dart';
 import '../../features/hrms/presentation/pages/my_details_page.dart';
+import '../../features/modules/presentation/pages/employee_dashboard_page.dart';
 import '../../features/modules/presentation/pages/home_shell.dart';
 import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
@@ -54,6 +55,7 @@ bool _isAuthHashDebris(String location) {
   const knownPrefixes = <String>[
     AppRoutes.login,
     AppRoutes.setPassword,
+    AppRoutes.dashboard,
     AppRoutes.hrms,
     AppRoutes.myDetails,
     AppRoutes.dms,
@@ -127,6 +129,11 @@ GoRouter createAppRouter(AuthSession authSession) {
           );
         },
         routes: [
+          GoRoute(
+            path: AppRoutes.dashboard,
+            pageBuilder: (context, state) =>
+                _page(state, const EmployeeDashboardPage()),
+          ),
           GoRoute(
             path: AppRoutes.hrms,
             pageBuilder: (context, state) =>
@@ -220,6 +227,7 @@ GoRouter createAppRouter(AuthSession authSession) {
                 path: 'compensation',
                 pageBuilder: (context, state) {
                   final id = state.pathParameters['id']!;
+                  final staff = AppAccess.isStaff(authSession.user);
                   return _page(
                     state,
                     _EmployeeRoutePage(
@@ -227,8 +235,12 @@ GoRouter createAppRouter(AuthSession authSession) {
                       builder: (employee) => CompensationBreakupPage(
                         employee: employee,
                         embedded: true,
-                        onBack: () =>
-                            _goBack(context, AppRoutes.employeeDetail(id)),
+                        onBack: () => _goBack(
+                          context,
+                          staff
+                              ? AppRoutes.employeeDetail(id)
+                              : AppRoutes.dashboard,
+                        ),
                       ),
                     ),
                   );

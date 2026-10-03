@@ -82,10 +82,10 @@ Rules:
 
 **Employee** = any other role — only:
 
-- Own employee details (view; no edit)
-- Own compensation / salary breakup (view)
-- Own salary slip (view / download)
-- Finances → Expense (add / view own expenses)
+- Single sidebar item: **Dashboard** (not My details / Finances trees)
+- On Dashboard (one scrollable page): own profile/details, compensation
+  breakdown, salary slip download, and expenses (list + add)
+- Own compensation deep-link (view) from Dashboard
 
 Employees MUST NOT access: all-employees list, add/edit others, DMS, proposals,
 invoices, settings (invite, clients, company, roles, ledger), or other people’s
@@ -94,10 +94,17 @@ payroll/data.
 Enforce in UI (nav + route guards) **and** data layer / RLS
 (`supabase/fix_rbac_policies.sql`). Hiding nav alone is not enough.
 
+### VII. Logout (NON-NEGOTIABLE)
+
+- Sidebar / drawer MUST expose **Log out**.
+- Logout MUST wipe: Supabase session (`signOut`), in-memory `AuthSession`,
+  all SharedPreferences, then navigate to `/login` with empty credentials.
+- No flash of prior name/role/email after logout.
+
 ## Governance
 
 - This constitution overrides ad-hoc UI habits when they conflict.
 - Amendments require an explicit product decision and a version bump below.
 
-**Version:** 1.3.0  
+**Version:** 1.4.0  
 **Last updated:** 2026-10-03

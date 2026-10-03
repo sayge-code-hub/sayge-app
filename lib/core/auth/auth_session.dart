@@ -27,7 +27,7 @@ class AuthSession extends ChangeNotifier {
 
   Future<void> clear() async {
     _user = null;
-    await _storage.clear();
+    await _storage.clearAll();
     notifyListeners();
   }
 }

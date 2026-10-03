@@ -3,6 +3,8 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const root = '/';
   static const hrms = '/hrms';
+  /// Employee single-page home (profile, slip, expenses).
+  static const dashboard = '/dashboard';
   /// Employee self-service landing when no `employee_id` is linked yet.
   static const myDetails = '/hrms/me';
   static const employees = '/hrms/employees';

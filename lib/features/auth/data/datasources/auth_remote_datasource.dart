@@ -67,9 +67,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> signOut() async {
     try {
-      await _client.auth.signOut();
+      // Local scope clears the browser/session storage for this client.
+      await _client.auth.signOut(scope: SignOutScope.local);
     } catch (_) {
-      // Local clear still proceeds even if remote sign-out fails.
+      try {
+        await _client.auth.signOut();
+      } catch (_) {
+        // Local clear still proceeds even if remote sign-out fails.
+      }
     }
   }
 
