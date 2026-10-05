@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/failures.dart';
 import '../entities/dms_entity.dart';
@@ -17,8 +18,8 @@ class AddDocumentUseCase {
     required String title,
     required String fileName,
     required String category,
+    required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
-    int fileSizeBytes = 0,
     String notes = '',
   }) {
     return _repository.addDocument(
@@ -28,8 +29,9 @@ class AddDocumentUseCase {
       title: title,
       fileName: fileName,
       category: category,
+      fileBytes: fileBytes,
       mimeType: mimeType,
-      fileSizeBytes: fileSizeBytes,
+      fileSizeBytes: fileBytes.length,
       notes: notes,
     );
   }

@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -67,6 +68,50 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
       final updated = await remoteDataSource.exitEmployee(
         employeeId: employeeId,
         dateOfExit: dateOfExit,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, Employee>> updateEmployeePhoto({
+    required String employeeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    try {
+      final updated = await remoteDataSource.updateEmployeePhoto(
+        employeeId: employeeId,
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, Employee>> setEmployeePhotoFromDocument({
+    required String employeeId,
+    required String storagePath,
+  }) async {
+    try {
+      final updated = await remoteDataSource.setEmployeePhotoFromDocument(
+        employeeId: employeeId,
+        storagePath: storagePath,
       );
       return Right(updated);
     } on ServerException catch (e) {

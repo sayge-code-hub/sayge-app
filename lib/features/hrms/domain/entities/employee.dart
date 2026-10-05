@@ -20,6 +20,15 @@ class Employee extends Equatable {
     required this.ifsc,
     required this.pan,
     required this.uan,
+    this.contactNo = '',
+    this.residentialAddress = '',
+    this.alternateContact = '',
+    this.personalEmail = '',
+    this.gender = '',
+    this.fatherName = '',
+    this.motherName = '',
+    this.nationality = '',
+    this.pincode = '',
     required this.isActive,
     this.dateOfExit,
     required this.location,
@@ -27,6 +36,8 @@ class Employee extends Equatable {
     required this.clientId,
     required this.client,
     this.dateOfBirth,
+    this.photoPath,
+    this.photoUrl,
   });
 
   final String employeeId;
@@ -51,6 +62,16 @@ class Employee extends Equatable {
   final String ifsc;
   final String pan;
   final String uan;
+  /// Mobile / contact phone number.
+  final String contactNo;
+  final String residentialAddress;
+  final String alternateContact;
+  final String personalEmail;
+  final String gender;
+  final String fatherName;
+  final String motherName;
+  final String nationality;
+  final String pincode;
   final bool isActive;
   /// Last working day when exited from the organisation; null if still employed.
   final DateTime? dateOfExit;
@@ -60,6 +81,8 @@ class Employee extends Equatable {
   final String clientId;
   /// Resolved client display name (from join).
   final String client;
+  final String? photoPath;
+  final String? photoUrl;
 
   Employee copyWith({
     String? employeeId,
@@ -81,6 +104,15 @@ class Employee extends Equatable {
     String? ifsc,
     String? pan,
     String? uan,
+    String? contactNo,
+    String? residentialAddress,
+    String? alternateContact,
+    String? personalEmail,
+    String? gender,
+    String? fatherName,
+    String? motherName,
+    String? nationality,
+    String? pincode,
     bool? isActive,
     DateTime? dateOfExit,
     bool clearDateOfExit = false,
@@ -88,6 +120,10 @@ class Employee extends Equatable {
     String? grade,
     String? clientId,
     String? client,
+    String? photoPath,
+    String? photoUrl,
+    bool clearPhotoPath = false,
+    bool clearPhotoUrl = false,
   }) {
     return Employee(
       employeeId: employeeId ?? this.employeeId,
@@ -109,12 +145,23 @@ class Employee extends Equatable {
       ifsc: ifsc ?? this.ifsc,
       pan: pan ?? this.pan,
       uan: uan ?? this.uan,
+      contactNo: contactNo ?? this.contactNo,
+      residentialAddress: residentialAddress ?? this.residentialAddress,
+      alternateContact: alternateContact ?? this.alternateContact,
+      personalEmail: personalEmail ?? this.personalEmail,
+      gender: gender ?? this.gender,
+      fatherName: fatherName ?? this.fatherName,
+      motherName: motherName ?? this.motherName,
+      nationality: nationality ?? this.nationality,
+      pincode: pincode ?? this.pincode,
       isActive: isActive ?? this.isActive,
       dateOfExit: clearDateOfExit ? null : (dateOfExit ?? this.dateOfExit),
       location: location ?? this.location,
       grade: grade ?? this.grade,
       clientId: clientId ?? this.clientId,
       client: client ?? this.client,
+      photoPath: clearPhotoPath ? null : (photoPath ?? this.photoPath),
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
     );
   }
 
@@ -139,11 +186,22 @@ class Employee extends Equatable {
         ifsc,
         pan,
         uan,
+        contactNo,
+        residentialAddress,
+        alternateContact,
+        personalEmail,
+        gender,
+        fatherName,
+        motherName,
+        nationality,
+        pincode,
         isActive,
         dateOfExit,
         location,
         grade,
         clientId,
         client,
+        photoPath,
+        photoUrl,
       ];
 }

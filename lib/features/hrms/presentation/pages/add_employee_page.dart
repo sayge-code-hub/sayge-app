@@ -81,6 +81,15 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
   final _ifscController = TextEditingController();
   final _panController = TextEditingController();
   final _uanController = TextEditingController();
+  final _contactNoController = TextEditingController();
+  final _residentialAddressController = TextEditingController();
+  final _alternateContactController = TextEditingController();
+  final _personalEmailController = TextEditingController();
+  final _genderController = TextEditingController();
+  final _fatherNameController = TextEditingController();
+  final _motherNameController = TextEditingController();
+  final _nationalityController = TextEditingController();
+  final _pincodeController = TextEditingController();
   final _locationController = TextEditingController();
   final _gradeController = TextEditingController();
   bool _hydrated = false;
@@ -109,6 +118,15 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _ifscController.text = state.ifsc;
     _panController.text = state.pan;
     _uanController.text = state.uan;
+    _contactNoController.text = state.contactNo;
+    _residentialAddressController.text = state.residentialAddress;
+    _alternateContactController.text = state.alternateContact;
+    _personalEmailController.text = state.personalEmail;
+    _genderController.text = state.gender;
+    _fatherNameController.text = state.fatherName;
+    _motherNameController.text = state.motherName;
+    _nationalityController.text = state.nationality;
+    _pincodeController.text = state.pincode;
     _locationController.text = state.location;
     _gradeController.text = state.grade;
   }
@@ -132,6 +150,15 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _ifscController.dispose();
     _panController.dispose();
     _uanController.dispose();
+    _contactNoController.dispose();
+    _residentialAddressController.dispose();
+    _alternateContactController.dispose();
+    _personalEmailController.dispose();
+    _genderController.dispose();
+    _fatherNameController.dispose();
+    _motherNameController.dispose();
+    _nationalityController.dispose();
+    _pincodeController.dispose();
     _locationController.dispose();
     _gradeController.dispose();
     super.dispose();
@@ -322,6 +349,108 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                               context.read<AddEmployeeBloc>().add(
                                     AddEmployeeFieldChanged(
                                       employeeName: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _contactNoController,
+                          label: 'Contact no',
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.phone,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      contactNo: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _alternateContactController,
+                          label: 'Alternate contact',
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.phone,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      alternateContact: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _personalEmailController,
+                          label: 'Personal email',
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.emailAddress,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      personalEmail: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _genderController,
+                          label: 'Gender',
+                          enabled: !isLoading,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(gender: value),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _fatherNameController,
+                          label: "Father's name",
+                          enabled: !isLoading,
+                          textCapitalization: TextCapitalization.words,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      fatherName: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _motherNameController,
+                          label: "Mother's name",
+                          enabled: !isLoading,
+                          textCapitalization: TextCapitalization.words,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      motherName: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _nationalityController,
+                          label: 'Nationality',
+                          enabled: !isLoading,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      nationality: value,
+                                    ),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _pincodeController,
+                          label: 'Pincode',
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(pincode: value),
+                                  ),
+                        ),
+                        AppTextField(
+                          controller: _residentialAddressController,
+                          label: 'Residential address',
+                          enabled: !isLoading,
+                          maxLines: 3,
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(
+                                      residentialAddress: value,
                                     ),
                                   ),
                         ),

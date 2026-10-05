@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -50,6 +51,30 @@ class ClientRepositoryImpl implements ClientRepository {
       return Left(NetworkFailure(e.message));
     } catch (_) {
       return const Left(NetworkFailure('Failed to update client.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Client>> updateClientLogo({
+    required String id,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    try {
+      final updated = await remoteDataSource.updateClientLogo(
+        id: id,
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update client logo.'));
     }
   }
 

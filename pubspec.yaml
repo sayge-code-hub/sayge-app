@@ -43,6 +43,7 @@ flutter:
     - assets/images/sayge_logo.png
     - assets/images/sayge_icon.png
     - assets/images/proposal_signature.png
+    - assets/images/nav_expense.png
 
   fonts:
     - family: PlusJakartaSans

@@ -25,6 +25,15 @@ class AddEmployeeState extends Equatable {
     this.ifsc = '',
     this.pan = '',
     this.uan = '',
+    this.contactNo = '',
+    this.residentialAddress = '',
+    this.alternateContact = '',
+    this.personalEmail = '',
+    this.gender = '',
+    this.fatherName = '',
+    this.motherName = '',
+    this.nationality = '',
+    this.pincode = '',
     this.isActive = true,
     this.location = '',
     this.grade = '',
@@ -54,6 +63,15 @@ class AddEmployeeState extends Equatable {
   final String ifsc;
   final String pan;
   final String uan;
+  final String contactNo;
+  final String residentialAddress;
+  final String alternateContact;
+  final String personalEmail;
+  final String gender;
+  final String fatherName;
+  final String motherName;
+  final String nationality;
+  final String pincode;
   final bool? isActive;
   final String location;
   final String grade;
@@ -132,6 +150,15 @@ class AddEmployeeState extends Equatable {
     String? ifsc,
     String? pan,
     String? uan,
+    String? contactNo,
+    String? residentialAddress,
+    String? alternateContact,
+    String? personalEmail,
+    String? gender,
+    String? fatherName,
+    String? motherName,
+    String? nationality,
+    String? pincode,
     bool? isActive,
     String? location,
     String? grade,
@@ -162,6 +189,15 @@ class AddEmployeeState extends Equatable {
       ifsc: ifsc ?? this.ifsc,
       pan: pan ?? this.pan,
       uan: uan ?? this.uan,
+      contactNo: contactNo ?? this.contactNo,
+      residentialAddress: residentialAddress ?? this.residentialAddress,
+      alternateContact: alternateContact ?? this.alternateContact,
+      personalEmail: personalEmail ?? this.personalEmail,
+      gender: gender ?? this.gender,
+      fatherName: fatherName ?? this.fatherName,
+      motherName: motherName ?? this.motherName,
+      nationality: nationality ?? this.nationality,
+      pincode: pincode ?? this.pincode,
       isActive: isActive ?? this.isActive,
       location: location ?? this.location,
       grade: grade ?? this.grade,
@@ -194,6 +230,15 @@ class AddEmployeeState extends Equatable {
         ifsc,
         pan,
         uan,
+        contactNo,
+        residentialAddress,
+        alternateContact,
+        personalEmail,
+        gender,
+        fatherName,
+        motherName,
+        nationality,
+        pincode,
         isActive,
         location,
         grade,

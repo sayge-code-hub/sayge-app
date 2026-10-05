@@ -66,8 +66,12 @@ jobs:
           # Drop local CanvasKit (~37MB); runtime loads from gstatic CDN.
           rm -rf build/web/canvaskit
           # Avoid stale service-worker caches on Netlify.
+          # Also content-hash MaterialIcons so browsers cannot keep a prior
+          # tree-shaken font at the stable path across deploys.
           node -e "
             const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
             const p = 'build/web/flutter_bootstrap.js';
             let t = fs.readFileSync(p, 'utf8');
             t = t.replace(
@@ -75,6 +79,45 @@ jobs:
               '_flutter.loader.load({ config: {} });'
             );
             fs.writeFileSync(p, t);
+
+            const fontsDir = 'build/web/assets/fonts';
+            const oldName = 'MaterialIcons-Regular.otf';
+            const oldPath = path.join(fontsDir, oldName);
+            if (fs.existsSync(oldPath)) {
+              const hash = crypto
+                .createHash('sha1')
+                .update(fs.readFileSync(oldPath))
+                .digest('hex')
+                .slice(0, 8);
+              const newName = 'MaterialIcons-Regular.' + hash + '.otf';
+              // Keep the stable path (old caches) and also publish a hashed
+              // copy that FontManifest will point at after revalidation.
+              fs.copyFileSync(oldPath, path.join(fontsDir, newName));
+              const fmPath = 'build/web/assets/FontManifest.json';
+              const fm = JSON.parse(fs.readFileSync(fmPath, 'utf8'));
+              for (const family of fm) {
+                if (!family.fonts) continue;
+                for (const font of family.fonts) {
+                  if (typeof font.asset === 'string' && font.asset.endsWith(oldName)) {
+                    font.asset = font.asset.replace(oldName, newName);
+                  }
+                }
+              }
+              fs.writeFileSync(fmPath, JSON.stringify(fm));
+              for (const manifestName of [
+                'AssetManifest.json',
+                'AssetManifest.bin.json',
+              ]) {
+                const mp = path.join('build/web/assets', manifestName);
+                if (!fs.existsSync(mp)) continue;
+                let body = fs.readFileSync(mp, 'utf8');
+                if (body.includes(oldName)) {
+                  body = body.split(oldName).join(newName);
+                  fs.writeFileSync(mp, body);
+                }
+              }
+              console.log('MaterialIcons cache-busted as', newName);
+            }
           "
 
       - name: Deploy to Netlify

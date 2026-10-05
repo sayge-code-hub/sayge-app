@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -19,10 +20,13 @@ abstract class DocumentRemoteDataSource {
     required String title,
     required String fileName,
     required String category,
+    required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
   });
+
+  Future<String> getDownloadUrl(String storagePath);
 }
 
 class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
@@ -35,6 +39,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
   static const _entitiesTable = 'dms_entities';
   static const _employeesTable = 'employees';
   static const _clientsTable = 'clients';
+  static const _bucket = 'documents';
 
   @override
   Future<List<DmsEntity>> getEntities(DmsEntityType type) async {
@@ -59,7 +64,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
   Future<List<DmsEntity>> _employees() async {
     final rows = await _client
         .from(_employeesTable)
-        .select('employee_id, employee_name, designation, is_active')
+        .select('employee_id, employee_name, designation, is_active, photo_path')
         .order('employee_name');
     return (rows as List<dynamic>).map((row) {
       final map = row as Map<String, dynamic>;
@@ -69,19 +74,41 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
         if (designation.isNotEmpty) designation,
         if (!active) 'Inactive',
       ];
+      final photoPath = (map['photo_path'] ?? '').toString().trim();
       return DmsEntity(
         id: (map['employee_id'] ?? '').toString(),
         name: (map['employee_name'] ?? '').toString(),
         type: DmsEntityType.employee,
         subtitle: bits.join(' · '),
+        imageUrl: _employeePhotoUrl(photoPath),
       );
     }).toList();
+  }
+
+  String? _employeePhotoUrl(String path) {
+    if (path.isEmpty) return null;
+    final bucket = path.startsWith('documents/') ? 'documents' : 'employee-avatars';
+    try {
+      return _client.storage.from(bucket).getPublicUrl(path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _brandLogoUrl(String path) {
+    if (path.isEmpty) return null;
+    final bucket = path.startsWith('documents/') ? 'documents' : 'brand-logos';
+    try {
+      return _client.storage.from(bucket).getPublicUrl(path);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<DmsEntity>> _clients() async {
     final rows = await _client
         .from(_clientsTable)
-        .select('id, name, contact_name, vendor_code')
+        .select('id, name, contact_name, vendor_code, logo_path')
         .order('name');
     return (rows as List<dynamic>).map((row) {
       final map = row as Map<String, dynamic>;
@@ -91,11 +118,13 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
         if (contact.isNotEmpty) contact,
         if (vendor.isNotEmpty) vendor,
       ];
+      final logoPath = (map['logo_path'] ?? '').toString().trim();
       return DmsEntity(
         id: (map['id'] ?? '').toString(),
         name: (map['name'] ?? '').toString(),
         type: DmsEntityType.client,
         subtitle: bits.join(' · '),
+        imageUrl: _brandLogoUrl(logoPath),
       );
     }).toList();
   }
@@ -148,6 +177,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     required String title,
     required String fileName,
     required String category,
+    required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
@@ -160,24 +190,26 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     if (trimmedTitle.isEmpty) {
       throw const ServerException('Document title is required.');
     }
-    if (trimmedFile.isEmpty) {
-      throw const ServerException('File name is required.');
+    if (trimmedFile.isEmpty || fileBytes.isEmpty) {
+      throw const ServerException('Choose at least one file to attach.');
     }
 
+    final safeFile = trimmedFile.replaceAll(RegExp(r'[^\w.\-]+'), '_');
     final id =
-        'doc-${entityType.storageValue}-$entityId-${DateTime.now().millisecondsSinceEpoch}';
+        'doc-${entityType.storageValue}-$entityId-${DateTime.now().microsecondsSinceEpoch}';
     final path =
-        'documents/${entityType.storageValue}/$entityId/$trimmedFile';
+        'documents/${entityType.storageValue}/$entityId/${id}_$safeFile';
+    final resolvedMime =
+        mimeType.trim().isEmpty ? 'application/octet-stream' : mimeType.trim();
     final payload = {
       'id': id,
       'entity_type': entityType.storageValue,
       'entity_id': entityId,
       'entity_name': entityName,
       'title': trimmedTitle,
-      'file_name': trimmedFile,
-      'mime_type':
-          mimeType.trim().isEmpty ? 'application/octet-stream' : mimeType,
-      'file_size_bytes': fileSizeBytes,
+      'file_name': safeFile,
+      'mime_type': resolvedMime,
+      'file_size_bytes': fileSizeBytes > 0 ? fileSizeBytes : fileBytes.length,
       'storage_path': path,
       'notes': notes.trim(),
       'category': trimmedCategory,
@@ -185,17 +217,53 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     };
 
     try {
+      await _client.storage.from(_bucket).uploadBinary(
+            path,
+            fileBytes,
+            fileOptions: FileOptions(
+              contentType: resolvedMime,
+              upsert: false,
+            ),
+          );
       final row = await _client
           .from(_documentsTable)
           .insert(payload)
           .select()
           .single();
       return DocumentModel.fromJson(row);
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
     } on PostgrestException catch (e) {
+      try {
+        await _client.storage.from(_bucket).remove([path]);
+      } catch (_) {}
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to add document.');
+    }
+  }
+
+  @override
+  Future<String> getDownloadUrl(String storagePath) async {
+    final path = storagePath.trim();
+    if (path.isEmpty) {
+      throw const ServerException('No file is attached to this document.');
+    }
+    try {
+      // Signed URL fails when the object is missing from the bucket.
+      return await _client.storage.from(_bucket).createSignedUrl(path, 3600);
+    } on StorageException catch (e) {
+      final message = e.message.trim();
+      if (message.isEmpty) {
+        throw const ServerException(
+          'File is not available in storage yet. Upload the document to view it.',
+        );
+      }
+      throw ServerException(message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to get document link.');
     }
   }
 }

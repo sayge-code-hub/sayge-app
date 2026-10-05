@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,8 +8,10 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
+import '../../../hrms/presentation/widgets/employee_avatar.dart';
 import '../../../hrms/presentation/widgets/employee_form_layout.dart';
 import '../../domain/entities/settings_entities.dart';
+import '../../domain/usecases/update_company_logo_usecase.dart';
 import '../bloc/company_details/company_details_bloc.dart';
 
 class CompanyDetailsPage extends StatelessWidget {
@@ -51,6 +54,65 @@ class _CompanyDetailsBodyState extends State<_CompanyDetailsBody> {
   final _branch = TextEditingController();
   final _ifsc = TextEditingController();
   String? _boundId;
+  bool _uploadingLogo = false;
+
+  Future<void> _pickAndUploadLogo(CompanyDetails details) async {
+    if (_uploadingLogo) return;
+    final files = await FilePicker.pickFiles(type: FileType.image);
+    if (files.isEmpty || !mounted) return;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty || !mounted) return;
+
+    setState(() => _uploadingLogo = true);
+    final result = await sl<UpdateCompanyLogoUseCase>()(
+      companyId: details.id,
+      bytes: bytes,
+      fileName: file.name,
+      mimeType: _mimeFor(file.extension, file.name),
+    );
+    if (!mounted) return;
+    setState(() => _uploadingLogo = false);
+
+    await result.fold(
+      (failure) => showAppMessageDialog(
+        context,
+        title: 'Company logo',
+        message: failure.message,
+      ),
+      (updated) async {
+        context.read<CompanyDetailsBloc>().add(
+              CompanyDetailsLogoUpdated(updated),
+            );
+        if (!mounted) return;
+        await showAppMessageDialog(
+          context,
+          message: 'Company logo updated',
+        );
+      },
+    );
+  }
+
+  static String _mimeFor(String? extension, String fileName) {
+    final ext = (extension ?? '').toLowerCase();
+    if (ext.isEmpty && fileName.contains('.')) {
+      final fromName = fileName.split('.').last.toLowerCase();
+      return _mimeFor(fromName, fileName);
+    }
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      default:
+        return 'image/jpeg';
+    }
+  }
 
   @override
   void dispose() {
@@ -150,6 +212,7 @@ class _CompanyDetailsBodyState extends State<_CompanyDetailsBody> {
         }
 
         final saving = state.status == CompanyDetailsStatus.saving;
+        final logoBusy = _uploadingLogo;
 
         return Column(
           children: [
@@ -157,6 +220,62 @@ class _CompanyDetailsBodyState extends State<_CompanyDetailsBody> {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
                 children: [
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: GestureDetector(
+                        onTap: saving || logoBusy
+                            ? null
+                            : () => _pickAndUploadLogo(details),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            EmployeeAvatar(
+                              name: details.displayName.isNotEmpty
+                                  ? details.displayName
+                                  : details.name,
+                              photoUrl: details.logoUrl,
+                              radius: isDesktop ? 44 : 40,
+                              fontSize: isDesktop ? 22 : 20,
+                            ),
+                            if (logoBusy)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background
+                                        .withValues(alpha: 0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (!saving && !logoBusy)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: AppColors.highlight,
+                                  child: Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 16,
+                                    color: AppColors.background,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   Text(
                     'GST & identity',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(

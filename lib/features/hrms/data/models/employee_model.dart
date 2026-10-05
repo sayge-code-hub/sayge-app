@@ -20,6 +20,15 @@ class EmployeeModel extends Employee {
     required super.ifsc,
     required super.pan,
     required super.uan,
+    super.contactNo,
+    super.residentialAddress,
+    super.alternateContact,
+    super.personalEmail,
+    super.gender,
+    super.fatherName,
+    super.motherName,
+    super.nationality,
+    super.pincode,
     required super.isActive,
     super.dateOfExit,
     required super.location,
@@ -27,6 +36,8 @@ class EmployeeModel extends Employee {
     required super.clientId,
     required super.client,
     super.dateOfBirth,
+    super.photoPath,
+    super.photoUrl,
   });
 
   factory EmployeeModel.fromEntity(Employee employee) {
@@ -50,12 +61,23 @@ class EmployeeModel extends Employee {
       ifsc: employee.ifsc,
       pan: employee.pan,
       uan: employee.uan,
+      contactNo: employee.contactNo,
+      residentialAddress: employee.residentialAddress,
+      alternateContact: employee.alternateContact,
+      personalEmail: employee.personalEmail,
+      gender: employee.gender,
+      fatherName: employee.fatherName,
+      motherName: employee.motherName,
+      nationality: employee.nationality,
+      pincode: employee.pincode,
       isActive: employee.isActive,
       dateOfExit: employee.dateOfExit,
       location: employee.location,
       grade: employee.grade,
       clientId: employee.clientId,
       client: employee.client,
+      photoPath: employee.photoPath,
+      photoUrl: employee.photoUrl,
     );
   }
 
@@ -97,6 +119,11 @@ class EmployeeModel extends Employee {
         ? (clientMap['name'] as String).trim()
         : readString('client');
 
+    final photoPathRaw = readString('photo_path', 'photoPath');
+    final photoPath = photoPathRaw.isEmpty ? null : photoPathRaw;
+    final photoUrlRaw = readString('photo_url', 'photoUrl');
+    final photoUrl = photoUrlRaw.isEmpty ? null : photoUrlRaw;
+
     return EmployeeModel(
       employeeId: readString('employee_id', 'employeeId'),
       employeeName: readString('employee_name', 'employeeName'),
@@ -120,6 +147,16 @@ class EmployeeModel extends Employee {
       ifsc: readString('ifsc'),
       pan: readString('pan'),
       uan: readString('uan'),
+      contactNo: readString('contact_no', 'contactNo'),
+      residentialAddress:
+          readString('residential_address', 'residentialAddress'),
+      alternateContact: readString('alternate_contact', 'alternateContact'),
+      personalEmail: readString('personal_email', 'personalEmail'),
+      gender: readString('gender'),
+      fatherName: readString('father_name', 'fatherName'),
+      motherName: readString('mother_name', 'motherName'),
+      nationality: readString('nationality'),
+      pincode: readString('pincode'),
       isActive: readBool('is_active', 'isActive'),
       dateOfExit: readDate('date_of_exit', 'dateOfExit'),
       location: readString('location'),
@@ -128,11 +165,14 @@ class EmployeeModel extends Employee {
           ? clientId
           : (clientMap['id'] as String?)?.toString() ?? '',
       client: clientName,
+      photoPath: photoPath,
+      photoUrl: photoUrl,
     );
   }
 
   /// Persist shape — FK only; name comes from clients join on read.
   Map<String, dynamic> toJson() {
+    final photo = photoPath?.trim() ?? '';
     return {
       'employee_id': employeeId,
       'employee_name': employeeName,
@@ -154,11 +194,21 @@ class EmployeeModel extends Employee {
       'ifsc': ifsc,
       'pan': pan,
       'uan': uan,
+      'contact_no': contactNo,
+      'residential_address': residentialAddress,
+      'alternate_contact': alternateContact,
+      'personal_email': personalEmail,
+      'gender': gender,
+      'father_name': fatherName,
+      'mother_name': motherName,
+      'nationality': nationality,
+      'pincode': pincode,
       'is_active': isActive,
       'date_of_exit': dateOfExit?.toIso8601String().split('T').first,
       'location': location,
       'grade': grade,
       'client_id': clientId.isEmpty ? null : clientId,
+      if (photo.isNotEmpty) 'photo_path': photo,
     };
   }
 }

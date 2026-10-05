@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/auth/app_access.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/client.dart';
 import '../models/client_model.dart';
@@ -16,23 +19,62 @@ abstract class ClientRemoteDataSource {
     required bool isActive,
   });
 
+  Future<ClientModel> updateClientLogo({
+    required String id,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  });
+
   Future<void> deleteClient(String id);
+
+  String? logoPublicUrl(String? path);
 }
 
 class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
-  ClientRemoteDataSourceImpl({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+  ClientRemoteDataSourceImpl({
+    SupabaseClient? client,
+    this._authSession,
+  }) : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+  final AuthSession? _authSession;
 
   static const _table = 'clients';
+  static const _brandLogosBucket = 'brand-logos';
+  static const _documentsBucket = 'documents';
+
+  @override
+  String? logoPublicUrl(String? path) {
+    final trimmed = path?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final bucket =
+        trimmed.startsWith('documents/') ? _documentsBucket : _brandLogosBucket;
+    try {
+      return _client.storage.from(bucket).getPublicUrl(trimmed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ClientModel _withLogoUrl(ClientModel model) {
+    final url = logoPublicUrl(model.logoPath);
+    if (url == null && (model.logoUrl?.isNotEmpty != true)) {
+      return model;
+    }
+    return ClientModel.fromEntity(
+      model.copyWith(logoUrl: url ?? model.logoUrl),
+    );
+  }
 
   @override
   Future<List<ClientModel>> getClients() async {
     try {
       final rows = await _client.from(_table).select().order('name');
       return (rows as List<dynamic>)
-          .map((row) => ClientModel.fromJson(row as Map<String, dynamic>))
+          .map((row) => _withLogoUrl(
+                ClientModel.fromJson(row as Map<String, dynamic>),
+              ))
           .toList();
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
@@ -72,7 +114,7 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
           )
           .select()
           .single();
-      return ClientModel.fromJson(row);
+      return _withLogoUrl(ClientModel.fromJson(row));
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Client already exists.');
@@ -117,7 +159,7 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
           .eq('id', client.id)
           .select()
           .single();
-      final updated = ClientModel.fromJson(row);
+      final updated = _withLogoUrl(ClientModel.fromJson(row));
       if (previous != null) {
         await _cascadeClientToProposals(previous: previous, next: updated);
         await _cascadeClientToInvoices(previous: previous, next: updated);
@@ -201,12 +243,83 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
           .eq('id', id)
           .select()
           .single();
-      return ClientModel.fromJson(row);
+      return _withLogoUrl(ClientModel.fromJson(row));
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to update client.');
+    }
+  }
+
+  @override
+  Future<ClientModel> updateClientLogo({
+    required String id,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException('Only owners and admins can update clients.');
+    }
+    if (bytes.isEmpty) {
+      throw const ServerException('Choose an image to upload.');
+    }
+    final clientId = id.trim();
+    if (clientId.isEmpty) {
+      throw const ServerException('Client id is required.');
+    }
+
+    var safeName = fileName.trim().replaceAll(RegExp(r'[^\w.\-]+'), '_');
+    if (safeName.isEmpty) safeName = 'logo.jpg';
+    final ext = safeName.contains('.')
+        ? safeName.substring(safeName.lastIndexOf('.') + 1).toLowerCase()
+        : 'jpg';
+    final path =
+        'clients/$clientId/logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final contentType =
+        mimeType.trim().isEmpty ? 'image/jpeg' : mimeType.trim();
+
+    try {
+      final existing = await _client
+          .from(_table)
+          .select('logo_path')
+          .eq('id', clientId)
+          .maybeSingle();
+      final previous = (existing?['logo_path'] ?? '').toString().trim();
+
+      await _client.storage.from(_brandLogosBucket).uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: contentType,
+              upsert: true,
+            ),
+          );
+
+      final row = await _client
+          .from(_table)
+          .update({'logo_path': path})
+          .eq('id', clientId)
+          .select()
+          .single();
+
+      if (previous.isNotEmpty &&
+          previous != path &&
+          !previous.startsWith('documents/')) {
+        try {
+          await _client.storage.from(_brandLogosBucket).remove([previous]);
+        } catch (_) {}
+      }
+
+      return _withLogoUrl(ClientModel.fromJson(row));
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update client logo.');
     }
   }
 

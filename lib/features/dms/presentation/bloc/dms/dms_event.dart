@@ -37,42 +37,25 @@ class DmsSelectionCleared extends DmsEvent {
   const DmsSelectionCleared();
 }
 
-class DmsDocumentTitleChanged extends DmsEvent {
-  const DmsDocumentTitleChanged(this.title);
-
-  final String title;
-
-  @override
-  List<Object?> get props => [title];
-}
-
-class DmsDocumentFileNameChanged extends DmsEvent {
-  const DmsDocumentFileNameChanged(this.fileName);
+class DmsPickedFile {
+  const DmsPickedFile({
+    required this.fileName,
+    required this.bytes,
+    required this.mimeType,
+  });
 
   final String fileName;
-
-  @override
-  List<Object?> get props => [fileName];
+  final Uint8List bytes;
+  final String mimeType;
 }
 
-class DmsDocumentNotesChanged extends DmsEvent {
-  const DmsDocumentNotesChanged(this.notes);
+class DmsFilesSelected extends DmsEvent {
+  const DmsFilesSelected(this.files);
 
-  final String notes;
-
-  @override
-  List<Object?> get props => [notes];
-}
-
-class DmsDocumentCategoryChanged extends DmsEvent {
-  const DmsDocumentCategoryChanged(this.category);
-
-  final String category;
+  final List<DmsPickedFile> files;
 
   @override
-  List<Object?> get props => [category];
-}
-
-class DmsDocumentSubmitted extends DmsEvent {
-  const DmsDocumentSubmitted();
+  List<Object?> get props => [
+        for (final file in files) '${file.fileName}:${file.bytes.length}',
+      ];
 }

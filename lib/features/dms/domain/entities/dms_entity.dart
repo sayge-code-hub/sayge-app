@@ -70,12 +70,16 @@ class DmsEntity {
     required this.name,
     required this.type,
     this.subtitle = '',
+    this.imageUrl,
   });
 
   final String id;
   final String name;
   final DmsEntityType type;
   final String subtitle;
+
+  /// Optional profile/logo image URL (employees use photo_path).
+  final String? imageUrl;
 }
 
 /// Document categories used when attaching / grouping files.

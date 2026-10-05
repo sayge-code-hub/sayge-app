@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -56,6 +57,7 @@ class DocumentRepositoryImpl implements DocumentRepository {
     required String title,
     required String fileName,
     required String category,
+    required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
@@ -68,11 +70,28 @@ class DocumentRepositoryImpl implements DocumentRepository {
         title: title,
         fileName: fileName,
         category: category,
+        fileBytes: fileBytes,
         mimeType: mimeType,
         fileSizeBytes: fileSizeBytes,
         notes: notes,
       );
       return Right(created);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> getDownloadUrl(
+    DocumentRecord document,
+  ) async {
+    try {
+      final url = await remoteDataSource.getDownloadUrl(document.storagePath);
+      return Right(url);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } on NetworkException catch (e) {

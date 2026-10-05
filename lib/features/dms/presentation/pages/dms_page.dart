@@ -3,17 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_hub_tile.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
-import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/dms_entity.dart';
-import '../../domain/entities/document_record.dart';
 import '../bloc/dms/dms_bloc.dart';
+import '../widgets/document_attachment_tile.dart';
+import '../widgets/document_drop_zone.dart';
+import '../../../hrms/presentation/widgets/employee_avatar.dart';
 
 class DmsPage extends StatelessWidget {
   const DmsPage({super.key});
@@ -41,7 +39,7 @@ class _DmsBody extends StatelessWidget {
         if (state.status == DmsStatus.success) {
           await showAppMessageDialog(
             context,
-            message: 'Document attached',
+            message: 'Documents attached',
           );
         }
       },
@@ -237,6 +235,16 @@ class _EntityListViewState extends State<_EntityListView> {
                                   horizontal: isDesktop ? 20 : 16,
                                   vertical: 8,
                                 ),
+                                leading: entity.imageUrl != null ||
+                                        entity.type ==
+                                            DmsEntityType.employee ||
+                                        entity.type == DmsEntityType.client
+                                    ? EmployeeAvatar(
+                                        name: entity.name,
+                                        photoUrl: entity.imageUrl,
+                                        radius: 18,
+                                      )
+                                    : null,
                                 title: Text(
                                   entity.name,
                                   style: textTheme.bodyLarge
@@ -279,8 +287,6 @@ class _DocumentsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final entity = state.selectedEntity;
-    final grouped = state.documentsByCategory;
-    final dateFormat = AppDates.dms;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -293,6 +299,17 @@ class _DocumentsView extends StatelessWidget {
                   context.read<DmsBloc>().add(const DmsSelectionCleared()),
               icon: const Icon(Icons.arrow_back, size: 20),
             ),
+            if (entity != null &&
+                (entity.imageUrl != null ||
+                    entity.type == DmsEntityType.employee ||
+                    entity.type == DmsEntityType.client)) ...[
+              EmployeeAvatar(
+                name: entity.name,
+                photoUrl: entity.imageUrl,
+                radius: 18,
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,79 +362,22 @@ class _DocumentsView extends StatelessWidget {
                           ),
                         )
                       else
-                        for (final entry in grouped.entries) ...[
-                          Text(
-                            entry.key,
-                            style: textTheme.labelLarge?.copyWith(
-                              fontSize: 12,
-                              letterSpacing: 0.4,
-                              color: AppColors.textLight,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          for (final doc in entry.value) ...[
-                            _DocumentRow(
-                              document: doc,
-                              dateLabel: dateFormat.format(doc.uploadedAt),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                          const SizedBox(height: 8),
-                        ],
+                        DocumentAttachmentGrid(documents: state.documents),
                       const Divider(height: 24, color: AppColors.border),
-                      Text(
-                        'Attach document',
-                        style: textTheme.titleMedium?.copyWith(fontSize: 14),
-                      ),
-                      const SizedBox(height: 14),
-                      AppDropdown<String>(
-                        key: ValueKey('dms-category-${state.formEpoch}'),
-                        label: 'Category',
-                        value: DmsDocumentCategories.all.contains(
-                              state.documentCategory,
-                            )
-                            ? state.documentCategory
-                            : DmsDocumentCategories.fallback,
-                        items: DmsDocumentCategories.all,
-                        itemLabel: (category) => category,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          context
-                              .read<DmsBloc>()
-                              .add(DmsDocumentCategoryChanged(value));
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        key: ValueKey('dms-title-${state.formEpoch}'),
-                        label: 'Title',
-                        hintText: 'e.g. PAN card',
-                        onChanged: (value) {
-                          context
-                              .read<DmsBloc>()
-                              .add(DmsDocumentTitleChanged(value));
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        key: ValueKey('dms-file-${state.formEpoch}'),
-                        label: 'File name',
-                        hintText: 'e.g. pan_card.pdf',
-                        onChanged: (value) {
-                          context
-                              .read<DmsBloc>()
-                              .add(DmsDocumentFileNameChanged(value));
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        key: ValueKey('dms-notes-${state.formEpoch}'),
-                        label: 'Notes',
-                        hintText: 'Optional',
-                        onChanged: (value) {
-                          context
-                              .read<DmsBloc>()
-                              .add(DmsDocumentNotesChanged(value));
+                      DocumentDropZone(
+                        enabled: state.status != DmsStatus.saving,
+                        uploading: state.status == DmsStatus.saving,
+                        onFilesPicked: (files) {
+                          context.read<DmsBloc>().add(
+                                DmsFilesSelected([
+                                  for (final file in files)
+                                    DmsPickedFile(
+                                      fileName: file.fileName,
+                                      bytes: file.bytes,
+                                      mimeType: file.mimeType,
+                                    ),
+                                ]),
+                              );
                         },
                       ),
                       if (state.errorMessage != null) ...[
@@ -430,89 +390,11 @@ class _DocumentsView extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: AppButton(
-                          label: state.status == DmsStatus.saving
-                              ? 'Saving…'
-                              : 'Attach',
-                          expand: false,
-                          onPressed: state.status == DmsStatus.saving
-                              ? null
-                              : () {
-                                  context
-                                      .read<DmsBloc>()
-                                      .add(const DmsDocumentSubmitted());
-                                },
-                        ),
-                      ),
                     ],
                   ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DocumentRow extends StatelessWidget {
-  const _DocumentRow({
-    required this.document,
-    required this.dateLabel,
-  });
-
-  final DocumentRecord document;
-  final String dateLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            document.title,
-            style: textTheme.bodyLarge?.copyWith(fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            document.fileName,
-            style: textTheme.bodyMedium?.copyWith(
-              fontSize: 13,
-              color: AppColors.textLight,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            dateLabel,
-            style: textTheme.labelLarge?.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: AppColors.textLight,
-            ),
-          ),
-          if (document.notes.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              document.notes,
-              style: textTheme.bodyMedium?.copyWith(
-                fontSize: 13,
-                color: AppColors.textLight,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

@@ -20,6 +20,7 @@ import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
 import '../../../settings/domain/entities/client.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
+import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../domain/entities/proposal.dart';
 import '../../domain/services/proposal_calculator.dart';
 import '../bloc/proposals_bloc.dart';
@@ -300,7 +301,12 @@ class _ProposalCard extends StatelessWidget {
                     ],
                     if (party.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(party, style: metaStyle),
+                      ClientNameLabel(
+                        name: party,
+                        contactName: proposal.billToName,
+                        style: metaStyle,
+                        logoRadius: 7,
+                      ),
                     ],
                     const SizedBox(height: 4),
                     Text(
