@@ -12,6 +12,7 @@ import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
+import '../../../hrms/presentation/widgets/employee_avatar.dart';
 import '../../../hrms/presentation/widgets/employee_documents_section.dart';
 import '../../../hrms/presentation/widgets/employee_purchase_orders_section.dart';
 import '../../../payroll/domain/services/payslip_period.dart';
@@ -136,6 +137,7 @@ class _ProfileView extends StatelessWidget {
               children: [
                 _ProfileHero(
                   name: displayName,
+                  photoUrl: linked ? employee!.photoUrl : null,
                   employeeId: linked ? employee!.employeeId : null,
                   isDesktop: isDesktop,
                 ),
@@ -240,10 +242,12 @@ class _ProfileHero extends StatelessWidget {
   const _ProfileHero({
     required this.name,
     required this.isDesktop,
+    this.photoUrl,
     this.employeeId,
   });
 
   final String name;
+  final String? photoUrl;
   final String? employeeId;
   final bool isDesktop;
 
@@ -251,6 +255,7 @@ class _ProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final id = employeeId?.trim();
+    final avatarRadius = isDesktop ? 28.0 : 24.0;
 
     return Container(
       width: double.infinity,
@@ -266,23 +271,11 @@ class _ProfileHero extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: isDesktop ? 56 : 48,
-            height: isDesktop ? 56 : 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              _initials(name),
-              style: textTheme.titleMedium?.copyWith(
-                fontSize: isDesktop ? 18 : 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
-              ),
-            ),
+          EmployeeAvatar(
+            name: name,
+            photoUrl: photoUrl,
+            radius: avatarRadius,
+            fontSize: isDesktop ? 18 : 16,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -520,11 +513,4 @@ class _SalarySlipDownload extends StatelessWidget {
       },
     );
   }
-}
-
-String _initials(String source) {
-  final parts = source.trim().split(RegExp(r'\s+|@'));
-  if (parts.isEmpty || parts.first.isEmpty) return 'S';
-  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
 }

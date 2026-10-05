@@ -10,6 +10,8 @@ class Client extends Equatable {
     this.address = '',
     this.gstin = '',
     this.isActive = true,
+    this.logoPath = '',
+    this.logoUrl,
   });
 
   final String id;
@@ -21,6 +23,8 @@ class Client extends Equatable {
   final String address;
   final String gstin;
   final bool isActive;
+  final String logoPath;
+  final String? logoUrl;
 
   /// Dropdown label: "Mahindra Finance — Ketan Jain".
   String get displayLabel {
@@ -39,6 +43,8 @@ class Client extends Equatable {
     String? address,
     String? gstin,
     bool? isActive,
+    String? logoPath,
+    String? logoUrl,
   }) {
     return Client(
       id: id ?? this.id,
@@ -49,6 +55,8 @@ class Client extends Equatable {
       address: address ?? this.address,
       gstin: gstin ?? this.gstin,
       isActive: isActive ?? this.isActive,
+      logoPath: logoPath ?? this.logoPath,
+      logoUrl: logoUrl ?? this.logoUrl,
     );
   }
 
@@ -62,5 +70,7 @@ class Client extends Equatable {
         address,
         gstin,
         isActive,
+        logoPath,
+        logoUrl,
       ];
 }

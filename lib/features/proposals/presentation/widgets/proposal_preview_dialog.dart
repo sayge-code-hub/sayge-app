@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../data/proposal_pdf_builder.dart';
 import '../../domain/entities/proposal.dart';
 
@@ -403,7 +404,12 @@ class _ProposalPreviewCard extends StatelessWidget {
         if (name.isNotEmpty)
           Text(name, style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
         if (company.isNotEmpty)
-          Text(company, style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+          ClientNameLabel(
+            name: company,
+            contactName: name,
+            style: textTheme.bodyMedium?.copyWith(fontSize: 12),
+            logoRadius: 7,
+          ),
         if (address.isNotEmpty)
           Text(
             address,

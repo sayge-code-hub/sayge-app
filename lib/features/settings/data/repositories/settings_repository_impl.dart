@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -36,6 +37,31 @@ class SettingsRepositoryImpl implements SettingsRepository {
       return Left(NetworkFailure(e.message));
     } catch (_) {
       return const Left(NetworkFailure('Failed to save company details.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, CompanyDetails>> updateCompanyLogo({
+    required String companyId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    try {
+      return Right(
+        await remoteDataSource.updateCompanyLogo(
+          companyId: companyId,
+          bytes: bytes,
+          fileName: fileName,
+          mimeType: mimeType,
+        ),
+      );
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update company logo.'));
     }
   }
 

@@ -16,6 +16,7 @@ class CompanyDetailsBloc
     on<CompanyDetailsStarted>(_onStarted);
     on<CompanyDetailsFieldChanged>(_onFieldChanged);
     on<CompanyDetailsSubmitted>(_onSubmitted);
+    on<CompanyDetailsLogoUpdated>(_onLogoUpdated);
   }
 
   final GetCompanyDetailsUseCase getCompanyDetailsUseCase;
@@ -68,7 +69,22 @@ class CompanyDetailsBloc
           bankAccountNo: event.bankAccountNo ?? current.bankAccountNo,
           bankBranch: event.bankBranch ?? current.bankBranch,
           bankIfsc: event.bankIfsc ?? current.bankIfsc,
+          logoPath: current.logoPath,
+          logoUrl: current.logoUrl,
         ),
+      ),
+    );
+  }
+
+  void _onLogoUpdated(
+    CompanyDetailsLogoUpdated event,
+    Emitter<CompanyDetailsState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        status: CompanyDetailsStatus.ready,
+        clearError: true,
+        details: event.details,
       ),
     );
   }

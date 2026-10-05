@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/failures.dart';
 import '../entities/dms_entity.dart';
@@ -19,8 +20,11 @@ abstract class DocumentRepository {
     required String title,
     required String fileName,
     required String category,
+    required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
     int fileSizeBytes = 0,
     String notes = '',
   });
+
+  Future<Either<Failure, String>> getDownloadUrl(DocumentRecord document);
 }

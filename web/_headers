@@ -3,6 +3,24 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
+# Flutter serves fonts/manifests at stable paths (no content hash). Do not mark
+# them immutable or browsers keep an old tree-shaken MaterialIcons font and new
+# sidebar glyphs (e.g. Expense) render blank after deploys.
+/assets/fonts/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/FontManifest.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/AssetManifest.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/AssetManifest.bin
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/AssetManifest.bin.json
+  Cache-Control: public, max-age=0, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 

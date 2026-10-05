@@ -104,6 +104,8 @@ alter table public.clients
   add column if not exists gstin text not null default '';
 alter table public.clients
   add column if not exists is_active boolean not null default true;
+alter table public.clients
+  add column if not exists logo_path text not null default '';
 
 -- Allow multiple contacts per company (e.g. Ketan Jain + Jaspreet Lamba).
 alter table public.clients drop constraint if exists clients_name_key;
@@ -159,14 +161,48 @@ create table if not exists public.employees (
   ifsc text not null default '',
   pan text not null,
   uan text not null default '',
+  contact_no text not null default '',
+  residential_address text not null default '',
+  alternate_contact text not null default '',
+  personal_email text not null default '',
+  gender text not null default '',
+  father_name text not null default '',
+  mother_name text not null default '',
+  nationality text not null default '',
+  pincode text not null default '',
   is_active boolean not null default true,
   date_of_exit date,
   location text not null,
   grade text not null,
   client_id text references public.clients (id) on delete set null,
+  photo_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Upgrade path: contact number on employee profile
+alter table public.employees
+  add column if not exists contact_no text not null default '';
+
+alter table public.employees
+  add column if not exists residential_address text not null default '';
+alter table public.employees
+  add column if not exists alternate_contact text not null default '';
+alter table public.employees
+  add column if not exists personal_email text not null default '';
+alter table public.employees
+  add column if not exists gender text not null default '';
+alter table public.employees
+  add column if not exists father_name text not null default '';
+alter table public.employees
+  add column if not exists mother_name text not null default '';
+alter table public.employees
+  add column if not exists nationality text not null default '';
+alter table public.employees
+  add column if not exists pincode text not null default '';
+
+alter table public.employees
+  add column if not exists photo_path text;
 
 -- Upgrade path: legacy free-text `client` → linked `client_id`
 alter table public.employees add column if not exists client_id text;
@@ -389,6 +425,7 @@ create table if not exists public.users (
   full_name text not null default '',
   role_id text not null references public.roles (id),
   employee_id text references public.employees (employee_id) on delete set null,
+  avatar_path text not null default '',
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -397,6 +434,9 @@ create table if not exists public.users (
 create index if not exists users_role_id_idx on public.users (role_id);
 create index if not exists users_employee_id_idx on public.users (employee_id);
 create index if not exists users_is_active_idx on public.users (is_active);
+
+alter table public.users
+  add column if not exists avatar_path text not null default '';
 
 drop trigger if exists users_set_updated_at on public.users;
 create trigger users_set_updated_at
@@ -433,6 +473,110 @@ create policy "users_delete_anon"
   using (true);
 
 grant select, insert, update, delete on public.users to anon, authenticated;
+
+-- Storage bucket for user profile pictures
+insert into storage.buckets (id, name, public)
+values ('user-avatars', 'user-avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "user_avatars_storage_select" on storage.objects;
+drop policy if exists "user_avatars_storage_insert" on storage.objects;
+drop policy if exists "user_avatars_storage_update" on storage.objects;
+drop policy if exists "user_avatars_storage_delete" on storage.objects;
+
+create policy "user_avatars_storage_select"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'user-avatars');
+
+create policy "user_avatars_storage_insert"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'user-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "user_avatars_storage_update"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'user-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'user-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "user_avatars_storage_delete"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'user-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Storage bucket for employee profile pictures
+insert into storage.buckets (id, name, public)
+values ('employee-avatars', 'employee-avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "employee_avatars_storage_select" on storage.objects;
+drop policy if exists "employee_avatars_storage_insert" on storage.objects;
+drop policy if exists "employee_avatars_storage_update" on storage.objects;
+drop policy if exists "employee_avatars_storage_delete" on storage.objects;
+
+create policy "employee_avatars_storage_select"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_storage_insert"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_storage_update"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'employee-avatars')
+  with check (bucket_id = 'employee-avatars');
+
+create policy "employee_avatars_storage_delete"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'employee-avatars');
+
+insert into storage.buckets (id, name, public)
+values ('brand-logos', 'brand-logos', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "brand_logos_storage_select" on storage.objects;
+drop policy if exists "brand_logos_storage_insert" on storage.objects;
+drop policy if exists "brand_logos_storage_update" on storage.objects;
+drop policy if exists "brand_logos_storage_delete" on storage.objects;
+
+create policy "brand_logos_storage_select"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'brand-logos');
+
+create policy "brand_logos_storage_insert"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'brand-logos');
+
+create policy "brand_logos_storage_update"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'brand-logos')
+  with check (bucket_id = 'brand-logos');
+
+create policy "brand_logos_storage_delete"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'brand-logos');
 
 -- Auto-create a public.users row when someone signs up in Auth.
 create or replace function public.handle_new_auth_user()
@@ -836,6 +980,37 @@ begin
     for each row execute function public.log_row_activity();
 end $$;
 
+-- Storage bucket for DMS document binaries (public read for simple view URLs)
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', true)
+on conflict (id) do nothing;
+
+drop policy if exists "documents_storage_select" on storage.objects;
+drop policy if exists "documents_storage_insert" on storage.objects;
+drop policy if exists "documents_storage_update" on storage.objects;
+drop policy if exists "documents_storage_delete" on storage.objects;
+
+create policy "documents_storage_select"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'documents');
+
+create policy "documents_storage_insert"
+  on storage.objects for insert
+  to anon, authenticated
+  with check (bucket_id = 'documents');
+
+create policy "documents_storage_update"
+  on storage.objects for update
+  to anon, authenticated
+  using (bucket_id = 'documents')
+  with check (bucket_id = 'documents');
+
+create policy "documents_storage_delete"
+  on storage.objects for delete
+  to anon, authenticated
+  using (bucket_id = 'documents');
+
 -- Storage bucket for PO PDFs (public read for simple download URLs)
 insert into storage.buckets (id, name, public)
 values ('employee-pos', 'employee-pos', true)
@@ -1009,9 +1184,13 @@ create table if not exists public.company_details (
   bank_account_no text not null default '',
   bank_branch text not null default '',
   bank_ifsc text not null default '',
+  logo_path text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.company_details
+  add column if not exists logo_path text not null default '';
 
 create index if not exists company_details_name_idx
   on public.company_details (name);

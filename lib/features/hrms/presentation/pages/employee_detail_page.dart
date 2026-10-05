@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +12,9 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/usecases/exit_employee.dart';
+import '../../domain/usecases/update_employee_photo_usecase.dart';
 import '../bloc/employees/employees_bloc.dart';
+import '../widgets/employee_avatar.dart';
 import '../widgets/employee_documents_section.dart';
 import '../widgets/employee_form_layout.dart';
 import '../widgets/employee_purchase_orders_section.dart';
@@ -43,10 +46,83 @@ class EmployeeDetailPage extends StatefulWidget {
 }
 
 class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
+  late Employee _employee;
   bool _exiting = false;
+  bool _uploadingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _employee = widget.employee;
+  }
+
+  @override
+  void didUpdateWidget(covariant EmployeeDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.employee != widget.employee) {
+      _employee = widget.employee;
+    }
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    if (!widget.canEdit || _uploadingPhoto) return;
+    final files = await FilePicker.pickFiles(type: FileType.image);
+    if (files.isEmpty || !mounted) return;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    final result = await sl<UpdateEmployeePhotoUseCase>()(
+      employeeId: _employee.employeeId,
+      bytes: bytes,
+      fileName: file.name,
+      mimeType: _mimeFor(file.extension, file.name),
+    );
+    if (!mounted) return;
+    setState(() => _uploadingPhoto = false);
+
+    await result.fold(
+      (failure) => showAppMessageDialog(
+        context,
+        title: 'Profile picture',
+        message: failure.message,
+      ),
+      (updated) async {
+        setState(() => _employee = updated);
+        context.read<EmployeesBloc>().add(const EmployeesRequested());
+        if (!mounted) return;
+        await showAppMessageDialog(
+          context,
+          message: 'Profile picture updated',
+        );
+      },
+    );
+  }
+
+  static String _mimeFor(String? extension, String fileName) {
+    final ext = (extension ?? '').toLowerCase();
+    if (ext.isEmpty && fileName.contains('.')) {
+      final fromName = fileName.split('.').last.toLowerCase();
+      return _mimeFor(fromName, fileName);
+    }
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      default:
+        return 'image/jpeg';
+    }
+  }
 
   Future<void> _exitEmployee() async {
-    final employee = widget.employee;
+    final employee = _employee;
     if (!employee.isActive || _exiting) return;
 
     var exitDate = DateTime.now();
@@ -147,7 +223,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final employee = widget.employee;
+    final employee = _employee;
     final canEdit = widget.canEdit;
     final isDesktop = Breakpoints.isDesktop(context);
     final dateFormat = AppDates.compact;
@@ -166,18 +242,41 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           value: employee.employeeName,
         ),
         EmployeeDetailField(
-          label: 'Active',
-          value: employee.isActive ? 'Yes' : 'No',
+          label: 'Contact no',
+          value: employee.contactNo,
         ),
         EmployeeDetailField(
-          label: 'Location',
-          value: employee.location,
+          label: 'Alternate contact',
+          value: employee.alternateContact,
         ),
-        if (employee.dateOfExit != null)
-          EmployeeDetailField(
-            label: 'Date of exit',
-            value: dateFormat.format(employee.dateOfExit!),
-          ),
+        EmployeeDetailField(
+          label: 'Personal email',
+          value: employee.personalEmail,
+        ),
+        EmployeeDetailField(
+          label: 'Gender',
+          value: employee.gender,
+        ),
+        EmployeeDetailField(
+          label: "Father's name",
+          value: employee.fatherName,
+        ),
+        EmployeeDetailField(
+          label: "Mother's name",
+          value: employee.motherName,
+        ),
+        EmployeeDetailField(
+          label: 'Nationality',
+          value: employee.nationality,
+        ),
+        EmployeeDetailField(
+          label: 'Pincode',
+          value: employee.pincode,
+        ),
+        EmployeeDetailField(
+          label: 'Residential address',
+          value: employee.residentialAddress,
+        ),
       ],
     );
 
@@ -205,6 +304,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           label: 'Date of joining',
           value: dateFormat.format(employee.dateOfJoining),
         ),
+        EmployeeDetailField(
+          label: 'Location',
+          value: employee.location,
+        ),
+        EmployeeDetailField(
+          label: 'Active',
+          value: employee.isActive ? 'Yes' : 'No',
+        ),
+        if (employee.dateOfExit != null)
+          EmployeeDetailField(
+            label: 'Date of exit',
+            value: dateFormat.format(employee.dateOfExit!),
+          ),
       ],
     );
 
@@ -304,6 +416,60 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               24,
             ),
             children: [
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: GestureDetector(
+                    onTap: canEdit && !_uploadingPhoto
+                        ? _pickAndUploadPhoto
+                        : null,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        EmployeeAvatar(
+                          name: employee.employeeName,
+                          photoUrl: employee.photoUrl,
+                          radius: isDesktop ? 44 : 40,
+                          fontSize: isDesktop ? 22 : 20,
+                        ),
+                        if (_uploadingPhoto)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.background
+                                    .withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (canEdit && !_uploadingPhoto)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppColors.highlight,
+                              child: Icon(
+                                Icons.camera_alt_outlined,
+                                size: 16,
+                                color: AppColors.background,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               EmployeeDetailSectionRow(
                 isDesktop: isDesktop,
                 left: identity,

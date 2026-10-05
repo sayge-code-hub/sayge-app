@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../hrms/presentation/widgets/employee_avatar.dart';
 import '../../../hrms/presentation/widgets/employee_form_layout.dart';
 import '../../domain/entities/client.dart';
 import '../bloc/clients/clients_bloc.dart';
@@ -223,6 +224,12 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      EmployeeAvatar(
+                                        name: client.name,
+                                        photoUrl: client.logoUrl,
+                                        radius: 20,
+                                      ),
+                                      const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:

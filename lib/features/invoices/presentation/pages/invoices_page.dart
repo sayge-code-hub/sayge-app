@@ -21,6 +21,7 @@ import '../../../hrms/domain/entities/employee_purchase_order.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
 import '../../../settings/domain/entities/client.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
+import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/services/invoice_calculator.dart';
 import '../bloc/invoices_bloc.dart';
@@ -203,22 +204,56 @@ class _InvoiceListState extends State<_InvoiceList> {
                                           ?.copyWith(fontSize: 14),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      [
-                                        party,
-                                        dateFormat.format(invoice.invoiceDate),
-                                        if (invoice.poNumber.isNotEmpty)
-                                          'PO ${invoice.poNumber}',
-                                      ]
-                                          .where((e) => e.isNotEmpty)
-                                          .join(' · '),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontSize: 12,
-                                            color: AppColors.textLight,
+                                    Row(
+                                      children: [
+                                        if (party.isNotEmpty) ...[
+                                          Flexible(
+                                            child: ClientNameLabel(
+                                              name: party,
+                                              contactName: invoice.buyerName,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    fontSize: 12,
+                                                    color: AppColors.textLight,
+                                                  ),
+                                              logoRadius: 7,
+                                            ),
                                           ),
+                                          Text(
+                                            ' · ',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontSize: 12,
+                                                  color: AppColors.textLight,
+                                                ),
+                                          ),
+                                        ],
+                                        Flexible(
+                                          child: Text(
+                                            [
+                                              dateFormat
+                                                  .format(invoice.invoiceDate),
+                                              if (invoice.poNumber.isNotEmpty)
+                                                'PO ${invoice.poNumber}',
+                                            ]
+                                                .where((e) => e.isNotEmpty)
+                                                .join(' · '),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontSize: 12,
+                                                  color: AppColors.textLight,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

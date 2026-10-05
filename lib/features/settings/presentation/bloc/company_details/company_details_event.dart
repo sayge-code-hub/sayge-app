@@ -57,3 +57,12 @@ class CompanyDetailsFieldChanged extends CompanyDetailsEvent {
 class CompanyDetailsSubmitted extends CompanyDetailsEvent {
   const CompanyDetailsSubmitted();
 }
+
+class CompanyDetailsLogoUpdated extends CompanyDetailsEvent {
+  const CompanyDetailsLogoUpdated(this.details);
+
+  final CompanyDetails details;
+
+  @override
+  List<Object?> get props => [details];
+}

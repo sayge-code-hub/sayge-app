@@ -99,9 +99,10 @@ class _HomeShellState extends State<HomeShell> {
               label: 'Invoices',
               icon: Icons.receipt_long_outlined,
             ),
-            AppNavItem(
+            const AppNavItem(
               label: 'Expense',
               icon: Icons.account_balance_outlined,
+              iconAsset: 'assets/images/nav_expense.png',
             ),
           ],
         ),
@@ -145,6 +146,7 @@ class _HomeShellState extends State<HomeShell> {
       AppNavSection(
         label: 'Expense',
         icon: Icons.account_balance_outlined,
+        iconAsset: 'assets/images/nav_expense.png',
         selectable: linked,
         enabled: linked,
         items: const [],

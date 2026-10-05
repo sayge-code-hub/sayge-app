@@ -10,6 +10,8 @@ class ClientModel extends Client {
     super.address,
     super.gstin,
     super.isActive,
+    super.logoPath,
+    super.logoUrl,
   });
 
   factory ClientModel.fromEntity(Client client) {
@@ -22,6 +24,8 @@ class ClientModel extends Client {
       address: client.address,
       gstin: client.gstin,
       isActive: client.isActive,
+      logoPath: client.logoPath,
+      logoUrl: client.logoUrl,
     );
   }
 
@@ -30,6 +34,8 @@ class ClientModel extends Client {
     final isActive = activeRaw == null
         ? true
         : activeRaw == true || activeRaw.toString() == 'true';
+    final logoPathRaw = (json['logo_path'] ?? '').toString();
+    final logoUrlRaw = (json['logoUrl'] ?? json['logo_url'] ?? '').toString();
     return ClientModel(
       id: (json['id'] ?? json['client_id'] ?? '').toString(),
       name: (json['name'] ?? json['client_name'] ?? '').toString(),
@@ -39,10 +45,13 @@ class ClientModel extends Client {
       address: (json['address'] ?? '').toString(),
       gstin: (json['gstin'] ?? '').toString(),
       isActive: isActive,
+      logoPath: logoPathRaw,
+      logoUrl: logoUrlRaw.isEmpty ? null : logoUrlRaw,
     );
   }
 
   Map<String, dynamic> toJson() {
+    final logo = logoPath.trim();
     return {
       'id': id,
       'name': name,
@@ -52,6 +61,7 @@ class ClientModel extends Client {
       'address': address,
       'gstin': gstin,
       'is_active': isActive,
+      if (logo.isNotEmpty) 'logo_path': logo,
     };
   }
 }

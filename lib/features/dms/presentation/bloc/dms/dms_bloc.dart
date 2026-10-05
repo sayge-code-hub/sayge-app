@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/dms_entity.dart';
@@ -6,6 +7,7 @@ import '../../../domain/entities/document_record.dart';
 import '../../../domain/usecases/add_document.dart';
 import '../../../domain/usecases/get_dms_entities.dart';
 import '../../../domain/usecases/get_documents.dart';
+import '../../widgets/document_drop_zone.dart';
 
 part 'dms_event.dart';
 part 'dms_state.dart';
@@ -21,11 +23,7 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     on<DmsEntityTypeSelected>(_onEntityTypeSelected);
     on<DmsEntitySelected>(_onEntitySelected);
     on<DmsSelectionCleared>(_onSelectionCleared);
-    on<DmsDocumentTitleChanged>(_onTitleChanged);
-    on<DmsDocumentFileNameChanged>(_onFileNameChanged);
-    on<DmsDocumentNotesChanged>(_onNotesChanged);
-    on<DmsDocumentCategoryChanged>(_onCategoryChanged);
-    on<DmsDocumentSubmitted>(_onSubmitted);
+    on<DmsFilesSelected>(_onFilesSelected);
   }
 
   final GetDmsEntitiesUseCase getDmsEntitiesUseCase;
@@ -43,7 +41,6 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         clearSelectedEntity: true,
         documents: const [],
         clearError: true,
-        clearForm: true,
       ),
     );
   }
@@ -57,7 +54,6 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         documents: const [],
         entities: const [],
         clearError: true,
-        clearForm: true,
       ),
     );
   }
@@ -73,7 +69,6 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         clearSelectedEntity: true,
         documents: const [],
         clearError: true,
-        clearForm: true,
       ),
     );
     await _loadEntities(emit, event.type);
@@ -89,7 +84,6 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         level: DmsLevel.documents,
         status: DmsStatus.loadingDocuments,
         clearError: true,
-        clearForm: true,
       ),
     );
     final result = await getDocumentsUseCase(
@@ -122,66 +116,13 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         clearSelectedEntity: true,
         documents: const [],
         clearError: true,
-        clearForm: true,
         status: DmsStatus.ready,
       ),
     );
   }
 
-  void _onTitleChanged(
-    DmsDocumentTitleChanged event,
-    Emitter<DmsState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        documentTitle: event.title,
-        clearError: true,
-        status: DmsStatus.ready,
-      ),
-    );
-  }
-
-  void _onFileNameChanged(
-    DmsDocumentFileNameChanged event,
-    Emitter<DmsState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        documentFileName: event.fileName,
-        clearError: true,
-        status: DmsStatus.ready,
-      ),
-    );
-  }
-
-  void _onNotesChanged(
-    DmsDocumentNotesChanged event,
-    Emitter<DmsState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        documentNotes: event.notes,
-        clearError: true,
-        status: DmsStatus.ready,
-      ),
-    );
-  }
-
-  void _onCategoryChanged(
-    DmsDocumentCategoryChanged event,
-    Emitter<DmsState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        documentCategory: event.category,
-        clearError: true,
-        status: DmsStatus.ready,
-      ),
-    );
-  }
-
-  Future<void> _onSubmitted(
-    DmsDocumentSubmitted event,
+  Future<void> _onFilesSelected(
+    DmsFilesSelected event,
     Emitter<DmsState> emit,
   ) async {
     final entity = state.selectedEntity;
@@ -194,52 +135,52 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
       );
       return;
     }
-    if (state.documentTitle.trim().isEmpty) {
-      emit(
-        state.copyWith(
-          status: DmsStatus.failure,
-          errorMessage: 'Document title is required',
-        ),
+    if (event.files.isEmpty) return;
+
+    emit(state.copyWith(status: DmsStatus.saving, clearError: true));
+
+    final uploaded = <DocumentRecord>[];
+    String? firstError;
+    for (final file in event.files) {
+      if (file.bytes.isEmpty || file.fileName.trim().isEmpty) continue;
+      final pick = DocumentPick(
+        fileName: file.fileName,
+        bytes: file.bytes,
+        mimeType: file.mimeType,
       );
-      return;
+      final result = await addDocumentUseCase(
+        entityType: entity.type,
+        entityId: entity.id,
+        entityName: entity.name,
+        title: pick.title,
+        fileName: file.fileName,
+        category: pick.category,
+        fileBytes: file.bytes,
+        mimeType: file.mimeType,
+      );
+      result.fold(
+        (failure) => firstError ??= failure.message,
+        uploaded.add,
+      );
     }
-    if (state.documentFileName.trim().isEmpty) {
+
+    if (uploaded.isEmpty) {
       emit(
         state.copyWith(
           status: DmsStatus.failure,
-          errorMessage: 'File name is required',
+          errorMessage: firstError ?? 'Could not attach the selected files.',
         ),
       );
       return;
     }
 
-    emit(state.copyWith(status: DmsStatus.saving, clearError: true));
-    final result = await addDocumentUseCase(
-      entityType: entity.type,
-      entityId: entity.id,
-      entityName: entity.name,
-      title: state.documentTitle,
-      fileName: state.documentFileName,
-      category: state.documentCategory,
-      notes: state.documentNotes,
-    );
-    result.fold(
-      (failure) => emit(
-        state.copyWith(
-          status: DmsStatus.failure,
-          errorMessage: failure.message,
-        ),
+    emit(
+      state.copyWith(
+        status: DmsStatus.success,
+        documents: [...uploaded, ...state.documents],
+        errorMessage: firstError,
+        clearError: firstError == null,
       ),
-      (document) {
-        final updated = [document, ...state.documents];
-        emit(
-          state.copyWith(
-            status: DmsStatus.success,
-            documents: updated,
-            clearForm: true,
-          ),
-        );
-      },
     );
   }
 

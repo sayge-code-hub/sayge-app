@@ -13,6 +13,8 @@ class CompanyDetails {
     required this.bankAccountNo,
     required this.bankBranch,
     required this.bankIfsc,
+    this.logoPath = '',
+    this.logoUrl,
   });
 
   final String id;
@@ -28,6 +30,8 @@ class CompanyDetails {
   final String bankAccountNo;
   final String bankBranch;
   final String bankIfsc;
+  final String logoPath;
+  final String? logoUrl;
 }
 
 class AppRole {

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../data/invoice_pdf_builder.dart';
 import '../../domain/entities/invoice.dart';
 
@@ -202,8 +203,30 @@ class _InvoicePreviewCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Buyer: $buyer',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Buyer: ',
+                          style: textTheme.bodyMedium?.copyWith(fontSize: 12),
+                        ),
+                        Expanded(
+                          child: buyer.isNotEmpty
+                              ? ClientNameLabel(
+                                  name: buyer,
+                                  contactName: invoice.buyerName,
+                                  style: textTheme.bodyMedium
+                                      ?.copyWith(fontSize: 12),
+                                  logoRadius: 7,
+                                )
+                              : Text(
+                                  '—',
+                                  style: textTheme.bodyMedium
+                                      ?.copyWith(fontSize: 12),
+                                ),
+                        ),
+                      ],
+                    ),
                     if (invoice.buyerAddress.isNotEmpty)
                       Text(invoice.buyerAddress,
                           style: textTheme.bodyMedium?.copyWith(fontSize: 12)),

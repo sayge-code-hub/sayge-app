@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../injection_container.dart';
 import '../../../dms/domain/entities/dms_entity.dart';
 import '../../../dms/domain/entities/document_record.dart';
 import '../../../dms/domain/usecases/get_documents.dart';
+import '../../../dms/presentation/widgets/document_attachment_tile.dart';
 
 class EmployeeDocumentsSection extends StatefulWidget {
   const EmployeeDocumentsSection({
@@ -104,39 +104,7 @@ class _EmployeeDocumentsSectionState extends State<EmployeeDocumentsSection> {
                 );
               }
 
-              final grouped = <String, List<DocumentRecord>>{};
-              for (final doc in result.documents) {
-                final key = doc.category.trim().isEmpty
-                    ? 'General'
-                    : doc.category.trim();
-                grouped.putIfAbsent(key, () => []).add(doc);
-              }
-
-              final dateFormat = AppDates.dms;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final entry in grouped.entries) ...[
-                    Text(
-                      entry.key,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.4,
-                            color: AppColors.textLight,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final doc in entry.value) ...[
-                      _DocumentRow(
-                        document: doc,
-                        dateLabel: dateFormat.format(doc.uploadedAt),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    const SizedBox(height: 4),
-                  ],
-                ],
-              );
+              return DocumentAttachmentGrid(documents: result.documents);
             },
           ),
         ],
@@ -159,65 +127,4 @@ class _DocumentsLoadResult {
 
   final List<DocumentRecord> documents;
   final String? errorMessage;
-}
-
-class _DocumentRow extends StatelessWidget {
-  const _DocumentRow({
-    required this.document,
-    required this.dateLabel,
-  });
-
-  final DocumentRecord document;
-  final String dateLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            document.title,
-            style: textTheme.bodyLarge?.copyWith(fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            document.fileName,
-            style: textTheme.bodyMedium?.copyWith(
-              fontSize: 13,
-              color: AppColors.textLight,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            dateLabel,
-            style: textTheme.labelLarge?.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: AppColors.textLight,
-            ),
-          ),
-          if (document.notes.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              document.notes,
-              style: textTheme.bodyMedium?.copyWith(
-                fontSize: 13,
-                color: AppColors.textLight,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }

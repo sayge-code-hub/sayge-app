@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/auth/app_access.dart';
@@ -17,6 +18,20 @@ abstract class EmployeeRemoteDataSource {
     required String employeeId,
     required DateTime dateOfExit,
   });
+
+  Future<EmployeeModel> updateEmployeePhoto({
+    required String employeeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  });
+
+  Future<EmployeeModel> setEmployeePhotoFromDocument({
+    required String employeeId,
+    required String storagePath,
+  });
+
+  String? photoPublicUrl(String? path);
 }
 
 class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
@@ -30,6 +45,32 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
 
   static const _table = 'employees';
   static const _selectWithClient = '*, clients(id, name)';
+  static const _avatarsBucket = 'employee-avatars';
+  static const _documentsBucket = 'documents';
+
+  @override
+  String? photoPublicUrl(String? path) {
+    final trimmed = path?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final bucket =
+        trimmed.startsWith('documents/') ? _documentsBucket : _avatarsBucket;
+    try {
+      return _client.storage.from(bucket).getPublicUrl(trimmed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  EmployeeModel _fromRow(Map<String, dynamic> row) {
+    final model = EmployeeModel.fromJson(row);
+    final url = photoPublicUrl(model.photoPath);
+    if (url == null && (model.photoUrl?.isNotEmpty != true)) {
+      return model;
+    }
+    return EmployeeModel.fromEntity(
+      model.copyWith(photoUrl: url ?? model.photoUrl),
+    );
+  }
 
   @override
   Future<List<EmployeeModel>> getEmployees() async {
@@ -47,7 +88,7 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
 
       final rows = await query.order('employee_name', ascending: true);
       return (rows as List<dynamic>)
-          .map((row) => EmployeeModel.fromJson(row as Map<String, dynamic>))
+          .map((row) => _fromRow(row as Map<String, dynamic>))
           .toList();
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
@@ -67,7 +108,7 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
           .insert(employee.toJson())
           .select(_selectWithClient)
           .single();
-      return EmployeeModel.fromJson(row);
+      return _fromRow(row);
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Employee ID already exists.');
@@ -96,7 +137,7 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
           .eq('employee_id', employee.employeeId)
           .select(_selectWithClient)
           .single();
-      return EmployeeModel.fromJson(row);
+      return _fromRow(row);
     } on PostgrestException catch (e) {
       if (e.code == '23503') {
         throw const ServerException('Selected client does not exist.');
@@ -134,12 +175,111 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
           .update({'is_active': false})
           .eq('employee_id', employeeId);
 
-      return EmployeeModel.fromJson(row);
+      return _fromRow(row);
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to exit employee.');
+    }
+  }
+
+  @override
+  Future<EmployeeModel> updateEmployeePhoto({
+    required String employeeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException(
+        'Only owners and admins can update employees.',
+      );
+    }
+    if (bytes.isEmpty) {
+      throw const ServerException('Choose an image to upload.');
+    }
+
+    var safeName = fileName.trim().replaceAll(RegExp(r'[^\w.\-]+'), '_');
+    if (safeName.isEmpty) safeName = 'avatar.jpg';
+    final ext = safeName.contains('.')
+        ? safeName.substring(safeName.lastIndexOf('.') + 1).toLowerCase()
+        : 'jpg';
+    final path =
+        '$employeeId/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final contentType =
+        mimeType.trim().isEmpty ? 'image/jpeg' : mimeType.trim();
+
+    try {
+      final existing = await _client
+          .from(_table)
+          .select('photo_path')
+          .eq('employee_id', employeeId)
+          .maybeSingle();
+      final previous = (existing?['photo_path'] ?? '').toString().trim();
+
+      await _client.storage.from(_avatarsBucket).uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: contentType,
+              upsert: true,
+            ),
+          );
+
+      final row = await _client
+          .from(_table)
+          .update({'photo_path': path})
+          .eq('employee_id', employeeId)
+          .select(_selectWithClient)
+          .single();
+
+      if (previous.isNotEmpty &&
+          previous != path &&
+          !previous.startsWith('documents/')) {
+        try {
+          await _client.storage.from(_avatarsBucket).remove([previous]);
+        } catch (_) {}
+      }
+
+      return _fromRow(row);
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update employee photo.');
+    }
+  }
+
+  @override
+  Future<EmployeeModel> setEmployeePhotoFromDocument({
+    required String employeeId,
+    required String storagePath,
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException(
+        'Only owners and admins can update employees.',
+      );
+    }
+    final path = storagePath.trim();
+    if (path.isEmpty) {
+      throw const ServerException('Document path is missing.');
+    }
+    try {
+      final row = await _client
+          .from(_table)
+          .update({'photo_path': path})
+          .eq('employee_id', employeeId)
+          .select(_selectWithClient)
+          .single();
+      return _fromRow(row);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to set employee photo.');
     }
   }
 }

@@ -37,6 +37,15 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
     this.ifsc,
     this.pan,
     this.uan,
+    this.contactNo,
+    this.residentialAddress,
+    this.alternateContact,
+    this.personalEmail,
+    this.gender,
+    this.fatherName,
+    this.motherName,
+    this.nationality,
+    this.pincode,
     this.isActive,
     this.location,
     this.grade,
@@ -62,6 +71,15 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
   final String? ifsc;
   final String? pan;
   final String? uan;
+  final String? contactNo;
+  final String? residentialAddress;
+  final String? alternateContact;
+  final String? personalEmail;
+  final String? gender;
+  final String? fatherName;
+  final String? motherName;
+  final String? nationality;
+  final String? pincode;
   final bool? isActive;
   final String? location;
   final String? grade;
@@ -88,6 +106,15 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
         ifsc,
         pan,
         uan,
+        contactNo,
+        residentialAddress,
+        alternateContact,
+        personalEmail,
+        gender,
+        fatherName,
+        motherName,
+        nationality,
+        pincode,
         isActive,
         location,
         grade,

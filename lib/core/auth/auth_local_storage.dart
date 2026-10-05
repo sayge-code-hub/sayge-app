@@ -27,15 +27,7 @@ class AuthLocalStorage {
   Future<void> saveUser(User user) async {
     final model = user is UserModel
         ? user
-        : UserModel(
-            id: user.id,
-            email: user.email,
-            roleId: user.roleId,
-            roleCode: user.roleCode,
-            roleLabel: user.roleLabel,
-            name: user.name,
-            employeeId: user.employeeId,
-          );
+        : UserModel.fromEntity(user);
     await _prefs.setString(_userKey, jsonEncode(model.toStorageJson()));
   }
 

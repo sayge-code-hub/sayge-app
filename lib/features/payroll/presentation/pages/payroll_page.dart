@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
+import '../../../hrms/presentation/widgets/employee_avatar.dart';
 import '../../domain/services/payslip_period.dart';
 import '../bloc/payroll_bloc.dart';
 import '../widgets/payslip_preview_dialog.dart';
@@ -417,6 +418,13 @@ class _EmployeeRow extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      EmployeeAvatar(
+                        name: employee.employeeName,
+                        photoUrl: employee.photoUrl,
+                        radius: 16,
+                        fontSize: 12,
+                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,7 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/auth/domain/entities/user.dart';
+import '../../features/auth/domain/usecases/update_avatar_usecase.dart';
+import '../../injection_container.dart';
+import '../auth/auth_session.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_message_dialog.dart';
 import '../widgets/app_version_label.dart';
 import 'app_destination.dart';
 import 'breakpoints.dart';
@@ -314,6 +319,7 @@ class _SidebarState extends State<_Sidebar> {
 
   /// Section labels the user has expanded. Active route's section is also shown.
   final Set<String> _expanded = {};
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
@@ -443,14 +449,26 @@ class _SidebarState extends State<_Sidebar> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.text.withValues(alpha: 0.08),
-                  child: Text(
-                    _initials(widget.user),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontSize: 12,
-                        ),
+                Tooltip(
+                  message: 'Change profile picture',
+                  child: InkWell(
+                    onTap: _uploadingAvatar ? null : _changeAvatar,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        _ProfileAvatar(user: widget.user, radius: 18),
+                        if (_uploadingAvatar)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.text,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -645,12 +663,94 @@ class _SidebarState extends State<_Sidebar> {
     return widgets;
   }
 
-  String _initials(User user) {
-    final source = (user.name ?? user.email).trim();
-    final parts = source.split(RegExp(r'\s+|@'));
-    if (parts.isEmpty || parts.first.isEmpty) return 'S';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+  Future<void> _changeAvatar() async {
+    final files = await FilePicker.pickFiles(type: FileType.image);
+    if (files.isEmpty || !mounted) return;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    final result = await sl<UpdateAvatarUseCase>()(
+      bytes: bytes,
+      fileName: file.name,
+      mimeType: _mimeFor(file.extension, file.name),
+    );
+    if (!mounted) return;
+    setState(() => _uploadingAvatar = false);
+
+    await result.fold(
+      (failure) => showAppMessageDialog(
+        context,
+        title: 'Profile picture',
+        message: failure.message,
+      ),
+      (user) async {
+        await sl<AuthSession>().setUser(user);
+        if (!mounted) return;
+        await showAppMessageDialog(
+          context,
+          message: 'Profile picture updated',
+        );
+      },
+    );
+  }
+
+  static String _mimeFor(String? extension, String fileName) {
+    final ext = (extension ?? '').toLowerCase();
+    final name = fileName.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      default:
+        if (name.endsWith('.png')) return 'image/png';
+        if (name.endsWith('.webp')) return 'image/webp';
+        return 'image/jpeg';
+    }
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.user,
+    required this.radius,
+  });
+
+  final User user;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = user.avatarUrl?.trim() ?? '';
+    final initials = () {
+      final source = (user.name ?? user.email).trim();
+      final parts = source.split(RegExp(r'\s+|@'));
+      if (parts.isEmpty || parts.first.isEmpty) return 'S';
+      if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }();
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.text.withValues(alpha: 0.08),
+      backgroundImage: url.isEmpty ? null : NetworkImage(url),
+      onBackgroundImageError: url.isEmpty ? null : (_, _) {},
+      child: url.isEmpty
+          ? Text(
+              initials,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: radius * 0.67,
+                  ),
+            )
+          : null,
+    );
   }
 }
 

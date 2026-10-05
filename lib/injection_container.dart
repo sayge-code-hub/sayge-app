@@ -13,12 +13,14 @@ import 'features/auth/domain/entities/user.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
+import 'features/auth/domain/usecases/update_avatar_usecase.dart';
 import 'features/auth/presentation/bloc/login_bloc.dart';
 import 'features/dms/data/datasources/document_remote_datasource.dart';
 import 'features/dms/data/repositories/document_repository_impl.dart';
 import 'features/dms/domain/repositories/document_repository.dart';
 import 'features/dms/domain/usecases/add_document.dart';
 import 'features/dms/domain/usecases/get_dms_entities.dart';
+import 'features/dms/domain/usecases/get_document_download_url.dart';
 import 'features/dms/domain/usecases/get_documents.dart';
 import 'features/dms/presentation/bloc/dms/dms_bloc.dart';
 import 'features/expenses/data/datasources/expense_remote_datasource.dart';
@@ -36,7 +38,9 @@ import 'features/hrms/domain/usecases/add_employee.dart';
 import 'features/hrms/domain/usecases/employee_purchase_order_usecases.dart';
 import 'features/hrms/domain/usecases/get_employees.dart';
 import 'features/hrms/domain/usecases/exit_employee.dart';
+import 'features/hrms/domain/usecases/set_employee_photo_from_document_usecase.dart';
 import 'features/hrms/domain/usecases/update_employee.dart';
+import 'features/hrms/domain/usecases/update_employee_photo_usecase.dart';
 import 'features/hrms/presentation/bloc/add_employee/add_employee_bloc.dart';
 import 'features/hrms/presentation/bloc/employee_po/employee_po_bloc.dart';
 import 'features/hrms/presentation/bloc/employees/employees_bloc.dart';
@@ -70,6 +74,8 @@ import 'features/settings/domain/usecases/add_client.dart';
 import 'features/settings/domain/usecases/client_lifecycle.dart';
 import 'features/settings/domain/usecases/get_clients.dart';
 import 'features/settings/domain/usecases/settings_usecases.dart';
+import 'features/settings/domain/usecases/update_client_logo_usecase.dart';
+import 'features/settings/domain/usecases/update_company_logo_usecase.dart';
 import 'features/settings/presentation/bloc/clients/clients_bloc.dart';
 import 'features/settings/presentation/bloc/company_details/company_details_bloc.dart';
 import 'features/settings/presentation/bloc/ledger/ledger_bloc.dart';
@@ -119,6 +125,7 @@ Future<void> initDependencies() async {
   sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => SignOutUseCase(sl(), sl()));
+  sl.registerLazySingleton(() => UpdateAvatarUseCase(sl()));
 
   sl.registerFactory(
     () => ClientsBloc(
@@ -134,21 +141,23 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => UpdateClientUseCase(sl()));
   sl.registerLazySingleton(() => SetClientActiveUseCase(sl()));
   sl.registerLazySingleton(() => DeleteClientUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateClientLogoUseCase(sl()));
   sl.registerLazySingleton<ClientRemoteDataSource>(
-    () => ClientRemoteDataSourceImpl(),
+    () => ClientRemoteDataSourceImpl(authSession: sl()),
   );
   sl.registerLazySingleton<ClientRepository>(
     () => ClientRepositoryImpl(remoteDataSource: sl()),
   );
 
   sl.registerLazySingleton<SettingsRemoteDataSource>(
-    () => SettingsRemoteDataSourceImpl(),
+    () => SettingsRemoteDataSourceImpl(authSession: sl()),
   );
   sl.registerLazySingleton<SettingsRepository>(
     () => SettingsRepositoryImpl(remoteDataSource: sl()),
   );
   sl.registerLazySingleton(() => GetCompanyDetailsUseCase(sl()));
   sl.registerLazySingleton(() => UpdateCompanyDetailsUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateCompanyLogoUseCase(sl()));
   sl.registerLazySingleton(() => GetRolesUseCase(sl()));
   sl.registerLazySingleton(() => GetActivityLogUseCase(sl()));
   sl.registerLazySingleton(() => InviteEmployeeRemoteDataSource());
@@ -174,6 +183,8 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => AddEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => UpdateEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => ExitEmployeeUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateEmployeePhotoUseCase(sl()));
+  sl.registerLazySingleton(() => SetEmployeePhotoFromDocumentUseCase(sl()));
   sl.registerLazySingleton<EmployeeRemoteDataSource>(
     () => EmployeeRemoteDataSourceImpl(authSession: sl()),
   );
@@ -267,6 +278,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetDmsEntitiesUseCase(sl()));
   sl.registerLazySingleton(() => GetDocumentsUseCase(sl()));
   sl.registerLazySingleton(() => AddDocumentUseCase(sl()));
+  sl.registerLazySingleton(() => GetDocumentDownloadUrlUseCase(sl()));
   sl.registerLazySingleton<DocumentRemoteDataSource>(
     () => DocumentRemoteDataSourceImpl(),
   );

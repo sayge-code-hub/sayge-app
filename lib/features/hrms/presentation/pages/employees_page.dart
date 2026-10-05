@@ -10,6 +10,7 @@ import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../domain/entities/employee.dart';
 import '../bloc/employees/employees_bloc.dart';
+import '../widgets/employee_avatar.dart';
 
 class EmployeesPage extends StatelessWidget {
   const EmployeesPage({
@@ -219,13 +220,6 @@ class _EmployeesTableState extends State<EmployeesTable> {
     });
   }
 
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     final dateFormat = AppDates.medium;
@@ -257,6 +251,7 @@ class _EmployeesTableState extends State<EmployeesTable> {
                         ),
                         child: SingleChildScrollView(
                           child: DataTable(
+                            showCheckboxColumn: false,
                             headingRowHeight: 48,
                             dataRowMinHeight: 56,
                             dataRowMaxHeight: 64,
@@ -285,22 +280,17 @@ class _EmployeesTableState extends State<EmployeesTable> {
                             ],
                             rows: pageItems.map((employee) {
                               return DataRow(
+                                onSelectChanged: (_) =>
+                                    widget.onEmployeeSelected?.call(employee),
                                 cells: [
                                   DataCell(
                                     Row(
                                       children: [
-                                        CircleAvatar(
+                                        EmployeeAvatar(
+                                          name: employee.employeeName,
+                                          photoUrl: employee.photoUrl,
                                           radius: 15,
-                                          backgroundColor: AppColors.text
-                                              .withValues(alpha: 0.08),
-                                          child: Text(
-                                            _initials(employee.employeeName),
-                                            style: textTheme.labelLarge
-                                                ?.copyWith(
-                                              fontSize: 11,
-                                              color: AppColors.text,
-                                            ),
-                                          ),
+                                          fontSize: 11,
                                         ),
                                         const SizedBox(width: 12),
                                         Text(
@@ -310,16 +300,12 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                         ),
                                       ],
                                     ),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(
                                       dateFormat
                                           .format(employee.dateOfJoining),
                                     ),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(
@@ -331,18 +317,12 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                             : AppColors.textLight,
                                       ),
                                     ),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(employee.designation),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(employee.client),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(
@@ -350,13 +330,9 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                       style: textTheme.titleMedium
                                           ?.copyWith(fontSize: 13),
                                     ),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                   DataCell(
                                     Text(employee.location),
-                                    onTap: () =>
-                                        widget.onEmployeeSelected?.call(employee),
                                   ),
                                 ],
                               );
@@ -490,15 +466,11 @@ class _EmployeesMobileList extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
+                  EmployeeAvatar(
+                    name: employee.employeeName,
+                    photoUrl: employee.photoUrl,
                     radius: 16,
-                    backgroundColor: AppColors.text.withValues(alpha: 0.08),
-                    child: Text(
-                      employee.employeeName.isEmpty
-                          ? '?'
-                          : employee.employeeName[0].toUpperCase(),
-                      style: textTheme.labelLarge?.copyWith(fontSize: 12),
-                    ),
+                    fontSize: 12,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
