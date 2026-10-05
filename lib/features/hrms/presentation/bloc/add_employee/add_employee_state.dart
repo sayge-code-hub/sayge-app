@@ -35,6 +35,7 @@ class AddEmployeeState extends Equatable {
     this.nationality = '',
     this.pincode = '',
     this.isActive = true,
+    this.isDraft = false,
     this.location = '',
     this.grade = '',
     this.clientId,
@@ -73,6 +74,7 @@ class AddEmployeeState extends Equatable {
   final String nationality;
   final String pincode;
   final bool? isActive;
+  final bool isDraft;
   final String location;
   final String grade;
   final String? clientId;
@@ -88,9 +90,11 @@ class AddEmployeeState extends Equatable {
     return null;
   }
 
-  String? validate() {
+  String? validate({bool asDraft = false}) {
     if (employeeId.trim().isEmpty) return 'Employee ID is required';
     if (employeeName.trim().isEmpty) return 'Employee name is required';
+    if (asDraft) return null;
+
     if (dateOfJoining == null) return 'Date of joining is required';
     if (designation.trim().isEmpty) return 'Designation is required';
     if (department.trim().isEmpty) return 'Department is required';
@@ -160,6 +164,7 @@ class AddEmployeeState extends Equatable {
     String? nationality,
     String? pincode,
     bool? isActive,
+    bool? isDraft,
     String? location,
     String? grade,
     String? clientId,
@@ -199,6 +204,7 @@ class AddEmployeeState extends Equatable {
       nationality: nationality ?? this.nationality,
       pincode: pincode ?? this.pincode,
       isActive: isActive ?? this.isActive,
+      isDraft: isDraft ?? this.isDraft,
       location: location ?? this.location,
       grade: grade ?? this.grade,
       clientId: clientId ?? this.clientId,
@@ -240,6 +246,7 @@ class AddEmployeeState extends Equatable {
         nationality,
         pincode,
         isActive,
+        isDraft,
         location,
         grade,
         clientId,

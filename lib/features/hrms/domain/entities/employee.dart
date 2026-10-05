@@ -30,6 +30,7 @@ class Employee extends Equatable {
     this.nationality = '',
     this.pincode = '',
     required this.isActive,
+    this.isDraft = false,
     this.dateOfExit,
     required this.location,
     required this.grade,
@@ -73,6 +74,8 @@ class Employee extends Equatable {
   final String nationality;
   final String pincode;
   final bool isActive;
+  /// Incomplete profile kept for invite linking / later completion.
+  final bool isDraft;
   /// Last working day when exited from the organisation; null if still employed.
   final DateTime? dateOfExit;
   final String location;
@@ -114,6 +117,7 @@ class Employee extends Equatable {
     String? nationality,
     String? pincode,
     bool? isActive,
+    bool? isDraft,
     DateTime? dateOfExit,
     bool clearDateOfExit = false,
     String? location,
@@ -155,6 +159,7 @@ class Employee extends Equatable {
       nationality: nationality ?? this.nationality,
       pincode: pincode ?? this.pincode,
       isActive: isActive ?? this.isActive,
+      isDraft: isDraft ?? this.isDraft,
       dateOfExit: clearDateOfExit ? null : (dateOfExit ?? this.dateOfExit),
       location: location ?? this.location,
       grade: grade ?? this.grade,
@@ -196,6 +201,7 @@ class Employee extends Equatable {
         nationality,
         pincode,
         isActive,
+        isDraft,
         dateOfExit,
         location,
         grade,

@@ -123,5 +123,10 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
 }
 
 class AddEmployeeSubmitted extends AddEmployeeEvent {
-  const AddEmployeeSubmitted();
+  const AddEmployeeSubmitted({this.asDraft = false});
+
+  final bool asDraft;
+
+  @override
+  List<Object?> get props => [asDraft];
 }

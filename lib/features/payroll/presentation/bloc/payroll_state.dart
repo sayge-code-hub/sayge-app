@@ -20,10 +20,12 @@ class PayrollState extends Equatable {
   final int year;
   final String? errorMessage;
 
-  /// Active employees who had joined by the selected payroll month.
+  /// Active, non-draft employees who had joined by the selected payroll month.
   List<Employee> get employeesForPeriod => employees
       .where(
-        (e) => PayslipPeriod.wasEmployedIn(e, month: month, year: year),
+        (e) =>
+            !e.isDraft &&
+            PayslipPeriod.wasEmployedIn(e, month: month, year: year),
       )
       .toList(growable: false);
 

@@ -101,6 +101,7 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         nationality: employee.nationality,
         pincode: employee.pincode,
         isActive: employee.isActive,
+        isDraft: employee.isDraft,
         location: employee.location,
         grade: employee.grade,
         clientId: employee.clientId,
@@ -171,7 +172,8 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
     AddEmployeeSubmitted event,
     Emitter<AddEmployeeState> emit,
   ) async {
-    final validationError = state.validate();
+    final asDraft = event.asDraft;
+    final validationError = state.validate(asDraft: asDraft);
     if (validationError != null) {
       emit(
         state.copyWith(
@@ -192,22 +194,25 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
     }
 
     final selected = state.selectedClient;
+    final now = DateTime.now();
     final employee = Employee(
       employeeId: employeeId,
       employeeName: state.employeeName.trim(),
-      dateOfJoining: state.dateOfJoining!,
+      dateOfJoining: state.dateOfJoining ??
+          DateTime(now.year, now.month, now.day),
       dateOfBirth: state.dateOfBirth,
       designation: state.designation.trim(),
       department: state.department.trim(),
-      annualCtc: double.parse(state.annualCtc.trim()),
-      monthlyCtc: double.parse(state.monthlyCtc.trim()),
+      annualCtc: double.tryParse(state.annualCtc.trim()) ?? 0,
+      monthlyCtc: double.tryParse(state.monthlyCtc.trim()) ?? 0,
       monthlyRate: double.tryParse(state.monthlyRate.trim()) ?? 0,
-      pfApplicable: state.pfApplicable!,
-      ptApplicable: state.ptApplicable!,
-      medicalInsurance: double.parse(state.medicalInsurance.trim()),
-      retentionAmount: double.parse(state.retentionAmount.trim()),
-      tdsAmount: double.parse(state.tdsAmount.trim()),
-      specialAllowance: double.parse(state.specialAllowance.trim()),
+      pfApplicable: state.pfApplicable ?? true,
+      ptApplicable: state.ptApplicable ?? true,
+      medicalInsurance:
+          double.tryParse(state.medicalInsurance.trim()) ?? 650,
+      retentionAmount: double.tryParse(state.retentionAmount.trim()) ?? 2000,
+      tdsAmount: double.tryParse(state.tdsAmount.trim()) ?? 0,
+      specialAllowance: double.tryParse(state.specialAllowance.trim()) ?? 0,
       bankAccount: state.bankAccount.trim(),
       ifsc: state.ifsc.trim(),
       pan: state.pan.trim().toUpperCase(),
@@ -221,10 +226,11 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
       motherName: state.motherName.trim(),
       nationality: state.nationality.trim(),
       pincode: state.pincode.trim(),
-      isActive: state.isActive!,
+      isActive: state.isActive ?? true,
+      isDraft: asDraft,
       location: state.location.trim(),
       grade: state.grade.trim(),
-      clientId: state.clientId!.trim(),
+      clientId: state.clientId?.trim() ?? '',
       client: selected?.name ?? '',
     );
 
@@ -239,7 +245,12 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
           errorMessage: failure.message,
         ),
       ),
-      (_) => emit(state.copyWith(status: AddEmployeeStatus.success)),
+      (_) => emit(
+        state.copyWith(
+          status: AddEmployeeStatus.success,
+          isDraft: asDraft,
+        ),
+      ),
     );
   }
 }

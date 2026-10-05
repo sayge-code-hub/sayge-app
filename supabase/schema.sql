@@ -171,6 +171,7 @@ create table if not exists public.employees (
   nationality text not null default '',
   pincode text not null default '',
   is_active boolean not null default true,
+  is_draft boolean not null default false,
   date_of_exit date,
   location text not null,
   grade text not null,
@@ -179,6 +180,9 @@ create table if not exists public.employees (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.employees
+  add column if not exists is_draft boolean not null default false;
 
 -- Upgrade path: contact number on employee profile
 alter table public.employees
@@ -269,6 +273,7 @@ end $$;
 
 drop index if exists employees_client_idx;
 create index if not exists employees_is_active_idx on public.employees (is_active);
+create index if not exists employees_is_draft_idx on public.employees (is_draft);
 create index if not exists employees_client_id_idx on public.employees (client_id);
 create index if not exists employees_name_idx on public.employees (employee_name);
 

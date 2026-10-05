@@ -265,9 +265,13 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
         if (state.status == AddEmployeeStatus.success) {
           await showAppMessageDialog(
             context,
-            message: widget.isEditMode
-                ? 'Employee updated successfully'
-                : 'Employee added successfully',
+            message: state.isDraft
+                ? (widget.isEditMode
+                    ? 'Draft updated. You can still link this employee when inviting.'
+                    : 'Draft saved. You can still link this employee when inviting.')
+                : (widget.isEditMode
+                    ? 'Employee updated successfully'
+                    : 'Employee added successfully'),
           );
           if (!context.mounted) return;
           if (widget.embedded) {
@@ -763,12 +767,21 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                       }),
               child: Text(widget.isEditMode ? 'Back' : 'Cancel'),
             ),
+            if (!widget.isEditMode || state.isDraft)
+              AppOutlinedButton(
+                label: 'Save as draft',
+                expand: true,
+                enabled: !isLoading,
+                onPressed: () => context.read<AddEmployeeBloc>().add(
+                      const AddEmployeeSubmitted(asDraft: true),
+                    ),
+              ),
             AppButton(
               label: 'Save',
               isLoading: isLoading,
-              onPressed: () => context
-                  .read<AddEmployeeBloc>()
-                  .add(const AddEmployeeSubmitted()),
+              onPressed: () => context.read<AddEmployeeBloc>().add(
+                    const AddEmployeeSubmitted(),
+                  ),
             ),
           ],
         ),

@@ -64,28 +64,7 @@ class DocumentAttachmentTile extends StatelessWidget {
   final bool showCategoryTag;
   final VoidCallback? onTap;
 
-  static IconData iconFor(DocumentRecord document) {
-    final name = document.fileName.toLowerCase();
-    final mime = document.mimeType.toLowerCase();
-    if (mime.contains('pdf') || name.endsWith('.pdf')) {
-      return Icons.picture_as_pdf_outlined;
-    }
-    if (documentIsImage(document)) {
-      return Icons.image_outlined;
-    }
-    if (mime.contains('sheet') ||
-        name.endsWith('.xls') ||
-        name.endsWith('.xlsx') ||
-        name.endsWith('.csv')) {
-      return Icons.table_chart_outlined;
-    }
-    if (mime.contains('word') ||
-        name.endsWith('.doc') ||
-        name.endsWith('.docx')) {
-      return Icons.description_outlined;
-    }
-    return Icons.attach_file;
-  }
+  static IconData iconFor(DocumentRecord document) => documentIconFor(document);
 
   String get _categoryLabel {
     final raw = document.category.trim();

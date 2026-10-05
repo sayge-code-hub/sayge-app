@@ -499,23 +499,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             ],
           ),
         ),
-        if (canEdit || widget.onBack != null)
+        if (canEdit)
           EmployeeStickyActions(
             children: [
-              if (widget.onBack != null)
-                OutlinedButton(
-                  onPressed: _exiting
-                      ? null
-                      : () {
-                          if (widget.embedded) {
-                            widget.onBack?.call();
-                          } else {
-                            Navigator.of(context).maybePop();
-                          }
-                        },
-                  child: const Text('Back'),
-                ),
-              if (canEdit && employee.isActive)
+              if (employee.isActive)
                 OutlinedButton(
                   onPressed: _exiting ? null : _exitEmployee,
                   style: OutlinedButton.styleFrom(
@@ -524,16 +511,15 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   ),
                   child: Text(_exiting ? 'Exiting…' : 'Exit employee'),
                 ),
-              if (canEdit)
-                AppButton(
-                  label: 'Edit',
-                  enabled: !_exiting,
-                  onPressed: () {
-                    if (widget.embedded) {
-                      widget.onEdit?.call();
-                    }
-                  },
-                ),
+              AppButton(
+                label: 'Edit',
+                enabled: !_exiting,
+                onPressed: () {
+                  if (widget.embedded) {
+                    widget.onEdit?.call();
+                  }
+                },
+              ),
             ],
           ),
       ],

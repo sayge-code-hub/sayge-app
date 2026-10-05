@@ -309,12 +309,18 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                   ),
                                   DataCell(
                                     Text(
-                                      employee.isActive ? 'Active' : 'Inactive',
+                                      employee.isDraft
+                                          ? 'Draft'
+                                          : (employee.isActive
+                                              ? 'Active'
+                                              : 'Inactive'),
                                       style: textTheme.labelLarge?.copyWith(
                                         fontSize: 13,
-                                        color: employee.isActive
-                                            ? AppColors.success
-                                            : AppColors.textLight,
+                                        color: employee.isDraft
+                                            ? AppColors.textLight
+                                            : (employee.isActive
+                                                ? AppColors.success
+                                                : AppColors.textLight),
                                       ),
                                     ),
                                   ),
@@ -480,12 +486,16 @@ class _EmployeesMobileList extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    employee.isActive ? 'Active' : 'Inactive',
+                    employee.isDraft
+                        ? 'Draft'
+                        : (employee.isActive ? 'Active' : 'Inactive'),
                     style: textTheme.labelLarge?.copyWith(
                       fontSize: 12,
-                      color: employee.isActive
-                          ? AppColors.success
-                          : AppColors.textLight,
+                      color: employee.isDraft
+                          ? AppColors.textLight
+                          : (employee.isActive
+                              ? AppColors.success
+                              : AppColors.textLight),
                     ),
                   ),
                 ],
