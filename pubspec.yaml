@@ -1,7 +1,7 @@
 name: sayge_app
 description: "Sayge mobile and web app built with Flutter, BLoC, and clean architecture."
 publish_to: 'none'
-version: 1.0.7
+version: 1.0.8
 
 environment:
   sdk: ^3.12.2
