@@ -87,6 +87,7 @@ create table if not exists public.clients (
   contact_name text not null default '',
   address text not null default '',
   gstin text not null default '',
+  is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -101,6 +102,8 @@ alter table public.clients
   add column if not exists address text not null default '';
 alter table public.clients
   add column if not exists gstin text not null default '';
+alter table public.clients
+  add column if not exists is_active boolean not null default true;
 
 -- Allow multiple contacts per company (e.g. Ketan Jain + Jaspreet Lamba).
 alter table public.clients drop constraint if exists clients_name_key;
@@ -145,6 +148,7 @@ create table if not exists public.employees (
   department text not null,
   annual_ctc numeric(14, 2) not null,
   monthly_ctc numeric(14, 2) not null,
+  monthly_rate numeric(14, 2) not null default 0,
   pf_applicable boolean not null default true,
   pt_applicable boolean not null default true,
   medical_insurance numeric(14, 2) not null default 650,
@@ -156,6 +160,7 @@ create table if not exists public.employees (
   pan text not null,
   uan text not null default '',
   is_active boolean not null default true,
+  date_of_exit date,
   location text not null,
   grade text not null,
   client_id text references public.clients (id) on delete set null,
@@ -648,6 +653,8 @@ create table if not exists public.proposals (
   ship_to_gstin text not null default '',
   notes text not null default '',
   subtotal numeric(14, 2) not null default 0,
+  status text not null default 'active'
+    check (status in ('active', 'archived')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -656,6 +663,8 @@ create index if not exists proposals_quote_date_idx
   on public.proposals (quote_date desc);
 create index if not exists proposals_reference_no_idx
   on public.proposals (reference_no);
+create index if not exists proposals_status_idx
+  on public.proposals (status);
 
 drop trigger if exists proposals_set_updated_at on public.proposals;
 create trigger proposals_set_updated_at

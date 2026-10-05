@@ -28,6 +28,12 @@ abstract final class AppRoutes {
   static const posHub = '/pos?hub=1';
   static const posBrandAdd = '/pos/brands/add';
 
+  static String clientDetail(String clientId) =>
+      '/settings/clients/$clientId';
+
+  static String clientEdit(String clientId) =>
+      '/settings/clients/$clientId/edit';
+
   static String employeeDetail(String id) => '/hrms/employees/$id';
 
   static String employeeEdit(String id) => '/hrms/employees/$id/edit';

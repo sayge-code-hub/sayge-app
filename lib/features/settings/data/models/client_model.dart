@@ -9,6 +9,7 @@ class ClientModel extends Client {
     super.contactName,
     super.address,
     super.gstin,
+    super.isActive,
   });
 
   factory ClientModel.fromEntity(Client client) {
@@ -20,10 +21,15 @@ class ClientModel extends Client {
       contactName: client.contactName,
       address: client.address,
       gstin: client.gstin,
+      isActive: client.isActive,
     );
   }
 
   factory ClientModel.fromJson(Map<String, dynamic> json) {
+    final activeRaw = json['is_active'];
+    final isActive = activeRaw == null
+        ? true
+        : activeRaw == true || activeRaw.toString() == 'true';
     return ClientModel(
       id: (json['id'] ?? json['client_id'] ?? '').toString(),
       name: (json['name'] ?? json['client_name'] ?? '').toString(),
@@ -32,6 +38,7 @@ class ClientModel extends Client {
       contactName: (json['contact_name'] ?? '').toString(),
       address: (json['address'] ?? '').toString(),
       gstin: (json['gstin'] ?? '').toString(),
+      isActive: isActive,
     );
   }
 
@@ -44,6 +51,7 @@ class ClientModel extends Client {
       'contact_name': contactName,
       'address': address,
       'gstin': gstin,
+      'is_active': isActive,
     };
   }
 }

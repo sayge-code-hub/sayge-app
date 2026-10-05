@@ -13,6 +13,7 @@ class ClientsRequested extends ClientsEvent {
 
 class ClientSubmitted extends ClientsEvent {
   const ClientSubmitted({
+    this.clientId,
     required this.name,
     this.vendorCode = '',
     this.entityCode = '',
@@ -21,6 +22,8 @@ class ClientSubmitted extends ClientsEvent {
     this.gstin = '',
   });
 
+  /// When set, updates an existing client instead of creating one.
+  final String? clientId;
   final String name;
   final String vendorCode;
   final String entityCode;
@@ -30,6 +33,7 @@ class ClientSubmitted extends ClientsEvent {
 
   @override
   List<Object?> get props => [
+        clientId,
         name,
         vendorCode,
         entityCode,
@@ -37,4 +41,26 @@ class ClientSubmitted extends ClientsEvent {
         address,
         gstin,
       ];
+}
+
+class ClientActiveToggled extends ClientsEvent {
+  const ClientActiveToggled({
+    required this.clientId,
+    required this.isActive,
+  });
+
+  final String clientId;
+  final bool isActive;
+
+  @override
+  List<Object?> get props => [clientId, isActive];
+}
+
+class ClientDeleted extends ClientsEvent {
+  const ClientDeleted(this.clientId);
+
+  final String clientId;
+
+  @override
+  List<Object?> get props => [clientId];
 }

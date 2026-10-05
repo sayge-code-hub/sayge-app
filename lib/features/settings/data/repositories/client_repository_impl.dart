@@ -21,7 +21,7 @@ class ClientRepositoryImpl implements ClientRepository {
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } catch (_) {
-      return const Left(ServerFailure());
+      return const Left(NetworkFailure('Failed to load clients.'));
     }
   }
 
@@ -35,7 +35,55 @@ class ClientRepositoryImpl implements ClientRepository {
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } catch (_) {
-      return const Left(ServerFailure());
+      return const Left(NetworkFailure('Failed to add client.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Client>> updateClient(Client client) async {
+    try {
+      final updated = await remoteDataSource.updateClient(client);
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update client.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Client>> setClientActive({
+    required String id,
+    required bool isActive,
+  }) async {
+    try {
+      final updated = await remoteDataSource.setClientActive(
+        id: id,
+        isActive: isActive,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update client.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteClient(String id) async {
+    try {
+      await remoteDataSource.deleteClient(id);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to delete client.'));
     }
   }
 }

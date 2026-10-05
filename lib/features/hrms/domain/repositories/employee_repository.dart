@@ -9,4 +9,9 @@ abstract class EmployeeRepository {
   Future<Either<Failure, Employee>> addEmployee(Employee employee);
 
   Future<Either<Failure, Employee>> updateEmployee(Employee employee);
+
+  Future<Either<Failure, Employee>> exitEmployee({
+    required String employeeId,
+    required DateTime dateOfExit,
+  });
 }

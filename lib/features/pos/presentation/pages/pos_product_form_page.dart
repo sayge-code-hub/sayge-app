@@ -430,18 +430,18 @@ class _PosProductFormBodyState extends State<_PosProductFormBody> {
         final cancel = OutlinedButton(
           onPressed: busy
               ? null
-              : () {
-                  if (_isEdit) {
-                    context.go(
-                      AppRoutes.posProductDetail(
-                        widget.brandId,
-                        widget.productId!,
-                      ),
-                    );
-                  } else {
-                    context.go(AppRoutes.posProducts(widget.brandId));
-                  }
-                },
+              : () => leaveFormIfConfirmed(context, () {
+                    if (_isEdit) {
+                      context.go(
+                        AppRoutes.posProductDetail(
+                          widget.brandId,
+                          widget.productId!,
+                        ),
+                      );
+                    } else {
+                      context.go(AppRoutes.posProducts(widget.brandId));
+                    }
+                  }),
           child: const Text('Cancel'),
         );
         final save = AppButton(

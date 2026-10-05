@@ -57,4 +57,24 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
       return const Left(ServerFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, Employee>> exitEmployee({
+    required String employeeId,
+    required DateTime dateOfExit,
+  }) async {
+    try {
+      final updated = await remoteDataSource.exitEmployee(
+        employeeId: employeeId,
+        dateOfExit: dateOfExit,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
 }

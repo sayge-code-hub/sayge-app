@@ -125,7 +125,8 @@ create policy "employees_delete_rbac"
   using (public.app_is_staff());
 
 -- ---------------------------------------------------------------------------
--- Staff-only modules (proposals, invoices, clients, dms, settings tables)
+-- Staff-only modules (proposals, invoices, clients, dms catalog, settings)
+-- documents + employee_purchase_orders: staff write; employees may select own
 -- ---------------------------------------------------------------------------
 do $$
 declare
@@ -134,12 +135,10 @@ begin
   foreach t in array array[
     'clients',
     'dms_entities',
-    'documents',
     'company_details',
     'activity_log',
     'invoices',
-    'proposals',
-    'employee_purchase_orders'
+    'proposals'
   ]
   loop
     if to_regclass('public.' || t) is null then
@@ -172,6 +171,91 @@ begin
       t || '_delete_rbac', t
     );
   end loop;
+end $$;
+
+-- Documents: staff full access; employees can read docs attached to their record.
+do $$
+begin
+  if to_regclass('public.documents') is null then
+    return;
+  end if;
+
+  drop policy if exists "documents_select_anon" on public.documents;
+  drop policy if exists "documents_insert_anon" on public.documents;
+  drop policy if exists "documents_update_anon" on public.documents;
+  drop policy if exists "documents_delete_anon" on public.documents;
+  drop policy if exists "documents_select_rbac" on public.documents;
+  drop policy if exists "documents_insert_rbac" on public.documents;
+  drop policy if exists "documents_update_rbac" on public.documents;
+  drop policy if exists "documents_delete_rbac" on public.documents;
+
+  create policy "documents_select_rbac"
+    on public.documents for select
+    to authenticated
+    using (
+      public.app_is_staff()
+      or (
+        entity_type = 'employee'
+        and entity_id = public.app_employee_id()
+      )
+    );
+
+  create policy "documents_insert_rbac"
+    on public.documents for insert
+    to authenticated
+    with check (public.app_is_staff());
+
+  create policy "documents_update_rbac"
+    on public.documents for update
+    to authenticated
+    using (public.app_is_staff())
+    with check (public.app_is_staff());
+
+  create policy "documents_delete_rbac"
+    on public.documents for delete
+    to authenticated
+    using (public.app_is_staff());
+end $$;
+
+-- Purchase orders: staff full access; employees can read their own POs.
+do $$
+begin
+  if to_regclass('public.employee_purchase_orders') is null then
+    return;
+  end if;
+
+  drop policy if exists "employee_purchase_orders_select_anon" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_insert_anon" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_update_anon" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_delete_anon" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_select_rbac" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_insert_rbac" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_update_rbac" on public.employee_purchase_orders;
+  drop policy if exists "employee_purchase_orders_delete_rbac" on public.employee_purchase_orders;
+
+  create policy "employee_purchase_orders_select_rbac"
+    on public.employee_purchase_orders for select
+    to authenticated
+    using (
+      public.app_is_staff()
+      or employee_id = public.app_employee_id()
+    );
+
+  create policy "employee_purchase_orders_insert_rbac"
+    on public.employee_purchase_orders for insert
+    to authenticated
+    with check (public.app_is_staff());
+
+  create policy "employee_purchase_orders_update_rbac"
+    on public.employee_purchase_orders for update
+    to authenticated
+    using (public.app_is_staff())
+    with check (public.app_is_staff());
+
+  create policy "employee_purchase_orders_delete_rbac"
+    on public.employee_purchase_orders for delete
+    to authenticated
+    using (public.app_is_staff());
 end $$;
 
 -- Users: everyone can read own profile; staff can read all.

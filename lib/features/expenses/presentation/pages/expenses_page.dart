@@ -386,7 +386,18 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
       builder: (context, state) {
         final saving = state.status == ExpensesStatus.saving;
 
-        return Column(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop || saving) return;
+            leaveFormIfConfirmed(
+              context,
+              () => context
+                  .read<ExpensesBloc>()
+                  .add(const ExpenseFormCancelled()),
+            );
+          },
+          child: Column(
           children: [
             Expanded(
               child: ListView(
@@ -445,9 +456,12 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
                 OutlinedButton(
                   onPressed: saving
                       ? null
-                      : () => context
-                          .read<ExpensesBloc>()
-                          .add(const ExpenseFormCancelled()),
+                      : () => leaveFormIfConfirmed(
+                            context,
+                            () => context
+                                .read<ExpensesBloc>()
+                                .add(const ExpenseFormCancelled()),
+                          ),
                   child: const Text('Back'),
                 ),
                 AppButton(
@@ -460,6 +474,7 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
               ],
             ),
           ],
+          ),
         );
       },
     );

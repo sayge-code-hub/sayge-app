@@ -134,14 +134,14 @@ abstract final class AppTheme {
           foregroundColor: AppColors.background,
           elevation: 0,
           shadowColor: Colors.transparent,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(
             fontFamily: _fontFamily,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.1,
           ),
@@ -161,15 +161,16 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.text,
           side: const BorderSide(color: AppColors.border),
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(
             fontFamily: _fontFamily,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
           ),
         ),
       ),

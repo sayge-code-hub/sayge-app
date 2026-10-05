@@ -457,7 +457,18 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
     final candidates = _candidates(employees);
     final draft = _draftInvoice();
 
-    return Column(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || saving) return;
+        leaveFormIfConfirmed(
+          context,
+          () => context
+              .read<InvoicesBloc>()
+              .add(const InvoiceListRequested()),
+        );
+      },
+      child: Column(
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
@@ -466,9 +477,12 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
             child: TextButton.icon(
               onPressed: saving
                   ? null
-                  : () => context
-                      .read<InvoicesBloc>()
-                      .add(const InvoiceListRequested()),
+                  : () => leaveFormIfConfirmed(
+                        context,
+                        () => context
+                            .read<InvoicesBloc>()
+                            .add(const InvoiceListRequested()),
+                      ),
               icon: const Icon(Icons.arrow_back, size: 18),
               label: const Text('Back to list'),
               style: TextButton.styleFrom(foregroundColor: AppColors.textLight),
@@ -624,7 +638,13 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                         }
                         return null;
                       }(),
-                      items: clients,
+                      items: [
+                        for (final client in clients)
+                          if (client.isActive ||
+                              (_selectedClient != null &&
+                                  client.id == _selectedClient!.id))
+                            client,
+                      ],
                       itemLabel: (item) => item.displayLabel,
                       enabled: !saving,
                       hintText: 'Select client or type below',
@@ -750,6 +770,7 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
           ],
         ),
       ],
+      ),
     );
   }
 

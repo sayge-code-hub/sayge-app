@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../layout/breakpoints.dart';
 import '../theme/app_colors.dart';
+import 'app_button.dart';
 
-/// Sticky / footer action bar for 1–2 primary CTAs.
+/// Sticky / footer action bar for 1–3 primary CTAs.
 ///
 /// Spans the **full width** of the main content panel.
 /// - **Mobile:** equal-width buttons in a sticky bottom bar.
@@ -22,8 +23,8 @@ class AppStickyActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     assert(
-      children.isNotEmpty && children.length <= 2,
-      'AppStickyActions expects 1–2 actions',
+      children.isNotEmpty && children.length <= 3,
+      'AppStickyActions expects 1–3 actions',
     );
 
     final isDesktop = Breakpoints.isDesktop(context);
@@ -51,16 +52,17 @@ class AppStickyActions extends StatelessWidget {
   }
 
   Widget _desktopRow() {
+    final width = children.length >= 3 ? 140.0 : 160.0;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         for (var i = 0; i < children.length; i++) ...[
           if (i > 0) const SizedBox(width: 12),
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+            constraints: BoxConstraints(minWidth: 110, maxWidth: width),
             child: SizedBox(
-              height: 44,
-              width: 160,
+              height: AppButton.height,
+              width: width,
               child: children[i],
             ),
           ),
@@ -76,7 +78,7 @@ class AppStickyActions extends StatelessWidget {
           if (i > 0) const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
-              height: 44,
+              height: AppButton.height,
               width: double.infinity,
               child: children[i],
             ),

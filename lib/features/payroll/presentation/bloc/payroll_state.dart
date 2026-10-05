@@ -23,7 +23,7 @@ class PayrollState extends Equatable {
   /// Active employees who had joined by the selected payroll month.
   List<Employee> get employeesForPeriod => employees
       .where(
-        (e) => PayslipPeriod.hasJoinedBy(e, month: month, year: year),
+        (e) => PayslipPeriod.wasEmployedIn(e, month: month, year: year),
       )
       .toList(growable: false);
 

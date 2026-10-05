@@ -94,23 +94,38 @@ class _ProposalListState extends State<_ProposalList> {
     if (q.isEmpty) return widget.state.proposals;
     return widget.state.proposals.where((p) {
       final party = p.billToCompany.isNotEmpty ? p.billToCompany : p.billToName;
+      final descriptions = p.lineItems
+          .map((line) => line.description.toLowerCase())
+          .join(' ');
       return p.referenceNo.toLowerCase().contains(q) ||
           party.toLowerCase().contains(q) ||
-          p.billToName.toLowerCase().contains(q);
+          p.billToName.toLowerCase().contains(q) ||
+          descriptions.contains(q);
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
-    final dateFormat = DateFormat('dd MMM yyyy');
     final proposals = _filtered;
+    final downloadableCount = widget.state.proposals
+        .where((p) => p.poStatus.includeInBulkDownload)
+        .length;
 
     final newProposal = AppButton(
       label: 'New proposal',
       expand: !isDesktop,
       onPressed: () =>
           context.read<ProposalsBloc>().add(const ProposalFormOpened()),
+    );
+
+    final downloadAll = AppOutlinedButton(
+      label: isDesktop ? 'Download all' : 'Download all ($downloadableCount)',
+      expand: !isDesktop,
+      enabled: downloadableCount > 0,
+      onPressed: () => context
+          .read<ProposalsBloc>()
+          .add(const ProposalDownloadAllRequested()),
     );
 
     return Column(
@@ -133,6 +148,8 @@ class _ProposalListState extends State<_ProposalList> {
                       ),
                     ),
                     const SizedBox(width: 12),
+                    downloadAll,
+                    const SizedBox(width: 8),
                     newProposal,
                   ],
                 )
@@ -171,28 +188,31 @@ class _ProposalListState extends State<_ProposalList> {
                       itemCount: proposals.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final proposal = proposals[index];
-                        return _ProposalCard(
-                          proposal: proposal,
-                          dateLabel: dateFormat.format(proposal.quoteDate),
-                        );
+                        return _ProposalCard(proposal: proposals[index]);
                       },
                     ),
         ),
-        if (!isDesktop) AppStickyActions(children: [newProposal]),
+        if (!isDesktop)
+          AppStickyActions(children: [downloadAll, newProposal]),
       ],
     );
   }
 }
 
 class _ProposalCard extends StatelessWidget {
-  const _ProposalCard({
-    required this.proposal,
-    required this.dateLabel,
-  });
+  const _ProposalCard({required this.proposal});
 
   final Proposal proposal;
-  final String dateLabel;
+
+  String get _descriptionSummary {
+    final descriptions = proposal.lineItems
+        .map((line) => line.description.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
+    if (descriptions.isEmpty) return '';
+    if (descriptions.length == 1) return descriptions.first;
+    return '${descriptions.first} · +${descriptions.length - 1} more';
+  }
 
   Future<void> _open(BuildContext context) {
     return showProposalPreview(
@@ -213,56 +233,165 @@ class _ProposalCard extends StatelessWidget {
     final party = proposal.billToCompany.isNotEmpty
         ? proposal.billToCompany
         : proposal.billToName;
+    final dateFormat = AppDates.dms;
+    final description = _descriptionSummary;
+    final muted = proposal.poStatus.isMuted;
+    final metaStyle = textTheme.bodyMedium?.copyWith(
+      fontSize: 12,
+      color: AppColors.textLight,
+    );
 
     return AppListCard(
       onTap: () => _open(context),
-      child: Row(
+      color: muted ? AppColors.surfaceMuted : AppColors.background,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  proposal.referenceNo,
-                  style: textTheme.titleMedium?.copyWith(fontSize: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            proposal.referenceNo,
+                            style: textTheme.titleMedium?.copyWith(fontSize: 14),
+                          ),
+                        ),
+                        if (muted) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              proposal.poStatus.label,
+                              style: textTheme.labelLarge?.copyWith(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontSize: 13,
+                          color: AppColors.text,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    if (party.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(party, style: metaStyle),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Start ${dateFormat.format(proposal.quoteDate)}'
+                      ' · Expiry ${dateFormat.format(proposal.expiryDate)}',
+                      style: metaStyle,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  [party, dateLabel].where((e) => e.isNotEmpty).join(' · '),
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontSize: 12,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                MoneyFormat.format(proposal.subtotal),
+                style: textTheme.titleMedium?.copyWith(fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Spacer(),
+              PopupMenuButton<ProposalPoStatus>(
+                tooltip: 'Set status',
+                padding: EdgeInsets.zero,
+                offset: const Offset(0, 28),
+                onSelected: (status) => context.read<ProposalsBloc>().add(
+                      ProposalStatusChanged(
+                        proposalId: proposal.id,
+                        status: status,
+                      ),
+                    ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: ProposalPoStatus.archived,
+                    enabled: proposal.poStatus != ProposalPoStatus.archived,
+                    child: Text(
+                      proposal.poStatus == ProposalPoStatus.archived
+                          ? '✓ Archived'
+                          : 'Archive',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: ProposalPoStatus.active,
+                    enabled: proposal.poStatus != ProposalPoStatus.active,
+                    child: Text(
+                      proposal.poStatus == ProposalPoStatus.active
+                          ? '✓ Active'
+                          : 'Restore to active',
+                    ),
+                  ),
+                ],
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Icon(
+                    Icons.flag_outlined,
+                    size: 15,
                     color: AppColors.textLight,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            MoneyFormat.format(proposal.subtotal),
-            style: textTheme.titleMedium?.copyWith(fontSize: 13),
-          ),
-          const SizedBox(width: 4),
-          AppListIconButton(
-            tooltip: 'Edit',
-            onPressed: () => context.read<ProposalsBloc>().add(
-                  ProposalEditOpened(proposal),
-                ),
-            icon: Icons.edit_outlined,
-          ),
-          AppListIconButton(
-            tooltip: 'Clone',
-            onPressed: () => context.read<ProposalsBloc>().add(
-                  ProposalCloneOpened(proposal),
-                ),
-            icon: Icons.copy_outlined,
-          ),
-          AppListIconButton(
-            tooltip: 'Download PDF',
-            onPressed: () => context.read<ProposalsBloc>().add(
-                  ProposalDownloadRequested(proposal),
-                ),
-            icon: Icons.download_outlined,
+              ),
+              const SizedBox(width: 10),
+              AppListIconButton(
+                tooltip: 'Edit',
+                iconSize: 15,
+                buttonSize: 28,
+                onPressed: () => context.read<ProposalsBloc>().add(
+                      ProposalEditOpened(proposal),
+                    ),
+                icon: Icons.edit_outlined,
+              ),
+              const SizedBox(width: 6),
+              AppListIconButton(
+                tooltip: 'Clone',
+                iconSize: 15,
+                buttonSize: 28,
+                onPressed: () => context.read<ProposalsBloc>().add(
+                      ProposalCloneOpened(proposal),
+                    ),
+                icon: Icons.copy_outlined,
+              ),
+              const SizedBox(width: 6),
+              AppListIconButton(
+                tooltip: 'Download PDF',
+                iconSize: 15,
+                buttonSize: 28,
+                onPressed: () => context.read<ProposalsBloc>().add(
+                      ProposalDownloadRequested(proposal),
+                    ),
+                icon: Icons.download_outlined,
+              ),
+            ],
           ),
         ],
       ),
@@ -512,8 +641,8 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
   }
 
   void _applyCandidate(int index, Employee? employee) {
+    final line = _lines[index];
     setState(() {
-      final line = _lines[index];
       line.selectedEmployee = employee;
       if (employee == null) {
         return;
@@ -525,9 +654,19 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
       line.description.selection = TextSelection.collapsed(
         offset: line.description.text.length,
       );
-      if (employee.monthlyCtc > 0) {
+      if (employee.monthlyRate > 0) {
+        line.monthlyRate.text = employee.monthlyRate.round().toString();
+      } else if (employee.monthlyCtc > 0) {
         line.monthlyRate.text = employee.monthlyCtc.round().toString();
       }
+    });
+    // Keep focus in the text field so the user can append/edit description.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      line.descriptionFocus.requestFocus();
+      line.description.selection = TextSelection.collapsed(
+        offset: line.description.text.length,
+      );
     });
   }
 
@@ -545,38 +684,59 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
     final line = _lines[index];
     final canPick = !saving && candidates.isNotEmpty;
 
-    return AppTextField(
-      label: 'Item & description',
-      controller: line.description,
-      enabled: !saving,
-      hintText: canPick
-          ? 'Type freely or pick a candidate'
-          : 'Type item description',
-      onChanged: (_) {
-        if (line.selectedEmployee != null) {
-          setState(() => line.selectedEmployee = null);
-        } else {
-          setState(() {});
-        }
-      },
-      suffixIcon: canPick
-          ? PopupMenuButton<Employee>(
-              tooltip: 'Select candidate',
-              padding: EdgeInsets.zero,
-              icon: const Icon(
-                Icons.arrow_drop_down_rounded,
-                color: AppColors.textLight,
+    // Editable text field + separate picker button (not a locked dropdown).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: AppTextField(
+                label: 'Item & description',
+                controller: line.description,
+                focusNode: line.descriptionFocus,
+                enabled: !saving,
+                readOnly: false,
+                maxLines: 2,
+                hintText: canPick
+                    ? 'Pick a candidate, then edit or add notes'
+                    : 'Type item description',
+                onChanged: (_) {
+                  // Keep selection for rate context; description is always free text.
+                  setState(() {});
+                },
               ),
-              onSelected: (employee) => _applyCandidate(index, employee),
-              itemBuilder: (context) => [
-                for (final employee in candidates)
-                  PopupMenuItem<Employee>(
-                    value: employee,
-                    child: Text(_candidateLabel(employee)),
+            ),
+            if (canPick) ...[
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: PopupMenuButton<Employee>(
+                  tooltip: 'Select candidate',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
                   ),
-              ],
-            )
-          : null,
+                  icon: const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: AppColors.textLight,
+                  ),
+                  onSelected: (employee) => _applyCandidate(index, employee),
+                  itemBuilder: (context) => [
+                    for (final employee in candidates)
+                      PopupMenuItem<Employee>(
+                        value: employee,
+                        child: Text(_candidateLabel(employee)),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
@@ -608,11 +768,46 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
     final horizontal = isDesktop ? 32.0 : 16.0;
     final clients = context.watch<ClientsBloc>().state.clients;
     final employees = context.watch<EmployeesBloc>().state.employees;
-    final billClient = _resolveClient(_billClient, clients);
-    final shipClient = _resolveClient(_shipClient, clients);
+    final billClient = _resolveClient(
+      _billClient,
+      clients,
+      companyHint: _billCompany.text,
+      contactHint: _billName.text,
+    );
+    final shipClient = _resolveClient(
+      _shipClient,
+      clients,
+      companyHint: _shipCompany.text,
+      contactHint: _shipName.text,
+    );
+    // Hydrate selection once after open/clone when fields are filled but
+    // client id was never set (do not overwrite an explicit user pick).
+    if (_billClient == null && billClient != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _billClient != null) return;
+        setState(() => _billClient = billClient);
+      });
+    }
+    if (_shipClient == null && shipClient != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _shipClient != null) return;
+        setState(() => _shipClient = shipClient);
+      });
+    }
     final candidates = _candidatesForClient(billClient, employees);
 
-    return Column(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || saving) return;
+        leaveFormIfConfirmed(
+          context,
+          () => context
+              .read<ProposalsBloc>()
+              .add(const ProposalListRequested()),
+        );
+      },
+      child: Column(
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
@@ -621,9 +816,12 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
             child: TextButton.icon(
               onPressed: saving
                   ? null
-                  : () => context
-                      .read<ProposalsBloc>()
-                      .add(const ProposalListRequested()),
+                  : () => leaveFormIfConfirmed(
+                        context,
+                        () => context
+                            .read<ProposalsBloc>()
+                            .add(const ProposalListRequested()),
+                      ),
               icon: const Icon(Icons.arrow_back, size: 18),
               label: const Text('Back to list'),
               style: TextButton.styleFrom(foregroundColor: AppColors.textLight),
@@ -832,15 +1030,49 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
           ],
         ),
       ],
+      ),
     );
   }
 
-  Client? _resolveClient(Client? selected, List<Client> clients) {
-    if (selected == null) return null;
-    for (final client in clients) {
-      if (client.id == selected.id) return client;
+  Client? _resolveClient(
+    Client? selected,
+    List<Client> clients, {
+    String companyHint = '',
+    String contactHint = '',
+  }) {
+    if (selected != null) {
+      for (final client in clients) {
+        if (client.id == selected.id) return client;
+      }
     }
-    return null;
+
+    final company = companyHint.trim().toLowerCase();
+    final contact = contactHint.trim().toLowerCase();
+    if (company.isEmpty && contact.isEmpty) return null;
+
+    // Prefer company + contact so duplicate company names (e.g. two Mahindra
+    // Finance contacts) resolve to the intended client row.
+    if (company.isNotEmpty && contact.isNotEmpty) {
+      for (final client in clients) {
+        if (client.name.trim().toLowerCase() == company &&
+            client.contactName.trim().toLowerCase() == contact) {
+          return client;
+        }
+      }
+    }
+
+    if (company.isEmpty) return null;
+
+    Client? match;
+    for (final client in clients) {
+      if (client.name.trim().toLowerCase() != company) continue;
+      if (match != null) {
+        // Ambiguous company-only match — leave unset so the user picks.
+        return null;
+      }
+      match = client;
+    }
+    return match;
   }
 
   Widget _partyCard(
@@ -864,8 +1096,19 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
         children: [
           AppDropdown<Client>(
             label: 'Client',
-            value: clientValue,
-            items: clients,
+            value: () {
+              if (clientValue == null) return null;
+              for (final client in clients) {
+                if (client.id == clientValue.id) return client;
+              }
+              return null;
+            }(),
+            items: [
+              for (final client in clients)
+                if (client.isActive ||
+                    (clientValue != null && client.id == clientValue.id))
+                  client,
+            ],
             itemLabel: (item) => item.displayLabel,
             enabled: !saving,
             hintText: 'Select client or type below',
@@ -1117,7 +1360,8 @@ class _LineControllers {
     required this.monthlyRate,
     required this.months,
     required this.days,
-  });
+    FocusNode? descriptionFocus,
+  }) : descriptionFocus = descriptionFocus ?? FocusNode();
 
   factory _LineControllers.empty() {
     return _LineControllers(
@@ -1129,6 +1373,7 @@ class _LineControllers {
   }
 
   final TextEditingController description;
+  final FocusNode descriptionFocus;
   final TextEditingController monthlyRate;
   final TextEditingController months;
   final TextEditingController days;
@@ -1136,6 +1381,7 @@ class _LineControllers {
 
   void dispose() {
     description.dispose();
+    descriptionFocus.dispose();
     monthlyRate.dispose();
     months.dispose();
     days.dispose();

@@ -12,6 +12,8 @@ import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
+import '../../../hrms/presentation/widgets/employee_documents_section.dart';
+import '../../../hrms/presentation/widgets/employee_purchase_orders_section.dart';
 import '../../../payroll/domain/services/payslip_period.dart';
 import '../../../payroll/presentation/bloc/payroll_bloc.dart';
 
@@ -139,7 +141,19 @@ class _ProfileView extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _DetailsGrid(fields: fields, isDesktop: isDesktop),
-                if (!linked) ...[
+                if (linked) ...[
+                  const SizedBox(height: 16),
+                  EmployeeDocumentsSection(
+                    employeeId: employee!.employeeId,
+                    isDesktop: isDesktop,
+                  ),
+                  const SizedBox(height: 12),
+                  EmployeePurchaseOrdersSection(
+                    employeeId: employee!.employeeId,
+                    isDesktop: isDesktop,
+                    canManage: false,
+                  ),
+                ] else ...[
                   const SizedBox(height: 16),
                   Text(
                     'Your profile is not linked to an employee record yet. '
@@ -186,7 +200,10 @@ class _SalarySlipsView extends StatelessWidget {
       );
     }
 
-    final options = PayslipPeriod.optionsForEmployee(employee!.dateOfJoining);
+    final options = PayslipPeriod.optionsForEmployee(
+      employee!.dateOfJoining,
+      dateOfExit: employee!.dateOfExit,
+    );
     if (options.isEmpty) {
       return Padding(
         padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 32),
@@ -476,7 +493,7 @@ class _SalarySlipDownload extends StatelessWidget {
                     foregroundColor: AppColors.background,
                     disabledBackgroundColor: AppColors.textLight,
                     disabledForegroundColor: AppColors.background,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
                     minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),

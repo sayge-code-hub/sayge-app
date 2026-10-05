@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
+import '../../domain/entities/proposal.dart';
 import '../models/proposal_model.dart';
 
 abstract class ProposalRemoteDataSource {
@@ -11,6 +12,11 @@ abstract class ProposalRemoteDataSource {
   Future<ProposalModel> createProposal(ProposalModel proposal);
 
   Future<ProposalModel> updateProposal(ProposalModel proposal);
+
+  Future<ProposalModel> updateProposalStatus({
+    required String id,
+    required ProposalPoStatus status,
+  });
 }
 
 class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
@@ -123,6 +129,25 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to update proposal.');
+    }
+  }
+
+  @override
+  Future<ProposalModel> updateProposalStatus({
+    required String id,
+    required ProposalPoStatus status,
+  }) async {
+    try {
+      await _client
+          .from(_table)
+          .update({'status': status.storageValue})
+          .eq('id', id);
+      return getProposal(id);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update proposal status.');
     }
   }
 }

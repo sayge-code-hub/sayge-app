@@ -65,6 +65,7 @@ class ProposalModel extends Proposal {
     required super.lineItems,
     required super.subtotal,
     required super.totalInWords,
+    super.poStatus,
   });
 
   factory ProposalModel.fromEntity(Proposal proposal) {
@@ -88,6 +89,7 @@ class ProposalModel extends Proposal {
       lineItems: proposal.lineItems,
       subtotal: proposal.subtotal,
       totalInWords: proposal.totalInWords,
+      poStatus: proposal.poStatus,
     );
   }
 
@@ -139,6 +141,7 @@ class ProposalModel extends Proposal {
       lineItems: lines,
       subtotal: subtotal,
       totalInWords: ProposalCalculator.amountInWords(subtotal),
+      poStatus: ProposalPoStatus.fromStorage(readString('status')),
     );
   }
 
@@ -161,6 +164,7 @@ class ProposalModel extends Proposal {
       'ship_to_gstin': shipToGstin,
       'notes': notes,
       'subtotal': subtotal,
+      'status': poStatus.storageValue,
     };
   }
 }

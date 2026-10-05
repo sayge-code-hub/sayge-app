@@ -42,7 +42,7 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
     Emitter<AddEmployeeState> emit,
   ) async {
     final clientsResult = await getClientsUseCase();
-    final clients = clientsResult.fold(
+    final allClients = clientsResult.fold(
       (_) => <Client>[],
       (list) => list,
     );
@@ -52,7 +52,10 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
       final nextId = await _nextEmployeeId();
       emit(
         AddEmployeeState(
-          availableClients: clients,
+          availableClients: [
+            for (final client in allClients)
+              if (client.isActive) client,
+          ],
           employeeId: nextId,
           status: AddEmployeeStatus.editing,
         ),
@@ -60,11 +63,15 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
       return;
     }
 
+    final linkedClientId = employee.clientId;
     emit(
       AddEmployeeState(
         isEditMode: true,
         status: AddEmployeeStatus.editing,
-        availableClients: clients,
+        availableClients: [
+          for (final client in allClients)
+            if (client.isActive || client.id == linkedClientId) client,
+        ],
         employeeId: employee.employeeId,
         employeeName: employee.employeeName,
         dateOfJoining: employee.dateOfJoining,
@@ -73,6 +80,7 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         department: employee.department,
         annualCtc: _moneyField(employee.annualCtc),
         monthlyCtc: _moneyField(employee.monthlyCtc),
+        monthlyRate: _moneyField(employee.monthlyRate),
         pfApplicable: employee.pfApplicable,
         ptApplicable: employee.ptApplicable,
         medicalInsurance: _moneyField(employee.medicalInsurance),
@@ -120,6 +128,7 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         department: event.department,
         annualCtc: event.annualCtc,
         monthlyCtc: event.monthlyCtc,
+        monthlyRate: event.monthlyRate,
         pfApplicable: event.pfApplicable,
         ptApplicable: event.ptApplicable,
         medicalInsurance: event.medicalInsurance,
@@ -174,6 +183,7 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
       department: state.department.trim(),
       annualCtc: double.parse(state.annualCtc.trim()),
       monthlyCtc: double.parse(state.monthlyCtc.trim()),
+      monthlyRate: double.tryParse(state.monthlyRate.trim()) ?? 0,
       pfApplicable: state.pfApplicable!,
       ptApplicable: state.ptApplicable!,
       medicalInsurance: double.parse(state.medicalInsurance.trim()),

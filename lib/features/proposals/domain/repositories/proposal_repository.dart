@@ -11,4 +11,9 @@ abstract class ProposalRepository {
   Future<Either<Failure, Proposal>> createProposal(Proposal proposal);
 
   Future<Either<Failure, Proposal>> updateProposal(Proposal proposal);
+
+  Future<Either<Failure, Proposal>> updateProposalStatus({
+    required String id,
+    required ProposalPoStatus status,
+  });
 }

@@ -72,6 +72,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
   final _departmentController = TextEditingController();
   final _annualCtcController = TextEditingController();
   final _monthlyCtcController = TextEditingController();
+  final _monthlyRateController = TextEditingController();
   final _medicalController = TextEditingController(text: '650');
   final _retentionController = TextEditingController(text: '2000');
   final _tdsController = TextEditingController(text: '0');
@@ -99,6 +100,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _departmentController.text = state.department;
     _annualCtcController.text = state.annualCtc;
     _monthlyCtcController.text = state.monthlyCtc;
+    _monthlyRateController.text = state.monthlyRate;
     _medicalController.text = state.medicalInsurance;
     _retentionController.text = state.retentionAmount;
     _tdsController.text = state.tdsAmount;
@@ -121,6 +123,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
     _departmentController.dispose();
     _annualCtcController.dispose();
     _monthlyCtcController.dispose();
+    _monthlyRateController.dispose();
     _medicalController.dispose();
     _retentionController.dispose();
     _tdsController.dispose();
@@ -412,6 +415,20 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                                     AddEmployeeFieldChanged(monthlyCtc: value),
                                   ),
                         ),
+                        AppTextField(
+                          controller: _monthlyRateController,
+                          label: 'Monthly rate',
+                          prefixText: AppDisplayConfig.currencySymbol,
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (value) =>
+                              context.read<AddEmployeeBloc>().add(
+                                    AddEmployeeFieldChanged(monthlyRate: value),
+                                  ),
+                        ),
                         AppDropdown<bool>(
                           label: 'PF applicable',
                           value: state.pfApplicable,
@@ -608,13 +625,13 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
             OutlinedButton(
               onPressed: isLoading
                   ? null
-                  : () {
-                      if (widget.embedded) {
-                        widget.onCancel?.call();
-                      } else {
-                        Navigator.of(context).maybePop();
-                      }
-                    },
+                  : () => leaveFormIfConfirmed(context, () {
+                        if (widget.embedded) {
+                          widget.onCancel?.call();
+                        } else {
+                          Navigator.of(context).maybePop();
+                        }
+                      }),
               child: Text(widget.isEditMode ? 'Back' : 'Cancel'),
             ),
             AppButton(

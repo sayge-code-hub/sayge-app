@@ -16,6 +16,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     required this.getProposalsUseCase,
     required this.createProposalUseCase,
     required this.updateProposalUseCase,
+    required this.updateProposalStatusUseCase,
   }) : super(ProposalsState.initial()) {
     on<ProposalsStarted>(_onStarted);
     on<ProposalFormOpened>(_onFormOpened);
@@ -28,12 +29,15 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<ProposalCopyShipFromBill>(_onCopyShip);
     on<ProposalSubmitted>(_onSubmitted);
     on<ProposalDownloadRequested>(_onDownload);
+    on<ProposalDownloadAllRequested>(_onDownloadAll);
+    on<ProposalStatusChanged>(_onStatusChanged);
     on<ProposalListRequested>(_onList);
   }
 
   final GetProposalsUseCase getProposalsUseCase;
   final CreateProposalUseCase createProposalUseCase;
   final UpdateProposalUseCase updateProposalUseCase;
+  final UpdateProposalStatusUseCase updateProposalStatusUseCase;
 
   Future<void> _onStarted(
     ProposalsStarted event,
@@ -357,6 +361,13 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     }
 
     final subtotal = ProposalCalculator.subtotal(lines);
+    final existingPoStatus = editingId == null
+        ? ProposalPoStatus.active
+        : state.proposals
+            .where((item) => item.id == editingId)
+            .map((item) => item.poStatus)
+            .firstOrNull ??
+            ProposalPoStatus.active;
     final proposal = Proposal(
       id: editingId ?? 'prop_${DateTime.now().microsecondsSinceEpoch}',
       referenceNo: referenceNo,
@@ -377,6 +388,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       lineItems: lines,
       subtotal: subtotal,
       totalInWords: ProposalCalculator.amountInWords(subtotal),
+      poStatus: existingPoStatus,
     );
 
     final result = editingId == null
@@ -440,6 +452,81 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
       emit(state.copyWith(status: ProposalsStatus.ready, clearError: true));
     }
+  }
+
+  Future<void> _onDownloadAll(
+    ProposalDownloadAllRequested event,
+    Emitter<ProposalsState> emit,
+  ) async {
+    final toDownload = state.proposals
+        .where((p) => p.poStatus.includeInBulkDownload)
+        .toList();
+    if (toDownload.isEmpty) {
+      emit(
+        state.copyWith(
+          status: ProposalsStatus.failure,
+          errorMessage:
+              'No active proposals to download. Archived proposals are skipped.',
+        ),
+      );
+      emit(state.copyWith(status: ProposalsStatus.ready, clearError: true));
+      return;
+    }
+
+    try {
+      for (var i = 0; i < toDownload.length; i++) {
+        final proposal = toDownload[i];
+        final doc = await ProposalPdfBuilder.build(proposal);
+        final bytes = await doc.save();
+        final name =
+            'Proposal_${proposal.referenceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
+        await savePdfBytes(bytes: bytes, filename: name);
+        if (i < toDownload.length - 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: ProposalsStatus.failure,
+          errorMessage: 'Could not download all proposal PDFs.',
+        ),
+      );
+      emit(state.copyWith(status: ProposalsStatus.ready, clearError: true));
+    }
+  }
+
+  Future<void> _onStatusChanged(
+    ProposalStatusChanged event,
+    Emitter<ProposalsState> emit,
+  ) async {
+    final result = await updateProposalStatusUseCase(
+      id: event.proposalId,
+      status: event.status,
+    );
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            status: ProposalsStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+        emit(state.copyWith(status: ProposalsStatus.ready, clearError: true));
+      },
+      (updated) {
+        emit(
+          state.copyWith(
+            status: ProposalsStatus.ready,
+            clearError: true,
+            proposals: [
+              for (final item in state.proposals)
+                if (item.id == updated.id) updated else item,
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _onList(

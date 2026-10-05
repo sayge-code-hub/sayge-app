@@ -34,10 +34,39 @@ abstract final class PayslipPeriod {
     return options;
   }
 
-  /// Month choices for employee self-service (join month → last completed month).
-  static List<DateTime> optionsForEmployee(DateTime dateOfJoining) {
+  /// Whether [employee] had joined by the start of the payroll month.
+  static bool hasJoinedBy(
+    Employee employee, {
+    required int month,
+    required int year,
+  }) {
+    final period = DateTime(year, month, 1);
+    return !period.isBefore(monthOf(employee.dateOfJoining));
+  }
+
+  /// Whether [employee] was still employed during the payroll month
+  /// (joined on/before, and not exited before that month).
+  static bool wasEmployedIn(
+    Employee employee, {
+    required int month,
+    required int year,
+  }) {
+    if (!hasJoinedBy(employee, month: month, year: year)) return false;
+    final exit = employee.dateOfExit;
+    if (exit == null) return true;
+    final period = DateTime(year, month, 1);
+    return !period.isAfter(monthOf(exit));
+  }
+
+  /// Month choices for employee self-service (join month → last completed month,
+  /// capped at exit month when set).
+  static List<DateTime> optionsForEmployee(DateTime dateOfJoining, {DateTime? dateOfExit}) {
     final start = earliestForEmployee(dateOfJoining);
-    final end = latestAvailable();
+    var end = latestAvailable();
+    if (dateOfExit != null) {
+      final exitMonth = monthOf(dateOfExit);
+      if (exitMonth.isBefore(end)) end = exitMonth;
+    }
     if (start.isAfter(end)) return const [];
 
     final options = <DateTime>[];
@@ -49,16 +78,6 @@ abstract final class PayslipPeriod {
     return options;
   }
 
-  /// Whether [employee] had joined by the start of the payroll month.
-  static bool hasJoinedBy(
-    Employee employee, {
-    required int month,
-    required int year,
-  }) {
-    final period = DateTime(year, month, 1);
-    return !period.isBefore(monthOf(employee.dateOfJoining));
-  }
-
   /// Whether [employee] may receive a slip for the given payroll month.
   static bool isEligible(
     Employee employee, {
@@ -68,6 +87,6 @@ abstract final class PayslipPeriod {
     final period = DateTime(year, month, 1);
     if (period.isBefore(earliestAllowed)) return false;
     if (period.isAfter(latestAvailable())) return false;
-    return hasJoinedBy(employee, month: month, year: year);
+    return wasEmployedIn(employee, month: month, year: year);
   }
 }

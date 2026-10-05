@@ -7,24 +7,32 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../hrms/presentation/widgets/employee_form_layout.dart';
+import '../../domain/entities/client.dart';
 import '../bloc/clients/clients_bloc.dart';
+import '../widgets/client_documents_section.dart';
 
 class AddClientsPage extends StatelessWidget {
   const AddClientsPage({
     super.key,
     this.embedded = false,
+    this.clientId,
     this.onCompleted,
     this.onCancel,
   });
 
   final bool embedded;
+  /// When set, the form edits an existing client and shows DMS documents.
+  final String? clientId;
   final VoidCallback? onCompleted;
   final VoidCallback? onCancel;
+
+  bool get isEditing => clientId != null && clientId!.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     return _AddClientsView(
       embedded: embedded,
+      clientId: clientId?.trim(),
       onCompleted: onCompleted,
       onCancel: onCancel,
     );
@@ -34,11 +42,13 @@ class AddClientsPage extends StatelessWidget {
 class _AddClientsView extends StatefulWidget {
   const _AddClientsView({
     required this.embedded,
+    this.clientId,
     this.onCompleted,
     this.onCancel,
   });
 
   final bool embedded;
+  final String? clientId;
   final VoidCallback? onCompleted;
   final VoidCallback? onCancel;
 
@@ -53,6 +63,10 @@ class _AddClientsViewState extends State<_AddClientsView> {
   final _contactController = TextEditingController();
   final _addressController = TextEditingController();
   final _gstinController = TextEditingController();
+  bool _hydrated = false;
+
+  bool get _isEditing =>
+      widget.clientId != null && widget.clientId!.isNotEmpty;
 
   @override
   void dispose() {
@@ -74,6 +88,27 @@ class _AddClientsViewState extends State<_AddClientsView> {
     _gstinController.clear();
   }
 
+  void _hydrate(Client client) {
+    _nameController.text = client.name;
+    _vendorController.text = client.vendorCode;
+    _entityController.text = client.entityCode;
+    _contactController.text = client.contactName;
+    _addressController.text = client.address;
+    _gstinController.text = client.gstin;
+    _hydrated = true;
+  }
+
+  void _tryHydrate(List<Client> clients) {
+    if (!_isEditing || _hydrated) return;
+    final id = widget.clientId!;
+    for (final client in clients) {
+      if (client.id == id) {
+        _hydrate(client);
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
@@ -84,10 +119,12 @@ class _AddClientsViewState extends State<_AddClientsView> {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) async {
         if (state.status == ClientsStatus.success) {
-          _clear();
+          if (!_isEditing) _clear();
           await showAppMessageDialog(
             context,
-            message: 'Client added successfully',
+            message: _isEditing
+                ? 'Client updated successfully'
+                : 'Client added successfully',
           );
           if (!context.mounted) return;
           if (widget.embedded) {
@@ -96,6 +133,26 @@ class _AddClientsViewState extends State<_AddClientsView> {
         }
       },
       builder: (context, state) {
+        _tryHydrate(state.clients);
+
+        if (_isEditing &&
+            !_hydrated &&
+            (state.status == ClientsStatus.loading ||
+                state.status == ClientsStatus.initial)) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.text),
+          );
+        }
+
+        if (_isEditing && !_hydrated) {
+          return Center(
+            child: Text(
+              'Client not found.',
+              style: textTheme.bodyMedium?.copyWith(color: AppColors.error),
+            ),
+          );
+        }
+
         final isSaving = state.status == ClientsStatus.saving;
 
         Widget fieldGap = const SizedBox(height: 12);
@@ -200,6 +257,16 @@ class _AddClientsViewState extends State<_AddClientsView> {
                       children: fields,
                     ),
                   ),
+                  if (_isEditing && _hydrated) ...[
+                    const SizedBox(height: 16),
+                    ClientDocumentsSection(
+                      clientId: widget.clientId!,
+                      clientName: _nameController.text.trim().isEmpty
+                          ? 'Client'
+                          : _nameController.text.trim(),
+                      enabled: !isSaving,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -208,20 +275,21 @@ class _AddClientsViewState extends State<_AddClientsView> {
                 OutlinedButton(
                   onPressed: isSaving
                       ? null
-                      : () {
+                      : () => leaveFormIfConfirmed(context, () {
                           if (widget.embedded) {
                             widget.onCancel?.call();
                           } else {
                             Navigator.of(context).maybePop();
                           }
-                        },
+                        }),
                   child: const Text('Back'),
                 ),
                 AppButton(
-                  label: 'Save',
+                  label: _isEditing ? 'Update' : 'Save',
                   isLoading: isSaving,
                   onPressed: () => context.read<ClientsBloc>().add(
                         ClientSubmitted(
+                          clientId: widget.clientId,
                           name: _nameController.text,
                           vendorCode: _vendorController.text,
                           entityCode: _entityController.text,

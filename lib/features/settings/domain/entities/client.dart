@@ -9,6 +9,7 @@ class Client extends Equatable {
     this.contactName = '',
     this.address = '',
     this.gstin = '',
+    this.isActive = true,
   });
 
   final String id;
@@ -19,12 +20,36 @@ class Client extends Equatable {
   final String contactName;
   final String address;
   final String gstin;
+  final bool isActive;
 
   /// Dropdown label: "Mahindra Finance — Ketan Jain".
   String get displayLabel {
     final contact = contactName.trim();
-    if (contact.isEmpty) return name;
-    return '$name — $contact';
+    final base = contact.isEmpty ? name : '$name — $contact';
+    if (isActive) return base;
+    return '$base (Inactive)';
+  }
+
+  Client copyWith({
+    String? id,
+    String? name,
+    String? vendorCode,
+    String? entityCode,
+    String? contactName,
+    String? address,
+    String? gstin,
+    bool? isActive,
+  }) {
+    return Client(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      vendorCode: vendorCode ?? this.vendorCode,
+      entityCode: entityCode ?? this.entityCode,
+      contactName: contactName ?? this.contactName,
+      address: address ?? this.address,
+      gstin: gstin ?? this.gstin,
+      isActive: isActive ?? this.isActive,
+    );
   }
 
   @override
@@ -36,5 +61,6 @@ class Client extends Equatable {
         contactName,
         address,
         gstin,
+        isActive,
       ];
 }

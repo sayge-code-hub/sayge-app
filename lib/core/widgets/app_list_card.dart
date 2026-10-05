@@ -10,6 +10,7 @@ class AppListCard extends StatelessWidget {
     this.onTap,
     this.padding = AppListCard.tilePadding,
     this.borderRadius = 10,
+    this.color = AppColors.background,
   });
 
   /// Default padding for interactive list rows (proposals, invoices, payroll).
@@ -22,6 +23,7 @@ class AppListCard extends StatelessWidget {
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,7 @@ class AppListCard extends StatelessWidget {
 
     if (onTap == null) {
       return Material(
-        color: AppColors.background,
+        color: color,
         shape: shape,
         child: Padding(
           padding: padding,
@@ -42,7 +44,7 @@ class AppListCard extends StatelessWidget {
     }
 
     return Material(
-      color: AppColors.background,
+      color: color,
       shape: shape,
       child: InkWell(
         borderRadius: BorderRadius.circular(borderRadius),

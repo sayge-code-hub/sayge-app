@@ -14,6 +14,7 @@ class AddEmployeeState extends Equatable {
     this.department = '',
     this.annualCtc = '',
     this.monthlyCtc = '',
+    this.monthlyRate = '',
     this.pfApplicable,
     this.ptApplicable,
     this.medicalInsurance = '650',
@@ -42,6 +43,7 @@ class AddEmployeeState extends Equatable {
   final String department;
   final String annualCtc;
   final String monthlyCtc;
+  final String monthlyRate;
   final bool? pfApplicable;
   final bool? ptApplicable;
   final String medicalInsurance;
@@ -80,6 +82,10 @@ class AddEmployeeState extends Equatable {
     if (double.tryParse(monthlyCtc.trim()) == null) {
       return 'Enter a valid monthly CTC';
     }
+    if (monthlyRate.trim().isNotEmpty &&
+        double.tryParse(monthlyRate.trim()) == null) {
+      return 'Enter a valid monthly rate';
+    }
     if (pfApplicable == null) return 'Select PF applicable';
     if (ptApplicable == null) return 'Select PT applicable';
     if (double.tryParse(medicalInsurance.trim()) == null) {
@@ -115,6 +121,7 @@ class AddEmployeeState extends Equatable {
     String? department,
     String? annualCtc,
     String? monthlyCtc,
+    String? monthlyRate,
     bool? pfApplicable,
     bool? ptApplicable,
     String? medicalInsurance,
@@ -144,6 +151,7 @@ class AddEmployeeState extends Equatable {
       department: department ?? this.department,
       annualCtc: annualCtc ?? this.annualCtc,
       monthlyCtc: monthlyCtc ?? this.monthlyCtc,
+      monthlyRate: monthlyRate ?? this.monthlyRate,
       pfApplicable: pfApplicable ?? this.pfApplicable,
       ptApplicable: ptApplicable ?? this.ptApplicable,
       medicalInsurance: medicalInsurance ?? this.medicalInsurance,
@@ -175,6 +183,7 @@ class AddEmployeeState extends Equatable {
         department,
         annualCtc,
         monthlyCtc,
+        monthlyRate,
         pfApplicable,
         ptApplicable,
         medicalInsurance,

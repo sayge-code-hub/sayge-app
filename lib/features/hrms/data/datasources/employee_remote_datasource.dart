@@ -11,6 +11,12 @@ abstract class EmployeeRemoteDataSource {
   Future<EmployeeModel> addEmployee(EmployeeModel employee);
 
   Future<EmployeeModel> updateEmployee(EmployeeModel employee);
+
+  /// Marks employee inactive with [dateOfExit] and disables linked login accounts.
+  Future<EmployeeModel> exitEmployee({
+    required String employeeId,
+    required DateTime dateOfExit,
+  });
 }
 
 class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
@@ -98,6 +104,42 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
       throw ServerException(e.message);
     } catch (_) {
       throw const NetworkException('Failed to update employee.');
+    }
+  }
+
+  @override
+  Future<EmployeeModel> exitEmployee({
+    required String employeeId,
+    required DateTime dateOfExit,
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException(
+        'Only owners and admins can exit employees.',
+      );
+    }
+    try {
+      final exitDay = dateOfExit.toIso8601String().split('T').first;
+      final row = await _client
+          .from(_table)
+          .update({
+            'is_active': false,
+            'date_of_exit': exitDay,
+          })
+          .eq('employee_id', employeeId)
+          .select(_selectWithClient)
+          .single();
+
+      await _client
+          .from('users')
+          .update({'is_active': false})
+          .eq('employee_id', employeeId);
+
+      return EmployeeModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to exit employee.');
     }
   }
 }

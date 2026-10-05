@@ -38,11 +38,15 @@ class AppListIconButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.tooltip,
+    this.iconSize = 18,
+    this.buttonSize = 36,
   });
 
   final IconData icon;
   final VoidCallback? onPressed;
   final String? tooltip;
+  final double iconSize;
+  final double buttonSize;
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +54,14 @@ class AppListIconButton extends StatelessWidget {
       tooltip: tooltip,
       onPressed: onPressed,
       visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      iconSize: 18,
+      padding: EdgeInsets.all(buttonSize <= 28 ? 4 : 6),
+      constraints: BoxConstraints(
+        minWidth: buttonSize,
+        minHeight: buttonSize,
+      ),
+      iconSize: iconSize,
       color: AppColors.textLight,
-      splashRadius: 18,
+      splashRadius: buttonSize / 2,
       icon: Icon(icon, weight: 300),
     );
   }

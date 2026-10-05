@@ -71,4 +71,24 @@ class ProposalRepositoryImpl implements ProposalRepository {
       return const Left(NetworkFailure('Failed to update proposal.'));
     }
   }
+
+  @override
+  Future<Either<Failure, Proposal>> updateProposalStatus({
+    required String id,
+    required ProposalPoStatus status,
+  }) async {
+    try {
+      final updated = await remoteDataSource.updateProposalStatus(
+        id: id,
+        status: status,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update proposal status.'));
+    }
+  }
 }

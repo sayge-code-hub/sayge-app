@@ -35,6 +35,7 @@ import 'features/hrms/domain/repositories/employee_repository.dart';
 import 'features/hrms/domain/usecases/add_employee.dart';
 import 'features/hrms/domain/usecases/employee_purchase_order_usecases.dart';
 import 'features/hrms/domain/usecases/get_employees.dart';
+import 'features/hrms/domain/usecases/exit_employee.dart';
 import 'features/hrms/domain/usecases/update_employee.dart';
 import 'features/hrms/presentation/bloc/add_employee/add_employee_bloc.dart';
 import 'features/hrms/presentation/bloc/employee_po/employee_po_bloc.dart';
@@ -66,6 +67,7 @@ import 'features/settings/data/repositories/settings_repository_impl.dart';
 import 'features/settings/domain/repositories/client_repository.dart';
 import 'features/settings/domain/repositories/settings_repository.dart';
 import 'features/settings/domain/usecases/add_client.dart';
+import 'features/settings/domain/usecases/client_lifecycle.dart';
 import 'features/settings/domain/usecases/get_clients.dart';
 import 'features/settings/domain/usecases/settings_usecases.dart';
 import 'features/settings/presentation/bloc/clients/clients_bloc.dart';
@@ -122,10 +124,16 @@ Future<void> initDependencies() async {
     () => ClientsBloc(
       getClientsUseCase: sl(),
       addClientUseCase: sl(),
+      updateClientUseCase: sl(),
+      setClientActiveUseCase: sl(),
+      deleteClientUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetClientsUseCase(sl()));
   sl.registerLazySingleton(() => AddClientUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateClientUseCase(sl()));
+  sl.registerLazySingleton(() => SetClientActiveUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteClientUseCase(sl()));
   sl.registerLazySingleton<ClientRemoteDataSource>(
     () => ClientRemoteDataSourceImpl(),
   );
@@ -165,6 +173,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetEmployeesUseCase(sl()));
   sl.registerLazySingleton(() => AddEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => UpdateEmployeeUseCase(sl()));
+  sl.registerLazySingleton(() => ExitEmployeeUseCase(sl()));
   sl.registerLazySingleton<EmployeeRemoteDataSource>(
     () => EmployeeRemoteDataSourceImpl(authSession: sl()),
   );
@@ -234,11 +243,13 @@ Future<void> initDependencies() async {
       getProposalsUseCase: sl(),
       createProposalUseCase: sl(),
       updateProposalUseCase: sl(),
+      updateProposalStatusUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetProposalsUseCase(sl()));
   sl.registerLazySingleton(() => CreateProposalUseCase(sl()));
   sl.registerLazySingleton(() => UpdateProposalUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateProposalStatusUseCase(sl()));
   sl.registerLazySingleton<ProposalRemoteDataSource>(
     () => ProposalRemoteDataSourceImpl(),
   );

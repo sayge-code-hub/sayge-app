@@ -282,9 +282,12 @@ class _PosBrandFormBodyState extends State<_PosBrandFormBody> {
                 OutlinedButton(
                   onPressed: saving
                       ? null
-                      : () => context.canPop()
-                          ? context.pop()
-                          : context.go(AppRoutes.posHub),
+                      : () => leaveFormIfConfirmed(
+                            context,
+                            () => context.canPop()
+                                ? context.pop()
+                                : context.go(AppRoutes.posHub),
+                          ),
                   child: const Text('Cancel'),
                 ),
                 AppButton(

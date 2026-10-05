@@ -20,10 +20,12 @@ class EmployeePurchaseOrdersSection extends StatelessWidget {
     super.key,
     required this.employeeId,
     required this.isDesktop,
+    this.canManage = true,
   });
 
   final String employeeId;
   final bool isDesktop;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class EmployeePurchaseOrdersSection extends StatelessWidget {
       child: _EmployeePurchaseOrdersBody(
         employeeId: employeeId,
         isDesktop: isDesktop,
+        canManage: canManage,
       ),
     );
   }
@@ -42,10 +45,12 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
   const _EmployeePurchaseOrdersBody({
     required this.employeeId,
     required this.isDesktop,
+    required this.canManage,
   });
 
   final String employeeId;
   final bool isDesktop;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -105,13 +110,14 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
                           ),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: saving
-                        ? null
-                        : () => _showAddPoDialog(context, employeeId),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add PO'),
-                  ),
+                  if (canManage)
+                    TextButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () => _showAddPoDialog(context, employeeId),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add PO'),
+                    ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -124,7 +130,9 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
                 )
               else if (state.orders.isEmpty)
                 Text(
-                  'No purchase orders yet. Add a PO number, dates, and PDF.',
+                  canManage
+                      ? 'No purchase orders yet. Add a PO number, dates, and PDF.'
+                      : 'No purchase orders attached yet.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textLight,
                       ),

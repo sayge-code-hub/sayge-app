@@ -62,7 +62,7 @@ jobs:
 
       - name: Build web (CanvasKit from CDN)
         run: |
-          flutter build web --release --base-href / --web-resources-cdn --no-wasm-dry-run
+          flutter build web --release --base-href / --web-resources-cdn --no-wasm-dry-run --no-tree-shake-icons
           # Drop local CanvasKit (~37MB); runtime loads from gstatic CDN.
           rm -rf build/web/canvaskit
           # Avoid stale service-worker caches on Netlify.

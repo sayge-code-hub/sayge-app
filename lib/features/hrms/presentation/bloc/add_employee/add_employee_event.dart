@@ -26,6 +26,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
     this.department,
     this.annualCtc,
     this.monthlyCtc,
+    this.monthlyRate,
     this.pfApplicable,
     this.ptApplicable,
     this.medicalInsurance,
@@ -50,6 +51,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
   final String? department;
   final String? annualCtc;
   final String? monthlyCtc;
+  final String? monthlyRate;
   final bool? pfApplicable;
   final bool? ptApplicable;
   final String? medicalInsurance;
@@ -75,6 +77,7 @@ class AddEmployeeFieldChanged extends AddEmployeeEvent {
         department,
         annualCtc,
         monthlyCtc,
+        monthlyRate,
         pfApplicable,
         ptApplicable,
         medicalInsurance,

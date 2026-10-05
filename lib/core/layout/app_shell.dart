@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_version_label.dart';
 import 'app_destination.dart';
 import 'breakpoints.dart';
+import 'kept_material_icons.dart';
 
 /// Responsive shell inspired by desktop HR consoles.
 ///
@@ -389,6 +390,7 @@ class _SidebarState extends State<_Sidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const KeptMaterialIcons(),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             child: Align(

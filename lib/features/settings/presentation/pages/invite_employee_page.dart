@@ -264,7 +264,12 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
         AppStickyActions(
           children: [
             OutlinedButton(
-              onPressed: _sending ? null : widget.onBack,
+              onPressed: _sending
+                  ? null
+                  : () => leaveFormIfConfirmed(
+                        context,
+                        () => widget.onBack?.call(),
+                      ),
               child: const Text('Back'),
             ),
             AppButton(

@@ -43,3 +43,16 @@ class UpdateProposalUseCase {
     return _repository.updateProposal(proposal);
   }
 }
+
+class UpdateProposalStatusUseCase {
+  const UpdateProposalStatusUseCase(this._repository);
+
+  final ProposalRepository _repository;
+
+  Future<Either<Failure, Proposal>> call({
+    required String id,
+    required ProposalPoStatus status,
+  }) {
+    return _repository.updateProposalStatus(id: id, status: status);
+  }
+}

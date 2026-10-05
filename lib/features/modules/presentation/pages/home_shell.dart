@@ -6,6 +6,7 @@ import '../../../../core/auth/app_access.dart';
 import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/usecases/sign_out_usecase.dart';
@@ -100,13 +101,13 @@ class _HomeShellState extends State<HomeShell> {
             ),
             AppNavItem(
               label: 'Expense',
-              icon: Icons.monetization_on_outlined,
+              icon: Icons.account_balance_outlined,
             ),
           ],
         ),
         AppNavSection(
           label: 'POS',
-          icon: Icons.point_of_sale_outlined,
+          icon: Icons.storefront_outlined,
           selectable: true,
           items: [],
         ),
@@ -143,7 +144,7 @@ class _HomeShellState extends State<HomeShell> {
       ),
       AppNavSection(
         label: 'Expense',
-        icon: Icons.monetization_on_outlined,
+        icon: Icons.account_balance_outlined,
         selectable: linked,
         enabled: linked,
         items: const [],
@@ -215,7 +216,9 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (path == AppRoutes.myDetails) return 'Dashboard';
     if (path == AppRoutes.employeesAdd) return 'Add employee';
-    if (path.endsWith('/edit')) return 'Edit employee';
+    if (path.endsWith('/edit') && path.startsWith('/hrms/employees/')) {
+      return 'Edit employee';
+    }
     if (path.endsWith('/compensation')) {
       return _isStaff ? 'Compensation breakup' : 'Pay & Compliance';
     }
@@ -223,6 +226,12 @@ class _HomeShellState extends State<HomeShell> {
       return 'Employee details';
     }
     if (path == AppRoutes.clientsAdd) return 'Add client';
+    if (RegExp(r'^/settings/clients/[^/]+/edit$').hasMatch(path)) {
+      return 'Edit client';
+    }
+    if (RegExp(r'^/settings/clients/[^/]+$').hasMatch(path)) {
+      return 'Client details';
+    }
     if (path.startsWith(AppRoutes.clients)) return 'Manage clients';
     if (path == AppRoutes.inviteEmployee) return 'Invite employee';
     if (path == AppRoutes.companyDetails) return 'Company Details';
@@ -266,12 +275,25 @@ class _HomeShellState extends State<HomeShell> {
       return null;
     }
 
+    VoidCallback confirming(VoidCallback leave) {
+      return () {
+        leaveFormIfConfirmed(context, leave);
+      };
+    }
+
     if (path.endsWith('/edit')) {
       final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 4 && segments[2] != 'add') {
-        return () => _goBack(AppRoutes.employeeDetail(segments[2]));
+        // Employee edit form.
+        if (path.startsWith('/hrms/employees/')) {
+          return confirming(
+            () => _goBack(AppRoutes.employeeDetail(segments[2])),
+          );
+        }
       }
-      return null;
+    }
+    if (path == AppRoutes.employeesAdd) {
+      return confirming(() => _goBack(AppRoutes.employees));
     }
     if (path.endsWith('/compensation')) {
       final segments = Uri.parse(path).pathSegments;
@@ -285,30 +307,54 @@ class _HomeShellState extends State<HomeShell> {
       return () => _goBack(AppRoutes.employees);
     }
     if (path == AppRoutes.clientsAdd) {
+      return confirming(() => _goBack(AppRoutes.clients));
+    }
+    if (RegExp(r'^/settings/clients/[^/]+/edit$').hasMatch(path)) {
+      final segments = Uri.parse(path).pathSegments;
+      final clientId = segments.length >= 3 ? segments[2] : '';
+      return confirming(
+        () => _goBack(
+          clientId.isEmpty
+              ? AppRoutes.clients
+              : AppRoutes.clientDetail(clientId),
+        ),
+      );
+    }
+    if (RegExp(r'^/settings/clients/[^/]+$').hasMatch(path)) {
       return () => _goBack(AppRoutes.clients);
     }
     if (path == AppRoutes.clients ||
         path == AppRoutes.companyDetails ||
         path == AppRoutes.roles ||
-        path == AppRoutes.ledger ||
-        path == AppRoutes.inviteEmployee) {
+        path == AppRoutes.ledger) {
       return () => _goBack(AppRoutes.settings);
+    }
+    if (path == AppRoutes.inviteEmployee) {
+      return confirming(() => _goBack(AppRoutes.settings));
     }
     if (path == AppRoutes.posBrandAdd ||
         (path.endsWith('/edit') && path.contains('/pos/brands/'))) {
-      return () => _goBack(AppRoutes.posHub);
+      return confirming(() => _goBack(AppRoutes.posHub));
     }
     if (path.contains('/pos/') && path.contains('/products/')) {
       final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 2) {
-        if (path.endsWith('/edit') && segments.length >= 4) {
-          return () => _goBack(
-                AppRoutes.posProductDetail(segments[1], segments[3]),
-              );
+        final isProductEdit = path.endsWith('/edit') && segments.length >= 5;
+        final isProductAdd =
+            path.endsWith('/add') || path.contains('/products/add');
+        if (isProductEdit) {
+          return confirming(
+            () => _goBack(
+              AppRoutes.posProductDetail(segments[1], segments[3]),
+            ),
+          );
         }
-        if (segments.length >= 4 && segments[2] == 'products') {
-          return () => _goBack(AppRoutes.posProducts(segments[1]));
+        if (isProductAdd) {
+          return confirming(
+            () => _goBack(AppRoutes.posProducts(segments[1])),
+          );
         }
+        // Product detail (view) — leave without confirm.
         return () => _goBack(AppRoutes.posProducts(segments[1]));
       }
     }

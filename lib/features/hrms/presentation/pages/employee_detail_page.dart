@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/layout/breakpoints.dart';
@@ -6,17 +7,24 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../injection_container.dart';
 import '../../domain/entities/employee.dart';
+import '../../domain/usecases/exit_employee.dart';
+import '../bloc/employees/employees_bloc.dart';
+import '../widgets/employee_documents_section.dart';
 import '../widgets/employee_form_layout.dart';
 import '../widgets/employee_purchase_orders_section.dart';
 
-class EmployeeDetailPage extends StatelessWidget {
+class EmployeeDetailPage extends StatefulWidget {
   const EmployeeDetailPage({
     super.key,
     required this.employee,
     this.embedded = false,
     this.canEdit = true,
     this.showPurchaseOrders = true,
+    this.canManagePurchaseOrders = true,
+    this.showDocuments = true,
     this.onBack,
     this.onEdit,
   });
@@ -25,11 +33,122 @@ class EmployeeDetailPage extends StatelessWidget {
   final bool embedded;
   final bool canEdit;
   final bool showPurchaseOrders;
+  final bool canManagePurchaseOrders;
+  final bool showDocuments;
   final VoidCallback? onBack;
   final VoidCallback? onEdit;
 
   @override
+  State<EmployeeDetailPage> createState() => _EmployeeDetailPageState();
+}
+
+class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
+  bool _exiting = false;
+
+  Future<void> _exitEmployee() async {
+    final employee = widget.employee;
+    if (!employee.isActive || _exiting) return;
+
+    var exitDate = DateTime.now();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final formatted = AppDates.compact.format(exitDate);
+            return AlertDialog(
+              backgroundColor: AppColors.background,
+              surfaceTintColor: AppColors.background,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              title: const Text('Exit employee'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Mark ${employee.employeeName} as exited from the organisation? '
+                    'Their login will be disabled.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: exitDate,
+                        firstDate: employee.dateOfJoining,
+                        lastDate: DateTime.now()
+                            .add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => exitDate = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text('Exit date: $formatted'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                  child: const Text('Exit employee'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _exiting = true);
+    final result = await sl<ExitEmployeeUseCase>()(
+      employeeId: employee.employeeId,
+      dateOfExit: exitDate,
+    );
+    if (!mounted) return;
+    setState(() => _exiting = false);
+
+    await result.fold(
+      (failure) async {
+        await showAppMessageDialog(
+          context,
+          title: 'Exit employee',
+          message: failure.message,
+        );
+      },
+      (_) async {
+        context.read<EmployeesBloc>().add(const EmployeesRequested());
+        await showAppMessageDialog(
+          context,
+          title: 'Exit employee',
+          message:
+              '${employee.employeeName} has been exited from the organisation.',
+        );
+        if (!mounted) return;
+        if (widget.embedded) {
+          widget.onBack?.call();
+        } else {
+          context.go(AppRoutes.employees);
+        }
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final employee = widget.employee;
+    final canEdit = widget.canEdit;
     final isDesktop = Breakpoints.isDesktop(context);
     final dateFormat = AppDates.compact;
     final horizontal = isDesktop ? 32.0 : 16.0;
@@ -54,6 +173,11 @@ class EmployeeDetailPage extends StatelessWidget {
           label: 'Location',
           value: employee.location,
         ),
+        if (employee.dateOfExit != null)
+          EmployeeDetailField(
+            label: 'Date of exit',
+            value: dateFormat.format(employee.dateOfExit!),
+          ),
       ],
     );
 
@@ -116,6 +240,10 @@ class EmployeeDetailPage extends StatelessWidget {
           value: MoneyFormat.format(employee.monthlyCtc),
         ),
         EmployeeDetailField(
+          label: 'Monthly rate',
+          value: MoneyFormat.format(employee.monthlyRate),
+        ),
+        EmployeeDetailField(
           label: 'Medical insurance',
           value: MoneyFormat.format(employee.medicalInsurance),
         ),
@@ -171,7 +299,7 @@ class EmployeeDetailPage extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               horizontal,
-              embedded ? (isDesktop ? 12 : 8) : 16,
+              widget.embedded ? (isDesktop ? 12 : 8) : 16,
               horizontal,
               24,
             ),
@@ -187,36 +315,56 @@ class EmployeeDetailPage extends StatelessWidget {
                 left: compensation,
                 right: compliance,
               ),
-              if (showPurchaseOrders) ...[
+              if (widget.showDocuments) ...[
+                const SizedBox(height: 12),
+                EmployeeDocumentsSection(
+                  employeeId: employee.employeeId,
+                  isDesktop: isDesktop,
+                ),
+              ],
+              if (widget.showPurchaseOrders) ...[
                 const SizedBox(height: 12),
                 EmployeePurchaseOrdersSection(
                   employeeId: employee.employeeId,
                   isDesktop: isDesktop,
+                  canManage: widget.canManagePurchaseOrders,
                 ),
               ],
             ],
           ),
         ),
-        if (canEdit || onBack != null)
+        if (canEdit || widget.onBack != null)
           EmployeeStickyActions(
             children: [
-              if (onBack != null)
+              if (widget.onBack != null)
                 OutlinedButton(
-                  onPressed: () {
-                    if (embedded) {
-                      onBack?.call();
-                    } else {
-                      Navigator.of(context).maybePop();
-                    }
-                  },
+                  onPressed: _exiting
+                      ? null
+                      : () {
+                          if (widget.embedded) {
+                            widget.onBack?.call();
+                          } else {
+                            Navigator.of(context).maybePop();
+                          }
+                        },
                   child: const Text('Back'),
+                ),
+              if (canEdit && employee.isActive)
+                OutlinedButton(
+                  onPressed: _exiting ? null : _exitEmployee,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                  ),
+                  child: Text(_exiting ? 'Exiting…' : 'Exit employee'),
                 ),
               if (canEdit)
                 AppButton(
                   label: 'Edit',
+                  enabled: !_exiting,
                   onPressed: () {
-                    if (embedded) {
-                      onEdit?.call();
+                    if (widget.embedded) {
+                      widget.onEdit?.call();
                     }
                   },
                 ),
@@ -225,7 +373,7 @@ class EmployeeDetailPage extends StatelessWidget {
       ],
     );
 
-    if (embedded) {
+    if (widget.embedded) {
       return body;
     }
 

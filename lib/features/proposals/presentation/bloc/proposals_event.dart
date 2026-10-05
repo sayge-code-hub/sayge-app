@@ -194,3 +194,20 @@ class ProposalDownloadRequested extends ProposalsEvent {
   @override
   List<Object?> get props => [proposal];
 }
+
+class ProposalDownloadAllRequested extends ProposalsEvent {
+  const ProposalDownloadAllRequested();
+}
+
+class ProposalStatusChanged extends ProposalsEvent {
+  const ProposalStatusChanged({
+    required this.proposalId,
+    required this.status,
+  });
+
+  final String proposalId;
+  final ProposalPoStatus status;
+
+  @override
+  List<Object?> get props => [proposalId, status];
+}

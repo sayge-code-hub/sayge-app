@@ -29,6 +29,7 @@ import '../../features/pos/presentation/pages/pos_products_page.dart';
 import '../../features/pos/presentation/pages/pos_terminal_page.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
+import '../../features/settings/presentation/pages/client_detail_page.dart';
 import '../../features/settings/presentation/pages/company_details_page.dart';
 import '../../features/settings/presentation/pages/invite_employee_page.dart';
 import '../../features/settings/presentation/pages/ledger_page.dart';
@@ -212,7 +213,9 @@ GoRouter createAppRouter(AuthSession authSession) {
                     employee: employee,
                     embedded: true,
                     canEdit: staff,
-                    showPurchaseOrders: staff,
+                    showPurchaseOrders: true,
+                    canManagePurchaseOrders: staff,
+                    showDocuments: true,
                     onBack: staff
                         ? () => _goBack(context, AppRoutes.employees)
                         : null,
@@ -408,6 +411,8 @@ GoRouter createAppRouter(AuthSession authSession) {
                     embedded: true,
                     onBack: () => _goBack(context, AppRoutes.settings),
                     onAddClient: () => context.go(AppRoutes.clientsAdd),
+                    onOpenClient: (clientId) =>
+                        context.go(AppRoutes.clientDetail(clientId)),
                   ),
                 ),
                 routes: [
@@ -421,6 +426,43 @@ GoRouter createAppRouter(AuthSession authSession) {
                         onCancel: () => _goBack(context, AppRoutes.clients),
                       ),
                     ),
+                  ),
+                  GoRoute(
+                    path: ':clientId',
+                    pageBuilder: (context, state) {
+                      final clientId =
+                          state.pathParameters['clientId'] ?? '';
+                      return _page(
+                        state,
+                        ClientDetailPage(
+                          clientId: clientId,
+                          embedded: true,
+                          onBack: () => _goBack(context, AppRoutes.clients),
+                          onEdit: () =>
+                              context.go(AppRoutes.clientEdit(clientId)),
+                        ),
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        pageBuilder: (context, state) {
+                          final clientId =
+                              state.pathParameters['clientId'] ?? '';
+                          return _page(
+                            state,
+                            AddClientsPage(
+                              embedded: true,
+                              clientId: clientId,
+                              onCompleted: () =>
+                                  context.go(AppRoutes.clientDetail(clientId)),
+                              onCancel: () =>
+                                  _goBack(context, AppRoutes.clientDetail(clientId)),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
