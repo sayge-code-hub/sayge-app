@@ -550,7 +550,7 @@ class _AddEmployeeViewState extends State<_AddEmployeeView> {
                         ),
                         AppTextField(
                           controller: _monthlyRateController,
-                          label: 'Monthly rate',
+                          label: 'Client billing',
                           prefixText: AppDisplayConfig.currencySymbol,
                           enabled: !isLoading,
                           keyboardType: TextInputType.number,

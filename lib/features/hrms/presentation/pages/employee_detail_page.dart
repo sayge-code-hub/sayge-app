@@ -352,7 +352,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           value: MoneyFormat.format(employee.monthlyCtc),
         ),
         EmployeeDetailField(
-          label: 'Monthly rate',
+          label: 'Client billing',
           value: MoneyFormat.format(employee.monthlyRate),
         ),
         EmployeeDetailField(

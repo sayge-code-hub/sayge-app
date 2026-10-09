@@ -27,11 +27,12 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   final AuthSession? _authSession;
 
   static const _table = 'expenses';
+  static const _selectWithClient = '*, clients(id, name)';
 
   @override
   Future<List<ExpenseModel>> getExpenses() async {
     try {
-      var query = _client.from(_table).select();
+      var query = _client.from(_table).select(_selectWithClient);
 
       final user = _authSession?.user;
       if (AppAccess.isEmployeeOnly(user)) {
@@ -52,6 +53,16 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       }
       if (e.message.contains('created_by') &&
           AppAccess.isStaff(_authSession?.user)) {
+        final rows = await _client
+            .from(_table)
+            .select(_selectWithClient)
+            .order('created_at', ascending: false);
+        return (rows as List<dynamic>)
+            .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
+            .toList();
+      }
+      // Fallback before client_id / join migration.
+      if (e.message.contains('client_id') || e.message.contains('clients')) {
         final rows = await _client
             .from(_table)
             .select()
@@ -91,6 +102,8 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     final uid =
         _client.auth.currentUser?.id ?? _authSession?.user?.id;
 
+    final clientId = expense.isCompanyExpense ? null : expense.clientId?.trim();
+
     try {
       final payload = ExpenseModel(
         id: id,
@@ -98,13 +111,15 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         amount: expense.amount,
         paidFrom: paidFrom,
         category: category,
+        clientId: clientId,
+        clientName: expense.clientName,
         createdBy: uid,
       ).toJson();
 
       final row = await _client
           .from(_table)
           .insert(payload)
-          .select()
+          .select(_selectWithClient)
           .single();
       return ExpenseModel.fromJson(row);
     } on PostgrestException catch (e) {
@@ -119,7 +134,27 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
                 amount: expense.amount,
                 paidFrom: paidFrom,
                 category: category,
+                clientId: clientId,
               ).toJson(),
+            )
+            .select(_selectWithClient)
+            .single();
+        return ExpenseModel.fromJson(row);
+      }
+      // Fallback before client_id migration.
+      if (e.message.contains('client_id')) {
+        final row = await _client
+            .from(_table)
+            .insert(
+              ExpenseModel(
+                id: id,
+                madeFor: madeFor,
+                amount: expense.amount,
+                paidFrom: paidFrom,
+                category: category,
+                createdBy: uid,
+              ).toJson()
+                ..remove('client_id'),
             )
             .select()
             .single();
@@ -157,7 +192,7 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
             'approved_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', id)
-          .select()
+          .select(_selectWithClient)
           .single();
       return ExpenseModel.fromJson(row);
     } on PostgrestException catch (e) {

@@ -34,6 +34,46 @@ class Client extends Equatable {
     return '$base (Inactive)';
   }
 
+  /// Company identity (contacts are billing salutations, not separate entities).
+  String get companyKey => normalizeCompanyKey(name);
+
+  static String normalizeCompanyKey(String? raw) =>
+      (raw ?? '').trim().toLowerCase();
+
+  /// One row per company name for cost centers / profitability.
+  /// Prefers [preferredIds] when choosing which contact record to keep.
+  static List<Client> uniqueByCompany(
+    Iterable<Client> clients, {
+    Set<String> preferredIds = const {},
+  }) {
+    final byCompany = <String, Client>{};
+    for (final client in clients) {
+      final key = client.companyKey;
+      if (key.isEmpty) continue;
+      final existing = byCompany[key];
+      if (existing == null) {
+        byCompany[key] = client;
+        continue;
+      }
+      final preferNew = preferredIds.contains(client.id) &&
+          !preferredIds.contains(existing.id);
+      if (preferNew) {
+        byCompany[key] = client;
+        continue;
+      }
+      // Stable pick: keep the lexicographically smaller id.
+      if (!preferredIds.contains(existing.id) &&
+          client.id.compareTo(existing.id) < 0) {
+        byCompany[key] = client;
+      }
+    }
+    final list = byCompany.values.toList()
+      ..sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+    return list;
+  }
+
   Client copyWith({
     String? id,
     String? name,

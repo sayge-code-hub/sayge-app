@@ -92,6 +92,10 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icons.payments_outlined,
             ),
             AppNavItem(
+              label: 'Profitability',
+              icon: Icons.trending_up_outlined,
+            ),
+            AppNavItem(
               label: 'Proposals',
               icon: Icons.request_quote_outlined,
             ),
@@ -99,7 +103,7 @@ class _HomeShellState extends State<HomeShell> {
               label: 'Invoices',
               icon: Icons.receipt_long_outlined,
             ),
-            const AppNavItem(
+            AppNavItem(
               label: 'Expense',
               icon: Icons.account_balance_outlined,
               iconAsset: 'assets/images/nav_expense.png',
@@ -162,6 +166,7 @@ class _HomeShellState extends State<HomeShell> {
         AppRoutes.employeesAdd,
         AppRoutes.dms,
         AppRoutes.payroll,
+        AppRoutes.profitability,
         AppRoutes.proposals,
         AppRoutes.invoices,
         AppRoutes.expenses,
@@ -193,11 +198,12 @@ class _HomeShellState extends State<HomeShell> {
       return 0;
     }
 
-    if (location.startsWith(AppRoutes.settings)) return 9;
-    if (location.startsWith(AppRoutes.pos)) return 8;
-    if (location.startsWith(AppRoutes.expenses)) return 7;
-    if (location.startsWith(AppRoutes.invoices)) return 6;
-    if (location.startsWith(AppRoutes.proposals)) return 5;
+    if (location.startsWith(AppRoutes.settings)) return 10;
+    if (location.startsWith(AppRoutes.pos)) return 9;
+    if (location.startsWith(AppRoutes.expenses)) return 8;
+    if (location.startsWith(AppRoutes.invoices)) return 7;
+    if (location.startsWith(AppRoutes.proposals)) return 6;
+    if (location.startsWith(AppRoutes.profitability)) return 5;
     if (location.startsWith(AppRoutes.payroll)) return 4;
     if (location.startsWith(AppRoutes.dms)) return 3;
     if (location.startsWith(AppRoutes.employeesAdd)) return 2;
@@ -260,6 +266,13 @@ class _HomeShellState extends State<HomeShell> {
     if (path.startsWith(AppRoutes.expenses)) return 'Expense';
     if (path.startsWith(AppRoutes.invoices)) return 'Invoices';
     if (path.startsWith(AppRoutes.proposals)) return 'Proposals';
+    if (path.endsWith('/projections') && path.startsWith('/profitability/')) {
+      return 'Projections';
+    }
+    if (RegExp(r'^/profitability/[^/]+$').hasMatch(path)) {
+      return 'Client profitability';
+    }
+    if (path.startsWith(AppRoutes.profitability)) return 'Profitability';
     if (path.startsWith(AppRoutes.payroll)) return 'Payroll';
     if (path.startsWith(AppRoutes.dms)) return 'DMS';
     if (path == AppRoutes.employees) return 'All employees';
@@ -333,6 +346,15 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (path == AppRoutes.inviteEmployee) {
       return confirming(() => _goBack(AppRoutes.settings));
+    }
+    if (path.endsWith('/projections') && path.startsWith('/profitability/')) {
+      final segments = Uri.parse(path).pathSegments;
+      if (segments.length >= 2) {
+        return () => _goBack(AppRoutes.profitabilityClient(segments[1]));
+      }
+    }
+    if (RegExp(r'^/profitability/[^/]+$').hasMatch(path)) {
+      return () => _goBack(AppRoutes.profitability);
     }
     if (path == AppRoutes.posBrandAdd ||
         (path.endsWith('/edit') && path.contains('/pos/brands/'))) {

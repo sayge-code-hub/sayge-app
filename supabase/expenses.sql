@@ -6,6 +6,7 @@ create table if not exists public.expenses (
   amount numeric(14, 2) not null default 0,
   paid_from text not null default '',
   category text not null default '',
+  client_id text references public.clients (id) on delete set null,
   created_by uuid references auth.users (id) on delete set null,
   approval_status text not null default 'pending',
   approved_by uuid references auth.users (id) on delete set null,
@@ -30,6 +31,8 @@ create index if not exists expenses_created_at_idx
   on public.expenses (created_at desc);
 create index if not exists expenses_category_idx
   on public.expenses (category);
+create index if not exists expenses_client_id_idx
+  on public.expenses (client_id);
 
 drop trigger if exists expenses_set_updated_at on public.expenses;
 create trigger expenses_set_updated_at

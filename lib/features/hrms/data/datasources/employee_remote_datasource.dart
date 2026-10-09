@@ -87,9 +87,18 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
       }
 
       final rows = await query.order('employee_name', ascending: true);
-      return (rows as List<dynamic>)
+      final models = (rows as List<dynamic>)
           .map((row) => _fromRow(row as Map<String, dynamic>))
           .toList();
+
+      // Billing / PO rate is owner-staff only — never expose to the employee.
+      if (AppAccess.isEmployeeOnly(user)) {
+        return [
+          for (final model in models)
+            EmployeeModel.fromEntity(model.copyWith(monthlyRate: 0)),
+        ];
+      }
+      return models;
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
     } catch (_) {

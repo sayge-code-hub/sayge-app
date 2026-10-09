@@ -13,6 +13,14 @@ abstract final class AppRoutes {
   static const employeesAdd = '/hrms/employees/add';
   static const dms = '/dms';
   static const payroll = '/payroll';
+  static const profitability = '/profitability';
+
+  static String profitabilityClient(String clientId) =>
+      '/profitability/$clientId';
+
+  static String profitabilityProjections(String clientId) =>
+      '/profitability/$clientId/projections';
+
   static const proposals = '/proposals';
   static const invoices = '/invoices';
   static const expenses = '/expenses';

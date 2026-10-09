@@ -18,6 +18,9 @@ import '../../features/modules/presentation/pages/home_shell.dart';
 import '../../features/expenses/presentation/pages/expenses_page.dart';
 import '../../features/invoices/presentation/pages/invoices_page.dart';
 import '../../features/payroll/presentation/pages/payroll_page.dart';
+import '../../features/profitability/presentation/pages/profitability_client_page.dart';
+import '../../features/profitability/presentation/pages/profitability_page.dart';
+import '../../features/profitability/presentation/pages/profitability_projections_page.dart';
 import '../../features/pos/presentation/pages/pos_analytics_page.dart';
 import '../../features/pos/presentation/pages/pos_brand_dashboard_page.dart';
 import '../../features/pos/presentation/pages/pos_brand_form_page.dart';
@@ -70,6 +73,7 @@ bool _isAuthHashDebris(String location) {
     AppRoutes.myDetails,
     AppRoutes.dms,
     AppRoutes.payroll,
+    AppRoutes.profitability,
     AppRoutes.proposals,
     AppRoutes.invoices,
     AppRoutes.expenses,
@@ -283,6 +287,29 @@ GoRouter createAppRouter(AuthSession authSession) {
           GoRoute(
             path: AppRoutes.payroll,
             pageBuilder: (context, state) => _page(state, const PayrollPage()),
+          ),
+          GoRoute(
+            path: AppRoutes.profitability,
+            pageBuilder: (context, state) =>
+                _page(state, const ProfitabilityPage()),
+          ),
+          GoRoute(
+            path: '/profitability/:clientId',
+            pageBuilder: (context, state) => _page(
+              state,
+              ProfitabilityClientPage(
+                clientId: state.pathParameters['clientId'] ?? '',
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/profitability/:clientId/projections',
+            pageBuilder: (context, state) => _page(
+              state,
+              ProfitabilityProjectionsPage(
+                clientId: state.pathParameters['clientId'] ?? '',
+              ),
+            ),
           ),
           GoRoute(
             path: AppRoutes.proposals,

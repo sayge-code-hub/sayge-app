@@ -16,6 +16,8 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
+import '../../../settings/domain/entities/client.dart';
+import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
 import '../../domain/entities/expense.dart';
 import '../bloc/expenses_bloc.dart';
 
@@ -24,8 +26,25 @@ class ExpensesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<ExpensesBloc>()..add(const ExpensesStarted()),
+    ClientsBloc? existingClients;
+    try {
+      existingClients = context.read<ClientsBloc>();
+    } catch (_) {
+      existingClients = null;
+    }
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => sl<ExpensesBloc>()..add(const ExpensesStarted()),
+        ),
+        if (existingClients == null)
+          BlocProvider(
+            create: (_) => sl<ClientsBloc>()..add(const ClientsRequested()),
+          )
+        else
+          BlocProvider<ClientsBloc>.value(value: existingClients),
+      ],
       child: const _ExpensesBody(),
     );
   }
@@ -83,6 +102,7 @@ class _ExpenseListState extends State<_ExpenseList> {
       return e.madeFor.toLowerCase().contains(q) ||
           e.paidFrom.toLowerCase().contains(q) ||
           e.category.toLowerCase().contains(q) ||
+          e.costCenterLabel.toLowerCase().contains(q) ||
           e.approvalStatus.label.toLowerCase().contains(q) ||
           e.amount.toString().contains(q);
     }).toList();
@@ -185,6 +205,7 @@ class _ExpenseListState extends State<_ExpenseList> {
                                     const SizedBox(height: 4),
                                     Text(
                                       [
+                                        expense.costCenterLabel,
                                         expense.category,
                                         expense.paidFrom,
                                         if (dateLabel.isNotEmpty) dateLabel,
@@ -350,6 +371,7 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
   final _amount = TextEditingController();
   final _paidFrom = TextEditingController();
   String? _category;
+  String _costCenterId = Expense.companyScopeId;
 
   @override
   void dispose() {
@@ -359,11 +381,21 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit(List<Client> clients) {
     final amount = double.tryParse(
           _amount.text.trim().replaceAll(',', ''),
         ) ??
         0;
+    final isCompany = _costCenterId == Expense.companyScopeId;
+    Client? client;
+    if (!isCompany) {
+      for (final c in clients) {
+        if (c.id == _costCenterId) {
+          client = c;
+          break;
+        }
+      }
+    }
     context.read<ExpensesBloc>().add(
           ExpenseSubmitted(
             Expense(
@@ -372,6 +404,8 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
               amount: amount,
               paidFrom: _paidFrom.text,
               category: _category ?? '',
+              clientId: isCompany ? null : client?.id,
+              clientName: isCompany ? null : client?.name,
             ),
           ),
         );
@@ -381,6 +415,13 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
     final horizontal = isDesktop ? 32.0 : 16.0;
+    final clients = Client.uniqueByCompany(
+      context.watch<ClientsBloc>().state.clients.where((c) => c.isActive),
+    );
+    final costCenterIds = <String>[
+      Expense.companyScopeId,
+      ...clients.map((c) => c.id),
+    ];
 
     return BlocBuilder<ExpensesBloc, ExpensesState>(
       builder: (context, state) {
@@ -403,6 +444,28 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
                 children: [
+                  AppDropdown<String>(
+                    label: 'Cost center',
+                    value: costCenterIds.contains(_costCenterId)
+                        ? _costCenterId
+                        : Expense.companyScopeId,
+                    items: costCenterIds,
+                    itemLabel: (id) {
+                      if (id == Expense.companyScopeId) {
+                        return Expense.companyScopeLabel;
+                      }
+                      for (final c in clients) {
+                        if (c.id == id) return c.name;
+                      }
+                      return id;
+                    },
+                    enabled: !saving,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _costCenterId = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   AppTextField(
                     label: 'Expense made for',
                     controller: _madeFor,
@@ -469,7 +532,7 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
                   expand: true,
                   isLoading: saving,
                   enabled: !saving,
-                  onPressed: _submit,
+                  onPressed: () => _submit(clients),
                 ),
               ],
             ),

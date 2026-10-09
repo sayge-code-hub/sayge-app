@@ -7,6 +7,8 @@ class ExpenseModel extends Expense {
     required super.amount,
     required super.paidFrom,
     required super.category,
+    super.clientId,
+    super.clientName,
     super.approvalStatus,
     super.createdAt,
     super.createdBy,
@@ -15,12 +17,22 @@ class ExpenseModel extends Expense {
   });
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) {
+    String? clientName;
+    final nested = json['clients'];
+    if (nested is Map) {
+      clientName = nested['name']?.toString();
+    }
+    clientName ??= json['client_name']?.toString();
+
+    final rawClientId = json['client_id']?.toString().trim();
     return ExpenseModel(
       id: (json['id'] ?? '').toString(),
       madeFor: (json['made_for'] ?? '').toString(),
       amount: double.tryParse('${json['amount'] ?? 0}') ?? 0,
       paidFrom: (json['paid_from'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
+      clientId: (rawClientId == null || rawClientId.isEmpty) ? null : rawClientId,
+      clientName: clientName,
       approvalStatus: ExpenseApprovalStatus.fromDb(
         json['approval_status']?.toString(),
       ),
@@ -38,6 +50,7 @@ class ExpenseModel extends Expense {
       'amount': amount,
       'paid_from': paidFrom,
       'category': category,
+      'client_id': isCompanyExpense ? null : clientId,
       if (createdBy != null && createdBy!.isNotEmpty) 'created_by': createdBy,
     };
   }
@@ -49,6 +62,8 @@ class ExpenseModel extends Expense {
       amount: expense.amount,
       paidFrom: expense.paidFrom,
       category: expense.category,
+      clientId: expense.clientId,
+      clientName: expense.clientName,
       approvalStatus: expense.approvalStatus,
       createdAt: expense.createdAt,
       createdBy: expense.createdBy,

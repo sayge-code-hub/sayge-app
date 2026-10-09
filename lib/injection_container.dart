@@ -50,6 +50,7 @@ import 'features/invoices/domain/repositories/invoice_repository.dart';
 import 'features/invoices/domain/usecases/invoice_usecases.dart';
 import 'features/invoices/presentation/bloc/invoices_bloc.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
+import 'features/profitability/presentation/bloc/profitability_bloc.dart';
 import 'features/pos/data/datasources/pos_remote_datasource.dart';
 import 'features/pos/data/repositories/pos_repository_impl.dart';
 import 'features/pos/domain/repositories/pos_repository.dart';
@@ -213,6 +214,12 @@ Future<void> initDependencies() async {
   );
 
   sl.registerFactory(() => PayrollBloc(getEmployeesUseCase: sl()));
+  sl.registerFactory(
+    () => ProfitabilityBloc(
+      getEmployeesUseCase: sl(),
+      getExpensesUseCase: sl(),
+    ),
+  );
 
   sl.registerFactory(
     () => ExpensesBloc(
