@@ -19,3 +19,16 @@ class ProfitabilitySearchChanged extends ProfitabilityEvent {
   @override
   List<Object?> get props => [query];
 }
+
+class ProfitabilityFyChanged extends ProfitabilityEvent {
+  const ProfitabilityFyChanged(this.fyStartYear);
+
+  final int fyStartYear;
+
+  @override
+  List<Object?> get props => [fyStartYear];
+}
+
+class ProfitabilityExportRequested extends ProfitabilityEvent {
+  const ProfitabilityExportRequested();
+}

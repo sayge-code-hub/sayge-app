@@ -7,5 +7,21 @@ Future<void> savePdfBytes({
   required Uint8List bytes,
   required String filename,
 }) {
-  return impl.savePdfBytes(bytes: bytes, filename: filename);
+  return saveDownloadBytes(
+    bytes: bytes,
+    filename: filename,
+    mimeType: 'application/pdf',
+  );
+}
+
+Future<void> saveDownloadBytes({
+  required Uint8List bytes,
+  required String filename,
+  String mimeType = 'application/octet-stream',
+}) {
+  return impl.saveDownloadBytes(
+    bytes: bytes,
+    filename: filename,
+    mimeType: mimeType,
+  );
 }

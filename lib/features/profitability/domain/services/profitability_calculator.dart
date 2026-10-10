@@ -1,10 +1,15 @@
 import '../../../expenses/domain/entities/expense.dart';
 import '../../../hrms/domain/entities/employee.dart';
+import '../../../invoices/domain/entities/invoice.dart';
 import '../../../payroll/domain/services/payslip_period.dart';
 import '../entities/profitability.dart';
 
 /// Profitability from placement margin:
-/// billing − package − approved expenses = profit.
+/// invoiced billing − package − approved expenses = profit.
+///
+/// Client billing uses tax invoices (`taxableAmount`) matched by buyer company
+/// name. Employee `monthlyRate` remains the contracted rate on employee rows
+/// and is used only to forecast months that are still in the future.
 abstract final class ProfitabilityCalculator {
   static EmployeeProfitability forEmployee(Employee employee) {
     final billing = _round(employee.monthlyRate);
@@ -49,6 +54,7 @@ abstract final class ProfitabilityCalculator {
   static List<ClientProfitability> rollUpByClient(
     List<EmployeeProfitability> rows, {
     List<Expense> expenses = const [],
+    List<Invoice> invoices = const [],
     DateTime? now,
   }) {
     // One company is one entity even when billing salutations are separate rows.
@@ -69,15 +75,28 @@ abstract final class ProfitabilityCalculator {
     final clients = <ClientProfitability>[];
     for (final entry in byClient.entries) {
       final list = entry.value;
-      final billing =
-          _round(list.fold<double>(0, (s, e) => s + e.billingMonthly));
+      final activeNow = list
+          .where(
+            (e) => e.wasEmployedIn(
+              month: current.month,
+              year: current.year,
+            ),
+          )
+          .toList(growable: false);
       final package =
-          _round(list.fold<double>(0, (s, e) => s + e.packageMonthly));
+          _round(activeNow.fold<double>(0, (s, e) => s + e.packageMonthly));
       final clientId = _representativeClientId(list);
+      final clientName = list.first.clientName;
+      final billing = _invoicesInMonth(
+        invoices,
+        clientName: clientName,
+        year: current.year,
+        month: current.month,
+      );
       final monthExpenses = _expensesInMonth(
         approved,
         clientKey: clientId,
-        clientName: list.first.clientName,
+        clientName: clientName,
         year: current.year,
         month: current.month,
       );
@@ -87,8 +106,8 @@ abstract final class ProfitabilityCalculator {
       clients.add(
         ClientProfitability(
           clientId: clientId,
-          clientName: list.first.clientName,
-          employeeCount: list.length,
+          clientName: clientName,
+          employeeCount: activeNow.length,
           billingMonthly: billing,
           packageMonthly: package,
           expensesMonthly: monthExpenses,
@@ -121,12 +140,12 @@ abstract final class ProfitabilityCalculator {
       );
     }
 
-    // Ensure clients that only have expenses (no employees) still appear.
+    // Clients that only have expenses (no employees) still appear.
     final seenNames = clients
         .map((c) => c.clientName.trim().toLowerCase())
         .toSet();
     final seenIds = clients.map((c) => c.clientId).toSet();
-    final orphanKeys = <String, String>{};
+    final orphanExpenseKeys = <String, String>{};
     for (final expense in approved) {
       if (expense.isCompanyExpense) continue;
       final name = expense.clientName?.trim() ?? '';
@@ -134,25 +153,66 @@ abstract final class ProfitabilityCalculator {
       if (nameKey.isNotEmpty && seenNames.contains(nameKey)) continue;
       final key = expense.profitabilityClientKey;
       if (seenIds.contains(key)) continue;
-      orphanKeys[key] = name.isNotEmpty ? name : 'Client';
+      orphanExpenseKeys[key] = name.isNotEmpty ? name : 'Client';
     }
-    for (final entry in orphanKeys.entries) {
+    for (final entry in orphanExpenseKeys.entries) {
+      final name = entry.value;
+      final billing = _invoicesInMonth(
+        invoices,
+        clientName: name,
+        year: current.year,
+        month: current.month,
+      );
       final monthExpenses = _expensesInMonth(
         approved,
         clientKey: entry.key,
+        clientName: name,
         year: current.year,
         month: current.month,
       );
       clients.add(
         ClientProfitability(
           clientId: entry.key,
-          clientName: entry.value,
+          clientName: name,
           employeeCount: 0,
-          billingMonthly: 0,
+          billingMonthly: billing,
           packageMonthly: 0,
           expensesMonthly: monthExpenses,
-          grossProfit: _round(-monthExpenses),
-          marginPercent: 0,
+          grossProfit: _round(billing - monthExpenses),
+          marginPercent:
+              billing > 0 ? _round(((billing - monthExpenses) / billing) * 1000) / 10 : 0,
+          employees: const [],
+        ),
+      );
+      seenNames.add(name.trim().toLowerCase());
+    }
+
+    // Clients that only have invoices (no employees / expenses) still appear.
+    final orphanInvoiceNames = <String>{};
+    for (final invoice in invoices) {
+      final name = invoice.buyerCompany.trim();
+      if (name.isEmpty) continue;
+      final nameKey = name.toLowerCase();
+      if (seenNames.contains(nameKey)) continue;
+      orphanInvoiceNames.add(name);
+    }
+    for (final name in orphanInvoiceNames) {
+      final billing = _invoicesInMonth(
+        invoices,
+        clientName: name,
+        year: current.year,
+        month: current.month,
+      );
+      clients.add(
+        ClientProfitability(
+          clientId: name.toLowerCase(),
+          clientName: name,
+          employeeCount: 0,
+          billingMonthly: billing,
+          packageMonthly: 0,
+          expensesMonthly: 0,
+          grossProfit: billing,
+          marginPercent: billing > 0 ? 100 : 0,
           employees: const [],
         ),
       );
@@ -166,38 +226,70 @@ abstract final class ProfitabilityCalculator {
     return clients;
   }
 
-  /// Month-wise rollup for a client using current billing/package rates.
+  /// Month-wise rollup for a client using invoiced billing.
+  ///
+  /// Includes the current calendar month (unlike payroll, which waits for
+  /// month-end) so in-progress invoices count toward FY totals.
   static List<MonthlyProfitability> monthWiseForClient(
     ClientProfitability client, {
     List<Expense> expenses = const [],
+    List<Invoice> invoices = const [],
     DateTime? now,
+    int? fyStartYear,
   }) {
-    final months = PayslipPeriod.optionsForAdmin(now);
+    final current = now ?? DateTime.now();
+    final months = _monthsThroughCurrent(current);
     if (months.isEmpty) return const [];
     final approved = expenses
         .where((e) => e.approvalStatus == ExpenseApprovalStatus.approved)
         .toList(growable: false);
 
-    return [
+    final rows = [
       for (final period in months.reversed)
         _monthRow(
           client,
           period.year,
           period.month,
           expenses: approved,
+          invoices: invoices,
+          now: current,
+          forecastMissingInvoices: false,
         ),
     ];
+    if (fyStartYear == null) return rows;
+    return rows
+        .where((m) => _inFinancialYear(m.year, m.month, fyStartYear))
+        .toList(growable: false);
+  }
+
+  static List<DateTime> _monthsThroughCurrent(DateTime now) {
+    final start = PayslipPeriod.earliestAllowed;
+    final end = DateTime(now.year, now.month, 1);
+    if (start.isAfter(end)) return const [];
+    final options = <DateTime>[];
+    var cursor = start;
+    while (!cursor.isAfter(end)) {
+      options.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return options;
   }
 
   /// Indian FY months (Apr → Mar) for [fyStartYear] (e.g. 2026 → FY 2026-27).
+  ///
+  /// Past and current months use invoices; future months forecast from
+  /// contracted employee billing rates.
   static List<MonthlyProfitability> financialYearProjection(
     ClientProfitability client, {
     required int fyStartYear,
     List<Expense> expenses = const [],
+    List<Invoice> invoices = const [],
+    DateTime? now,
   }) {
     final approved = expenses
         .where((e) => e.approvalStatus == ExpenseApprovalStatus.approved)
         .toList(growable: false);
+    final current = now ?? DateTime.now();
     return [
       for (var i = 0; i < 12; i++)
         _monthRow(
@@ -205,6 +297,9 @@ abstract final class ProfitabilityCalculator {
           i < 9 ? fyStartYear : fyStartYear + 1,
           i < 9 ? i + 4 : i - 8,
           expenses: approved,
+          invoices: invoices,
+          now: current,
+          forecastMissingInvoices: true,
         ),
     ];
   }
@@ -222,19 +317,116 @@ abstract final class ProfitabilityCalculator {
   static String financialYearLabel(int fyStartYear) =>
       'FY $fyStartYear-${(fyStartYear + 1) % 100}';
 
+  static int currentFinancialYearStart([DateTime? now]) {
+    final current = now ?? DateTime.now();
+    return current.month >= 4 ? current.year : current.year - 1;
+  }
+
+  static bool _inFinancialYear(int year, int month, int fyStartYear) {
+    if (month >= 4) return year == fyStartYear;
+    return year == fyStartYear + 1;
+  }
+
+  /// CSV export of client profitability for [fyStartYear].
+  static String exportCsv(
+    List<ClientProfitability> clients, {
+    required int fyStartYear,
+    List<Expense> expenses = const [],
+    List<Invoice> invoices = const [],
+    DateTime? now,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln(
+        'Client,Employees,Invoiced,Package,Expenses,Profit,Margin %',
+      );
+    for (final client in clients) {
+      final months = financialYearProjection(
+        client,
+        fyStartYear: fyStartYear,
+        expenses: expenses,
+        invoices: invoices,
+        now: now,
+      );
+      // Export actuals only: zero out forecast months (future with no invoices).
+      final current = now ?? DateTime.now();
+      var invoiced = 0.0;
+      var package = 0.0;
+      var exp = 0.0;
+      for (final m in months) {
+        final isFuture = DateTime(m.year, m.month)
+            .isAfter(DateTime(current.year, current.month));
+        if (isFuture) continue;
+        invoiced += m.billing;
+        package += m.packageAmount;
+        exp += m.expenses;
+      }
+      invoiced = _round(invoiced);
+      package = _round(package);
+      exp = _round(exp);
+      final profit = _round(invoiced - package - exp);
+      final margin =
+          invoiced > 0 ? _round((profit / invoiced) * 1000) / 10 : 0.0;
+      buffer.writeln(
+        [
+          _csv(client.clientName),
+          client.employeeCount,
+          invoiced.toStringAsFixed(2),
+          package.toStringAsFixed(2),
+          exp.toStringAsFixed(2),
+          profit.toStringAsFixed(2),
+          margin.toStringAsFixed(1),
+        ].join(','),
+      );
+    }
+    return buffer.toString();
+  }
+
+  static String _csv(String value) {
+    final escaped = value.replaceAll('"', '""');
+    if (escaped.contains(',') ||
+        escaped.contains('"') ||
+        escaped.contains('\n')) {
+      return '"$escaped"';
+    }
+    return escaped;
+  }
+
   static MonthlyProfitability _monthRow(
     ClientProfitability client,
     int year,
     int month, {
     List<Expense> expenses = const [],
+    List<Invoice> invoices = const [],
+    DateTime? now,
+    bool forecastMissingInvoices = false,
   }) {
     final active = client.employees
         .where((e) => e.wasEmployedIn(month: month, year: year))
         .toList(growable: false);
-    final billing =
+    final rateBilling =
         _round(active.fold<double>(0, (s, e) => s + e.billingMonthly));
     final package =
         _round(active.fold<double>(0, (s, e) => s + e.packageMonthly));
+    final invoiced = _invoicesInMonth(
+      invoices,
+      clientName: client.clientName,
+      year: year,
+      month: month,
+    );
+    final current = now ?? DateTime.now();
+    final period = DateTime(year, month);
+    final currentMonth = DateTime(current.year, current.month);
+    final isFuture = period.isAfter(currentMonth);
+
+    final double billing;
+    if (invoiced > 0) {
+      billing = invoiced;
+    } else if (forecastMissingInvoices && isFuture) {
+      billing = rateBilling;
+    } else {
+      billing = 0;
+    }
+
     final monthExpenses = _expensesInMonth(
       expenses,
       clientKey: client.clientId,
@@ -275,6 +467,30 @@ abstract final class ProfitabilityCalculator {
     return best;
   }
 
+  static double _invoicesInMonth(
+    List<Invoice> invoices, {
+    required String clientName,
+    required int year,
+    required int month,
+  }) {
+    final company = clientName.trim().toLowerCase();
+    if (company.isEmpty ||
+        company == Expense.companyScopeLabel.toLowerCase()) {
+      return 0;
+    }
+    var total = 0.0;
+    for (final invoice in invoices) {
+      final buyer = invoice.buyerCompany.trim().toLowerCase();
+      if (buyer.isEmpty || buyer != company) continue;
+      final date = invoice.invoiceDate;
+      if (date.year != year || date.month != month) continue;
+      final amount =
+          invoice.taxableAmount > 0 ? invoice.taxableAmount : invoice.totalAmount;
+      total += amount;
+    }
+    return _round(total);
+  }
+
   static double _expensesInMonth(
     List<Expense> expenses, {
     required String clientKey,
@@ -312,7 +528,7 @@ abstract final class ProfitabilityCalculator {
 
   static bool _include(Employee employee) {
     if (employee.isDraft) return false;
-    if (!employee.isActive) return false;
+    // Include exited employees so historical months keep package cost.
     return employee.clientId.trim().isNotEmpty ||
         employee.client.trim().isNotEmpty;
   }
