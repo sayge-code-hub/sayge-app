@@ -218,6 +218,7 @@ Future<void> initDependencies() async {
     () => ProfitabilityBloc(
       getEmployeesUseCase: sl(),
       getExpensesUseCase: sl(),
+      getInvoicesUseCase: sl(),
     ),
   );
 

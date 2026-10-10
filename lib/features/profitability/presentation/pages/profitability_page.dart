@@ -6,6 +6,7 @@ import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../injection_container.dart';
@@ -35,6 +36,7 @@ class _ProfitabilityBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop = Breakpoints.isDesktop(context);
     final horizontal = isDesktop ? 32.0 : 16.0;
+    final fyOptions = ProfitabilityCalculator.financialYearOptions();
 
     return BlocBuilder<ProfitabilityBloc, ProfitabilityState>(
       builder: (context, state) {
@@ -61,25 +63,59 @@ class _ProfitabilityBody extends StatelessWidget {
 
         final clients = state.filteredClients;
         final textTheme = Theme.of(context).textTheme;
+        final fyStart = fyOptions.contains(state.fyStartYear)
+            ? state.fyStartYear
+            : ProfitabilityCalculator.currentFinancialYearStart();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 12),
-              child: AppListSearchField(
-                hintText: 'Search clients or employees…',
-                onChanged: (value) => context.read<ProfitabilityBloc>().add(
-                      ProfitabilitySearchChanged(value),
+              padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AppListSearchField(
+                      hintText: 'Search clients or employees…',
+                      onChanged: (value) =>
+                          context.read<ProfitabilityBloc>().add(
+                                ProfitabilitySearchChanged(value),
+                              ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Export CSV',
+                    onPressed: () => context.read<ProfitabilityBloc>().add(
+                          const ProfitabilityExportRequested(),
+                        ),
+                    icon: const Icon(Icons.download_outlined),
+                    color: AppColors.text,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 12),
+              child: AppDropdown<int>(
+                label: 'Financial year',
+                value: fyStart,
+                items: fyOptions,
+                itemLabel: ProfitabilityCalculator.financialYearLabel,
+                onChanged: (value) {
+                  if (value == null) return;
+                  context
+                      .read<ProfitabilityBloc>()
+                      .add(ProfitabilityFyChanged(value));
+                },
               ),
             ),
             Expanded(
               child: clients.isEmpty
                   ? Center(
                       child: Text(
-                        state.employees.isEmpty
-                            ? 'No active client-assigned employees yet.'
+                        state.employees.isEmpty && state.invoices.isEmpty
+                            ? 'No client billing or invoices yet.'
                             : 'No matches.',
                         style: textTheme.bodyMedium?.copyWith(
                           color: AppColors.textLight,
@@ -109,7 +145,10 @@ class _ProfitabilityBody extends StatelessWidget {
                               for (final client in clients)
                                 SizedBox(
                                   width: tileW,
-                                  child: _ClientProfitCard(client: client),
+                                  child: _ClientProfitCard(
+                                    client: client,
+                                    fyStartYear: fyStart,
+                                  ),
                                 ),
                             ],
                           ),
@@ -125,18 +164,25 @@ class _ProfitabilityBody extends StatelessWidget {
 }
 
 class _ClientProfitCard extends StatelessWidget {
-  const _ClientProfitCard({required this.client});
+  const _ClientProfitCard({
+    required this.client,
+    required this.fyStartYear,
+  });
 
   final ClientProfitability client;
+  final int fyStartYear;
 
   static const _projectionBlue = Color(0xFF2563EB);
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final blocState = context.read<ProfitabilityBloc>().state;
     final months = ProfitabilityCalculator.monthWiseForClient(
       client,
-      expenses: context.read<ProfitabilityBloc>().state.expenses,
+      expenses: blocState.expenses,
+      invoices: blocState.invoices,
+      fyStartYear: fyStartYear,
     );
     final profitTillDate =
         months.fold<double>(0, (s, m) => s + m.profit).roundToDouble();
@@ -201,7 +247,7 @@ class _ClientProfitCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MetricRow(
-            label: 'Profit till date',
+            label: 'Profit (FY)',
             value: MoneyFormat.format(profitTillDate),
             color: profitTillDate >= 0 ? AppColors.success : AppColors.error,
           ),
@@ -213,7 +259,7 @@ class _ClientProfitCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _MetricRow(
-            label: 'Monthly billing',
+            label: 'Invoiced this month',
             value: MoneyFormat.format(client.billingMonthly),
           ),
           const SizedBox(height: 6),

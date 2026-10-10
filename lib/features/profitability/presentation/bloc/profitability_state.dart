@@ -8,7 +8,9 @@ class ProfitabilityState extends Equatable {
     this.employees = const [],
     this.clients = const [],
     this.expenses = const [],
+    this.invoices = const [],
     this.query = '',
+    this.fyStartYear = 0,
     this.errorMessage,
   });
 
@@ -16,7 +18,9 @@ class ProfitabilityState extends Equatable {
   final List<EmployeeProfitability> employees;
   final List<ClientProfitability> clients;
   final List<Expense> expenses;
+  final List<Invoice> invoices;
   final String query;
+  final int fyStartYear;
   final String? errorMessage;
 
   List<ClientProfitability> get filteredClients {
@@ -60,7 +64,9 @@ class ProfitabilityState extends Equatable {
     List<EmployeeProfitability>? employees,
     List<ClientProfitability>? clients,
     List<Expense>? expenses,
+    List<Invoice>? invoices,
     String? query,
+    int? fyStartYear,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -69,7 +75,9 @@ class ProfitabilityState extends Equatable {
       employees: employees ?? this.employees,
       clients: clients ?? this.clients,
       expenses: expenses ?? this.expenses,
+      invoices: invoices ?? this.invoices,
       query: query ?? this.query,
+      fyStartYear: fyStartYear ?? this.fyStartYear,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -80,7 +88,9 @@ class ProfitabilityState extends Equatable {
         employees,
         clients,
         expenses,
+        invoices,
         query,
+        fyStartYear,
         errorMessage,
       ];
 }

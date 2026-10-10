@@ -69,6 +69,10 @@ class _ProfitabilityClientBody extends StatelessWidget {
         final months = ProfitabilityCalculator.monthWiseForClient(
           client,
           expenses: state.expenses,
+          invoices: state.invoices,
+          fyStartYear: state.fyStartYear > 0
+              ? state.fyStartYear
+              : ProfitabilityCalculator.currentFinancialYearStart(),
         );
         final profitTillDate =
             months.fold<double>(0, (s, m) => s + m.profit).roundToDouble();
@@ -102,7 +106,7 @@ class _ProfitabilityClientBody extends StatelessWidget {
                     profitTillDate: profitTillDate,
                     marginTillDate: marginTillDate,
                     expensesTillDate: expensesTillDate,
-                    monthlyBilling: client.billingMonthly,
+                    invoicedThisMonth: client.billingMonthly,
                     monthlyExpenses: client.expensesMonthly,
                     monthlyProfit: client.grossProfit,
                   ),
@@ -212,7 +216,7 @@ class _MetricChunks extends StatelessWidget {
     required this.profitTillDate,
     required this.marginTillDate,
     required this.expensesTillDate,
-    required this.monthlyBilling,
+    required this.invoicedThisMonth,
     required this.monthlyExpenses,
     required this.monthlyProfit,
   });
@@ -220,7 +224,7 @@ class _MetricChunks extends StatelessWidget {
   final double profitTillDate;
   final double marginTillDate;
   final double expensesTillDate;
-  final double monthlyBilling;
+  final double invoicedThisMonth;
   final double monthlyExpenses;
   final double monthlyProfit;
 
@@ -265,8 +269,8 @@ class _MetricChunks extends StatelessWidget {
               accent: marginTillDate >= 0 ? AppColors.success : AppColors.error,
             ),
             chunk(
-              label: 'Monthly billing',
-              value: MoneyFormat.format(monthlyBilling),
+              label: 'Invoiced this month',
+              value: MoneyFormat.format(invoicedThisMonth),
             ),
             chunk(
               label: 'Monthly expenses',
@@ -368,17 +372,17 @@ class _EmployeeRow extends StatelessWidget {
                   style: textTheme.titleMedium?.copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  employee.hasBillingRate
-                      ? 'Billing ${MoneyFormat.format(employee.billingMonthly)}/mo · '
-                          'Package ${_lpa(employee.packageAnnual)}'
-                      : 'No billing rate',
-                  style: metaStyle?.copyWith(
-                    color: employee.hasBillingRate
-                        ? AppColors.textLight
-                        : AppColors.error,
+                  Text(
+                    employee.hasBillingRate
+                        ? 'Contracted ${MoneyFormat.format(employee.billingMonthly)}/mo · '
+                            'Package ${_lpa(employee.packageAnnual)}'
+                        : 'No contracted rate',
+                    style: metaStyle?.copyWith(
+                      color: employee.hasBillingRate
+                          ? AppColors.textLight
+                          : AppColors.error,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

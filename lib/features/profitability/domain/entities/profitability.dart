@@ -2,7 +2,8 @@ import 'package:equatable/equatable.dart';
 
 /// Monthly profitability for one employee on a client.
 ///
-/// Model: client billing − employee package = our profit.
+/// [billingMonthly] is the contracted placement rate. Client rollups bill from
+/// tax invoices; employee rows keep the rate for package margin context.
 class EmployeeProfitability extends Equatable {
   const EmployeeProfitability({
     required this.employeeId,
@@ -81,6 +82,7 @@ class ClientProfitability extends Equatable {
   final String clientId;
   final String clientName;
   final int employeeCount;
+  /// Invoiced taxable amount for the current calendar month.
   final double billingMonthly;
   final double packageMonthly;
 

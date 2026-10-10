@@ -7,9 +7,21 @@ import 'dart:typed_data';
 Future<void> savePdfBytes({
   required Uint8List bytes,
   required String filename,
+}) {
+  return saveDownloadBytes(
+    bytes: bytes,
+    filename: filename,
+    mimeType: 'application/pdf',
+  );
+}
+
+Future<void> saveDownloadBytes({
+  required Uint8List bytes,
+  required String filename,
+  String mimeType = 'application/octet-stream',
 }) async {
   final safeName = filename.replaceAll(RegExp(r'[^\w.\-]+'), '_');
-  final blob = html.Blob([bytes], 'application/pdf');
+  final blob = html.Blob([bytes], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
   final anchor = html.AnchorElement(href: url)
     ..download = safeName
