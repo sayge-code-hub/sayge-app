@@ -608,9 +608,6 @@ class _CompanyIndex {
   final Map<String, String> keyToCanonicalId;
   final Map<String, Set<String>> keyToIds;
 
-  bool get isEmpty =>
-      idToKey.isEmpty && nameToKey.isEmpty && gstinToKey.isEmpty;
-
   factory _CompanyIndex.fromClients(List<Client> clients) {
     if (clients.isEmpty) return const _CompanyIndex.empty();
 
