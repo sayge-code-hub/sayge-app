@@ -37,6 +37,16 @@ class InvoiceCloneOpened extends InvoicesEvent {
   List<Object?> get props => [invoice];
 }
 
+/// Opens a new invoice draft prefilled from a proposal (quote → invoice).
+class InvoiceFromProposalOpened extends InvoicesEvent {
+  const InvoiceFromProposalOpened(this.proposal);
+
+  final Proposal proposal;
+
+  @override
+  List<Object?> get props => [proposal];
+}
+
 class InvoiceDraftLine extends Equatable {
   const InvoiceDraftLine({
     required this.particulars,

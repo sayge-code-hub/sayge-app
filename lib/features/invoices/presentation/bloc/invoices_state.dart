@@ -23,6 +23,7 @@ class InvoicesState extends Equatable {
     this.editingId,
     this.draftInvoiceDate,
     this.errorMessage,
+    this.sourceProposalRef,
   });
 
   factory InvoicesState.initial() {
@@ -62,6 +63,8 @@ class InvoicesState extends Equatable {
   /// When set, Save updates this invoice instead of creating a new one.
   final String? editingId;
   final String? errorMessage;
+  /// Proposal reference when this draft was opened via quote → invoice.
+  final String? sourceProposalRef;
 
   bool get isEditing => editingId != null;
 
@@ -83,8 +86,10 @@ class InvoicesState extends Equatable {
     List<InvoiceDraftLine>? draftLines,
     String? editingId,
     String? errorMessage,
+    String? sourceProposalRef,
     bool clearError = false,
     bool clearEditingId = false,
+    bool clearSourceProposalRef = false,
   }) {
     return InvoicesState(
       status: status ?? this.status,
@@ -104,6 +109,9 @@ class InvoicesState extends Equatable {
       draftLines: draftLines ?? this.draftLines,
       editingId: clearEditingId ? null : (editingId ?? this.editingId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      sourceProposalRef: clearSourceProposalRef
+          ? null
+          : (sourceProposalRef ?? this.sourceProposalRef),
     );
   }
 
@@ -126,5 +134,6 @@ class InvoicesState extends Equatable {
         draftLines,
         editingId,
         errorMessage,
+        sourceProposalRef,
       ];
 }

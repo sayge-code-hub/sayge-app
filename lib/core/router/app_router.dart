@@ -30,6 +30,7 @@ import '../../features/pos/presentation/pages/pos_product_detail_page.dart';
 import '../../features/pos/presentation/pages/pos_product_form_page.dart';
 import '../../features/pos/presentation/pages/pos_products_page.dart';
 import '../../features/pos/presentation/pages/pos_terminal_page.dart';
+import '../../features/proposals/domain/entities/proposal.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
 import '../../features/settings/presentation/pages/client_detail_page.dart';
@@ -318,8 +319,21 @@ GoRouter createAppRouter(AuthSession authSession) {
           ),
           GoRoute(
             path: AppRoutes.invoices,
-            pageBuilder: (context, state) =>
-                _page(state, const InvoicesPage()),
+            pageBuilder: (context, state) {
+              final fromProposal =
+                  state.extra is Proposal ? state.extra as Proposal : null;
+              return _page(
+                state,
+                InvoicesPage(
+                  key: ValueKey(
+                    fromProposal == null
+                        ? 'invoices'
+                        : 'invoices-from-${fromProposal.id}',
+                  ),
+                  fromProposal: fromProposal,
+                ),
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.expenses,
