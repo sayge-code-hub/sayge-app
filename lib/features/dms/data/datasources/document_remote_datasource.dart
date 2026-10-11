@@ -63,12 +63,12 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     try {
       switch (type) {
         case DmsEntityType.employee:
-          return _employees();
+          return await _employees();
         case DmsEntityType.client:
-          return _clients();
+          return await _clients();
         case DmsEntityType.vendor:
         case DmsEntityType.candidate:
-          return _catalogEntities(type);
+          return await _catalogEntities(type);
       }
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
