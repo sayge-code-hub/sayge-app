@@ -59,3 +59,44 @@ class DmsFilesSelected extends DmsEvent {
         for (final file in files) '${file.fileName}:${file.bytes.length}',
       ];
 }
+
+class DmsCatalogEntityCreateRequested extends DmsEvent {
+  const DmsCatalogEntityCreateRequested({
+    required this.type,
+    required this.name,
+    this.subtitle = '',
+  });
+
+  final DmsEntityType type;
+  final String name;
+  final String subtitle;
+
+  @override
+  List<Object?> get props => [type, name, subtitle];
+}
+
+class DmsDocumentDeleteRequested extends DmsEvent {
+  const DmsDocumentDeleteRequested(this.documentId);
+
+  final String documentId;
+
+  @override
+  List<Object?> get props => [documentId];
+}
+
+class DmsDocumentReplaceRequested extends DmsEvent {
+  const DmsDocumentReplaceRequested({
+    required this.existing,
+    required this.fileName,
+    required this.fileBytes,
+    this.mimeType = 'application/octet-stream',
+  });
+
+  final DocumentRecord existing;
+  final String fileName;
+  final Uint8List fileBytes;
+  final String mimeType;
+
+  @override
+  List<Object?> get props => [existing.id, fileName, fileBytes.length, mimeType];
+}

@@ -485,6 +485,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 const SizedBox(height: 12),
                 EmployeeDocumentsSection(
                   employeeId: employee.employeeId,
+                  employeeName: employee.employeeName,
                   isDesktop: isDesktop,
                 ),
               ],

@@ -39,6 +39,9 @@ class Expense {
     this.clientId,
     this.clientName,
     this.approvalStatus = ExpenseApprovalStatus.pending,
+    this.expenseDate,
+    this.receiptPath,
+    this.receiptName,
     this.createdAt,
     this.createdBy,
     this.approvedBy,
@@ -59,10 +62,18 @@ class Expense {
   final String? clientId;
   final String? clientName;
   final ExpenseApprovalStatus approvalStatus;
+
+  /// Business date of the expense (preferred over [createdAt] for reporting).
+  final DateTime? expenseDate;
+  final String? receiptPath;
+  final String? receiptName;
   final DateTime? createdAt;
   final String? createdBy;
   final String? approvedBy;
   final DateTime? approvedAt;
+
+  /// Date used for month bucketing in profitability.
+  DateTime? get reportingDate => expenseDate ?? createdAt;
 
   bool get isCompanyExpense =>
       clientId == null || clientId!.trim().isEmpty || clientId == companyScopeId;

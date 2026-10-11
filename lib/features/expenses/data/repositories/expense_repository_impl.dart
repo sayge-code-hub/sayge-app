@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -38,6 +39,19 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   @override
+  Future<Either<Failure, Expense>> updateExpense(Expense expense) async {
+    try {
+      return Right(await remoteDataSource.updateExpense(expense));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update expense.'));
+    }
+  }
+
+  @override
   Future<Either<Failure, Expense>> setApprovalStatus({
     required String expenseId,
     required ExpenseApprovalStatus status,
@@ -55,6 +69,31 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       return Left(NetworkFailure(e.message));
     } catch (_) {
       return const Left(NetworkFailure('Failed to update approval.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Expense>> uploadReceipt({
+    required String expenseId,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    try {
+      return Right(
+        await remoteDataSource.uploadReceipt(
+          expenseId: expenseId,
+          fileName: fileName,
+          fileBytes: fileBytes,
+          mimeType: mimeType,
+        ),
+      );
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to upload receipt.'));
     }
   }
 }

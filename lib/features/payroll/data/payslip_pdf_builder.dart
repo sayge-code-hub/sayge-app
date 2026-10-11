@@ -5,6 +5,8 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_payroll_config.dart';
+import '../../../../core/pdf/pdf_company_profile.dart';
+import '../../settings/domain/entities/settings_entities.dart';
 import '../domain/entities/payslip.dart';
 
 /// Builds salary-slip PDF pages matching the Sayge payslip template.
@@ -14,13 +16,21 @@ abstract final class PayslipPdfBuilder {
 
   static const _logoAsset = 'assets/images/sayge_logo.png';
 
-  static Future<pw.Document> build(List<Payslip> slips) async {
+  static Future<pw.Document> build(
+    List<Payslip> slips, {
+    CompanyDetails? company,
+  }) async {
+    final profile = await PdfCompanyProfile.resolve(company);
     pw.MemoryImage? logoImage;
-    try {
-      final logoData = await rootBundle.load(_logoAsset);
-      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
-    } catch (_) {
-      logoImage = null;
+    if (profile.logoBytes != null) {
+      logoImage = pw.MemoryImage(profile.logoBytes!);
+    } else {
+      try {
+        final logoData = await rootBundle.load(_logoAsset);
+        logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+      } catch (_) {
+        logoImage = null;
+      }
     }
 
     final doc = pw.Document();
@@ -29,7 +39,11 @@ abstract final class PayslipPdfBuilder {
         pw.Page(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.fromLTRB(32, 28, 32, 28),
-          build: (_) => _PayslipPage(slip: slip, logo: logoImage),
+          build: (_) => _PayslipPage(
+            slip: slip,
+            logo: logoImage,
+            companyName: profile.displayName,
+          ),
         ),
       );
     }
@@ -40,10 +54,15 @@ abstract final class PayslipPdfBuilder {
 }
 
 class _PayslipPage extends pw.StatelessWidget {
-  _PayslipPage({required this.slip, this.logo});
+  _PayslipPage({
+    required this.slip,
+    this.logo,
+    this.companyName = '',
+  });
 
   final Payslip slip;
   final pw.MemoryImage? logo;
+  final String companyName;
 
   @override
   pw.Widget build(pw.Context context) {
@@ -55,6 +74,15 @@ class _PayslipPage extends pw.StatelessWidget {
           children: [
             if (logo != null) pw.Image(logo!, height: 28),
             if (logo != null) pw.SizedBox(width: 12),
+            if (companyName.trim().isNotEmpty)
+              pw.Text(
+                companyName.trim(),
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            if (companyName.trim().isNotEmpty) pw.SizedBox(width: 12),
             pw.Expanded(
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,

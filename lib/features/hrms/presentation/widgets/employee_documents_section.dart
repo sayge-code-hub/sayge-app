@@ -2,21 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_list_card.dart';
+import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../../dms/domain/entities/dms_entity.dart';
 import '../../../dms/domain/entities/document_record.dart';
+import '../../../dms/domain/usecases/add_document.dart';
 import '../../../dms/domain/usecases/get_documents.dart';
 import '../../../dms/presentation/widgets/document_attachment_tile.dart';
+import '../../../dms/presentation/widgets/document_drop_zone.dart';
 
 class EmployeeDocumentsSection extends StatefulWidget {
   const EmployeeDocumentsSection({
     super.key,
     required this.employeeId,
     required this.isDesktop,
+    this.employeeName = '',
+    this.canUpload = false,
   });
 
   final String employeeId;
   final bool isDesktop;
+  final String employeeName;
+  final bool canUpload;
 
   @override
   State<EmployeeDocumentsSection> createState() =>
@@ -25,6 +32,7 @@ class EmployeeDocumentsSection extends StatefulWidget {
 
 class _EmployeeDocumentsSectionState extends State<EmployeeDocumentsSection> {
   late Future<_DocumentsLoadResult> _future;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -48,6 +56,56 @@ class _EmployeeDocumentsSectionState extends State<EmployeeDocumentsSection> {
     return result.fold(
       (failure) => _DocumentsLoadResult.error(failure.message),
       (docs) => _DocumentsLoadResult.ok(docs),
+    );
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
+  }
+
+  Future<void> _attachFiles(List<DocumentPick> files) async {
+    if (!widget.canUpload || _saving || files.isEmpty) return;
+    setState(() => _saving = true);
+
+    String? firstError;
+    var uploaded = 0;
+    for (final file in files) {
+      final result = await sl<AddDocumentUseCase>()(
+        entityType: DmsEntityType.employee,
+        entityId: widget.employeeId,
+        entityName: widget.employeeName.isEmpty
+            ? widget.employeeId
+            : widget.employeeName,
+        title: file.title,
+        fileName: file.fileName,
+        category: file.category,
+        fileBytes: file.bytes,
+        mimeType: file.mimeType,
+      );
+      result.fold(
+        (failure) => firstError ??= failure.message,
+        (_) => uploaded++,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (uploaded == 0) {
+      await showAppMessageDialog(
+        context,
+        title: 'Documents',
+        message: firstError ?? 'Could not attach the selected files.',
+      );
+      return;
+    }
+
+    _reload();
+    await showAppMessageDialog(
+      context,
+      message: uploaded == 1 ? 'Document attached' : 'Documents attached',
     );
   }
 
@@ -107,6 +165,14 @@ class _EmployeeDocumentsSectionState extends State<EmployeeDocumentsSection> {
               return DocumentAttachmentGrid(documents: result.documents);
             },
           ),
+          if (widget.canUpload) ...[
+            const Divider(height: 28, color: AppColors.border),
+            DocumentDropZone(
+              enabled: widget.canUpload,
+              uploading: _saving,
+              onFilesPicked: _attachFiles,
+            ),
+          ],
         ],
       ),
     );

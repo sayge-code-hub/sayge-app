@@ -10,6 +10,9 @@ class ExpenseModel extends Expense {
     super.clientId,
     super.clientName,
     super.approvalStatus,
+    super.expenseDate,
+    super.receiptPath,
+    super.receiptName,
     super.createdAt,
     super.createdBy,
     super.approvedBy,
@@ -25,6 +28,13 @@ class ExpenseModel extends Expense {
     clientName ??= json['client_name']?.toString();
 
     final rawClientId = json['client_id']?.toString().trim();
+    DateTime? parseOptionalDate(dynamic value) {
+      if (value == null) return null;
+      final raw = value.toString().trim();
+      if (raw.isEmpty) return null;
+      return DateTime.tryParse(raw);
+    }
+
     return ExpenseModel(
       id: (json['id'] ?? '').toString(),
       madeFor: (json['made_for'] ?? '').toString(),
@@ -36,6 +46,9 @@ class ExpenseModel extends Expense {
       approvalStatus: ExpenseApprovalStatus.fromDb(
         json['approval_status']?.toString(),
       ),
+      expenseDate: parseOptionalDate(json['expense_date']),
+      receiptPath: json['receipt_path']?.toString(),
+      receiptName: json['receipt_name']?.toString(),
       createdAt: DateTime.tryParse('${json['created_at'] ?? ''}'),
       createdBy: json['created_by']?.toString(),
       approvedBy: json['approved_by']?.toString(),
@@ -44,6 +57,13 @@ class ExpenseModel extends Expense {
   }
 
   Map<String, dynamic> toJson() {
+    String? ymd(DateTime? d) {
+      if (d == null) return null;
+      return '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+    }
+
     return {
       'id': id,
       'made_for': madeFor,
@@ -51,6 +71,11 @@ class ExpenseModel extends Expense {
       'paid_from': paidFrom,
       'category': category,
       'client_id': isCompanyExpense ? null : clientId,
+      'expense_date': ymd(expenseDate ?? createdAt ?? DateTime.now()),
+      if (receiptPath != null && receiptPath!.isNotEmpty)
+        'receipt_path': receiptPath,
+      if (receiptName != null && receiptName!.isNotEmpty)
+        'receipt_name': receiptName,
       if (createdBy != null && createdBy!.isNotEmpty) 'created_by': createdBy,
     };
   }
@@ -65,6 +90,9 @@ class ExpenseModel extends Expense {
       clientId: expense.clientId,
       clientName: expense.clientName,
       approvalStatus: expense.approvalStatus,
+      expenseDate: expense.expenseDate,
+      receiptPath: expense.receiptPath,
+      receiptName: expense.receiptName,
       createdAt: expense.createdAt,
       createdBy: expense.createdBy,
       approvedBy: expense.approvedBy,

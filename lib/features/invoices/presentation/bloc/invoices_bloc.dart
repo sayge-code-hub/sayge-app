@@ -7,6 +7,8 @@ import '../../../../core/utils/pdf_saver.dart';
 import '../../../hrms/domain/entities/employee_purchase_order.dart';
 import '../../../hrms/domain/usecases/employee_purchase_order_usecases.dart';
 import '../../../proposals/domain/entities/proposal.dart';
+import '../../../settings/domain/entities/settings_entities.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../data/invoice_pdf_builder.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/services/invoice_calculator.dart';
@@ -22,6 +24,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     required this.createInvoiceUseCase,
     required this.updateInvoiceUseCase,
     required this.getAllPosUseCase,
+    required this.getCompanyDetailsUseCase,
   }) : super(InvoicesState.initial()) {
     on<InvoicesStarted>(_onStarted);
     on<InvoiceFormOpened>(_onFormOpened);
@@ -31,12 +34,19 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     on<InvoiceListRequested>(_onList);
     on<InvoiceSubmitted>(_onSubmitted);
     on<InvoiceDownloadRequested>(_onDownload);
+    on<InvoicePaymentUpdated>(_onPaymentUpdated);
   }
 
   final GetInvoicesUseCase getInvoicesUseCase;
   final CreateInvoiceUseCase createInvoiceUseCase;
   final UpdateInvoiceUseCase updateInvoiceUseCase;
   final GetAllEmployeePurchaseOrdersUseCase getAllPosUseCase;
+  final GetCompanyDetailsUseCase getCompanyDetailsUseCase;
+
+  Future<CompanyDetails?> _company() async {
+    final result = await getCompanyDetailsUseCase();
+    return result.fold((_) => null, (details) => details);
+  }
 
   Future<void> _onStarted(
     InvoicesStarted event,
@@ -101,6 +111,10 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
         draftIntraState: AppInvoiceConfig.defaultIntraState,
         draftLines: const [InvoiceDraftLine(particulars: '', amount: '')],
         clearSourceProposalRef: true,
+        draftPaymentStatus: InvoicePaymentStatus.unpaid,
+        draftAmountPaid: 0,
+        clearDraftDueDate: true,
+        clearDraftPaidAt: true,
       ),
     );
   }
@@ -221,6 +235,12 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
       draftBuyerContact: invoice.buyerContact,
       draftIntraState: invoice.intraState,
       draftLines: lines,
+      draftPaymentStatus: invoice.paymentStatus,
+      draftAmountPaid: invoice.amountPaid,
+      draftDueDate: invoice.dueDate,
+      draftPaidAt: invoice.paidAt,
+      clearDraftDueDate: invoice.dueDate == null,
+      clearDraftPaidAt: invoice.paidAt == null,
     );
   }
 
@@ -380,6 +400,10 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
       igstAmount: tax.igst,
       totalAmount: tax.total,
       amountInWords: InvoiceCalculator.amountInWords(tax.total),
+      paymentStatus: event.paymentStatus,
+      amountPaid: event.amountPaid,
+      dueDate: event.dueDate,
+      paidAt: event.paidAt,
     );
 
     final result = editingId == null
@@ -429,7 +453,11 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     Emitter<InvoicesState> emit,
   ) async {
     try {
-      final doc = await InvoicePdfBuilder.build(event.invoice);
+      final company = await _company();
+      final doc = await InvoicePdfBuilder.build(
+        event.invoice,
+        company: company,
+      );
       final bytes = await doc.save();
       final name =
           'Invoice_${event.invoice.invoiceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
@@ -443,5 +471,43 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
       );
       emit(state.copyWith(status: InvoicesStatus.ready, clearError: true));
     }
+  }
+
+  Future<void> _onPaymentUpdated(
+    InvoicePaymentUpdated event,
+    Emitter<InvoicesState> emit,
+  ) async {
+    final updated = event.invoice.copyWith(
+      paymentStatus: event.paymentStatus,
+      amountPaid: event.amountPaid,
+      dueDate: event.dueDate,
+      paidAt: event.paidAt,
+      clearDueDate: event.clearDueDate,
+      clearPaidAt: event.clearPaidAt,
+    );
+    emit(state.copyWith(status: InvoicesStatus.saving, clearError: true));
+    final result = await updateInvoiceUseCase(updated);
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            status: InvoicesStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+        emit(state.copyWith(status: InvoicesStatus.ready, clearError: true));
+      },
+      (saved) {
+        emit(
+          state.copyWith(
+            status: InvoicesStatus.ready,
+            invoices: [
+              for (final item in state.invoices)
+                if (item.id == saved.id) saved else item,
+            ],
+          ),
+        );
+      },
+    );
   }
 }

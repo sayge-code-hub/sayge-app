@@ -6,37 +6,37 @@ import '../../domain/entities/dms_entity.dart';
 import '../../domain/entities/document_record.dart';
 import 'document_opener.dart';
 
-class _CategoryStyle {
-  const _CategoryStyle({required this.background, required this.foreground});
+class CategoryStyle {
+  const CategoryStyle({required this.background, required this.foreground});
 
   final Color background;
   final Color foreground;
 }
 
-_CategoryStyle categoryStyleFor(String category) {
+CategoryStyle categoryStyleFor(String category) {
   switch (category.trim().toLowerCase()) {
     case 'identity':
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFE8F1FF),
         foreground: Color(0xFF1D4ED8),
       );
     case 'tax':
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFFFF1E6),
         foreground: Color(0xFFC2410C),
       );
     case 'contracts':
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFF3E8FF),
         foreground: Color(0xFF7E22CE),
       );
     case 'compliance':
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFE6FFFA),
         foreground: Color(0xFF0F766E),
       );
     case 'payroll':
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFE8F8EE),
         foreground: Color(0xFF15803D),
       );

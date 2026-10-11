@@ -7,6 +7,7 @@ import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_invoice_config.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/csv_export.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
@@ -130,6 +131,38 @@ class _InvoiceListState extends State<_InvoiceList> {
           context.read<InvoicesBloc>().add(const InvoiceFormOpened()),
     );
 
+    Future<void> exportCsv() async {
+      final rows = widget.state.invoices;
+      await CsvExport.download(
+        filename: 'invoices.csv',
+        headers: const [
+          'Invoice No',
+          'Date',
+          'Buyer',
+          'PO',
+          'Total',
+          'Payment Status',
+          'Amount Paid',
+          'Due Date',
+        ],
+        rows: [
+          for (final invoice in rows)
+            [
+              invoice.invoiceNo,
+              dateFormat.format(invoice.invoiceDate),
+              invoice.buyerCompany.isNotEmpty
+                  ? invoice.buyerCompany
+                  : invoice.buyerName,
+              invoice.poNumber,
+              invoice.totalAmount,
+              invoice.displayPaymentStatus().label,
+              invoice.amountPaid,
+              invoice.dueDate == null ? '' : dateFormat.format(invoice.dueDate!),
+            ],
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -149,13 +182,32 @@ class _InvoiceListState extends State<_InvoiceList> {
                         onChanged: (value) => setState(() => _query = value),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Export CSV',
+                      onPressed: widget.state.invoices.isEmpty ? null : exportCsv,
+                      icon: const Icon(Icons.download_outlined),
+                      color: AppColors.text,
+                    ),
+                    const SizedBox(width: 4),
                     newInvoice,
                   ],
                 )
-              : AppListSearchField(
-                  hintText: 'Search invoices…',
-                  onChanged: (value) => setState(() => _query = value),
+              : Row(
+                  children: [
+                    Expanded(
+                      child: AppListSearchField(
+                        hintText: 'Search invoices…',
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Export CSV',
+                      onPressed: widget.state.invoices.isEmpty ? null : exportCsv,
+                      icon: const Icon(Icons.download_outlined),
+                      color: AppColors.text,
+                    ),
+                  ],
                 ),
         ),
         const Divider(height: 1, color: AppColors.border),
@@ -209,12 +261,23 @@ class _InvoiceListState extends State<_InvoiceList> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      invoice.invoiceNo,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(fontSize: 14),
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            invoice.invoiceNo,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(fontSize: 14),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _PaymentStatusChip(
+                                          status:
+                                              invoice.displayPaymentStatus(),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
@@ -280,6 +343,48 @@ class _InvoiceListState extends State<_InvoiceList> {
                                     ?.copyWith(fontSize: 13),
                               ),
                               const SizedBox(width: 4),
+                              if (invoice.displayPaymentStatus() !=
+                                  InvoicePaymentStatus.paid)
+                                AppListIconButton(
+                                  tooltip: 'Mark paid',
+                                  onPressed: () => context
+                                      .read<InvoicesBloc>()
+                                      .add(
+                                        InvoicePaymentUpdated(
+                                          invoice: invoice,
+                                          paymentStatus:
+                                              InvoicePaymentStatus.paid,
+                                          amountPaid: invoice.totalAmount,
+                                          dueDate: invoice.dueDate,
+                                          paidAt: DateTime.now(),
+                                        ),
+                                      ),
+                                  icon: Icons.check_circle_outline,
+                                ),
+                              if (invoice.displayPaymentStatus() ==
+                                      InvoicePaymentStatus.unpaid ||
+                                  invoice.displayPaymentStatus() ==
+                                      InvoicePaymentStatus.overdue)
+                                AppListIconButton(
+                                  tooltip: 'Mark partial',
+                                  onPressed: () {
+                                    final half =
+                                        (invoice.totalAmount / 2).roundToDouble();
+                                    context.read<InvoicesBloc>().add(
+                                          InvoicePaymentUpdated(
+                                            invoice: invoice,
+                                            paymentStatus:
+                                                InvoicePaymentStatus.partial,
+                                            amountPaid: half > 0
+                                                ? half
+                                                : invoice.amountPaid,
+                                            dueDate: invoice.dueDate,
+                                            clearPaidAt: true,
+                                          ),
+                                        );
+                                  },
+                                  icon: Icons.payments_outlined,
+                                ),
                               AppListIconButton(
                                 tooltip: 'Edit',
                                 onPressed: () => context
@@ -313,6 +418,42 @@ class _InvoiceListState extends State<_InvoiceList> {
   }
 }
 
+class _PaymentStatusChip extends StatelessWidget {
+  const _PaymentStatusChip({required this.status});
+
+  final InvoicePaymentStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    switch (status) {
+      case InvoicePaymentStatus.paid:
+        color = AppColors.success;
+      case InvoicePaymentStatus.partial:
+        color = AppColors.highlight;
+      case InvoicePaymentStatus.overdue:
+        color = AppColors.error;
+      case InvoicePaymentStatus.unpaid:
+        color = AppColors.textLight;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+      ),
+    );
+  }
+}
+
 class _InvoiceFormView extends StatefulWidget {
   const _InvoiceFormView({super.key, required this.state});
 
@@ -332,9 +473,14 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
   late final TextEditingController _buyerGstin;
   late final TextEditingController _buyerContact;
   late final TextEditingController _dateCtrl;
+  late final TextEditingController _amountPaid;
+  late final TextEditingController _dueDateCtrl;
   late final List<_LineCtrls> _lines;
   late DateTime _invoiceDate;
   late bool _intraState;
+  late InvoicePaymentStatus _paymentStatus;
+  DateTime? _dueDate;
+  DateTime? _paidAt;
   Client? _selectedClient;
 
   final _dateFormat = DateFormat('dd-MM-yyyy');
@@ -354,6 +500,19 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
     _invoiceDate = s.draftInvoiceDate ?? DateTime.now();
     _dateCtrl = TextEditingController(text: _dateFormat.format(_invoiceDate));
     _intraState = s.draftIntraState;
+    _paymentStatus = s.draftPaymentStatus;
+    _amountPaid = TextEditingController(
+      text: s.draftAmountPaid == 0
+          ? ''
+          : (s.draftAmountPaid == s.draftAmountPaid.roundToDouble()
+              ? '${s.draftAmountPaid.round()}'
+              : s.draftAmountPaid.toStringAsFixed(2)),
+    );
+    _dueDate = s.draftDueDate;
+    _paidAt = s.draftPaidAt;
+    _dueDateCtrl = TextEditingController(
+      text: _dueDate == null ? '' : _dateFormat.format(_dueDate!),
+    );
     _lines = [
       for (final line in s.draftLines)
         _LineCtrls(
@@ -375,6 +534,8 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
     _buyerGstin.dispose();
     _buyerContact.dispose();
     _dateCtrl.dispose();
+    _amountPaid.dispose();
+    _dueDateCtrl.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -419,10 +580,15 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
       igstAmount: tax.igst,
       totalAmount: tax.total,
       amountInWords: InvoiceCalculator.amountInWords(tax.total),
+      paymentStatus: _paymentStatus,
+      amountPaid: double.tryParse(_amountPaid.text.trim()) ?? 0,
+      dueDate: _dueDate,
+      paidAt: _paidAt,
     );
   }
 
   void _submit() {
+    final paid = double.tryParse(_amountPaid.text.trim()) ?? 0;
     context.read<InvoicesBloc>().add(
           InvoiceSubmitted(
             invoiceNo: _invoiceNo.text,
@@ -435,6 +601,12 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
             buyerGstin: _buyerGstin.text,
             buyerContact: _buyerContact.text,
             intraState: _intraState,
+            paymentStatus: _paymentStatus,
+            amountPaid: paid,
+            dueDate: _dueDate,
+            paidAt: _paymentStatus == InvoicePaymentStatus.paid
+                ? (_paidAt ?? DateTime.now())
+                : null,
             lines: [
               for (final line in _lines)
                 InvoiceDraftLine(
@@ -759,6 +931,82 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                     ]),
                   ],
                 ),
+              ),
+              const SizedBox(height: 12),
+              _card(
+                context,
+                title: 'Payment',
+                child: _grid(isDesktop, [
+                  AppDropdown<InvoicePaymentStatus>(
+                    label: 'Payment status',
+                    value: _paymentStatus,
+                    items: InvoicePaymentStatus.values
+                        .where((s) => s != InvoicePaymentStatus.overdue)
+                        .toList(),
+                    itemLabel: (s) => s.label,
+                    enabled: !saving,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _paymentStatus = value;
+                        if (value == InvoicePaymentStatus.paid) {
+                          _paidAt ??= DateTime.now();
+                          if (_amountPaid.text.trim().isEmpty) {
+                            _amountPaid.text =
+                                draft.totalAmount.round().toString();
+                          }
+                        } else {
+                          _paidAt = null;
+                        }
+                      });
+                    },
+                  ),
+                  AppTextField(
+                    label: 'Amount paid',
+                    controller: _amountPaid,
+                    enabled: !saving,
+                    prefixText: AppDisplayConfig.currencySymbol,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
+                  ),
+                  AppTextField(
+                    label: 'Due date',
+                    controller: _dueDateCtrl,
+                    readOnly: true,
+                    enabled: !saving,
+                    onTap: saving
+                        ? null
+                        : () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _dueDate ?? _invoiceDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked == null) return;
+                            setState(() {
+                              _dueDate = picked;
+                              _dueDateCtrl.text = _dateFormat.format(picked);
+                            });
+                          },
+                    suffixIcon: _dueDate == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear',
+                            onPressed: saving
+                                ? null
+                                : () => setState(() {
+                                      _dueDate = null;
+                                      _dueDateCtrl.clear();
+                                    }),
+                            icon: const Icon(Icons.close, size: 18),
+                          ),
+                  ),
+                ]),
               ),
               const SizedBox(height: 12),
               _card(

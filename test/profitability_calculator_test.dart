@@ -289,5 +289,41 @@ void main() {
       // 100000 - 50000 package - 10000 expense
       expect(clients.first.grossProfit, 40000);
     });
+
+    test('expenseDate is preferred over createdAt for month bucketing', () {
+      final rows = ProfitabilityCalculator.forEmployees([
+        _employee(id: 'E1', client: 'Acme', clientId: 'c1'),
+      ]);
+      final clients = ProfitabilityCalculator.rollUpByClient(
+        rows,
+        invoices: [
+          _invoice(
+            company: 'Acme',
+            date: DateTime(2026, 10, 1),
+            taxable: 100000,
+          ),
+        ],
+        expenses: [
+          Expense(
+            id: 'x1',
+            madeFor: 'Travel',
+            amount: 8000,
+            paidFrom: 'Company',
+            category: 'Misc',
+            clientId: 'c1',
+            clientName: 'Acme',
+            approvalStatus: ExpenseApprovalStatus.approved,
+            // Business date in October…
+            expenseDate: DateTime(2026, 10, 5),
+            // …even though the row was created in September.
+            createdAt: DateTime(2026, 9, 28),
+          ),
+        ],
+        now: DateTime(2026, 10, 9),
+      );
+      expect(clients.first.expensesMonthly, 8000);
+      // 100000 - 50000 package - 8000 expense
+      expect(clients.first.grossProfit, 42000);
+    });
   });
 }

@@ -6,9 +6,13 @@ import 'package:intl/intl.dart';
 import '../../../../core/config/app_proposal_config.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/document_email.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../injection_container.dart';
+import '../../../settings/domain/entities/settings_entities.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../data/proposal_pdf_builder.dart';
 import '../../domain/entities/proposal.dart';
@@ -120,6 +124,29 @@ Future<void> showProposalPreview({
                       icon: const Icon(Icons.download_outlined),
                     ),
                     IconButton(
+                      tooltip: 'Email PDF',
+                      onPressed: () async {
+                        await showEmailRecipientDialog(
+                          context: dialogContext,
+                          title: 'Email proposal',
+                          onRecipient: (to) async {
+                            final bytes = await proposalPdfBytes(proposal);
+                            final name =
+                                'Proposal_${proposal.referenceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
+                            await emailPdfDocument(
+                              bytes: bytes,
+                              filename: name,
+                              subject: 'Proposal ${proposal.referenceNo}',
+                              body:
+                                  'Please find the proposal PDF attached (downloaded to your device).\n\nReference: ${proposal.referenceNo}',
+                              to: to,
+                            );
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.email_outlined),
+                    ),
+                    IconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       icon: const Icon(Icons.close),
@@ -150,12 +177,22 @@ Future<void> showProposalPreview({
   );
 }
 
+Future<CompanyDetails?> _loadCompany() async {
+  final result = await sl<GetCompanyDetailsUseCase>()();
+  return result.fold((_) => null, (details) => details);
+}
+
+Future<Uint8List> proposalPdfBytes(Proposal proposal) async {
+  final company = await _loadCompany();
+  final doc = await ProposalPdfBuilder.build(proposal, company: company);
+  return Uint8List.fromList(await doc.save());
+}
+
 Future<void> downloadProposalPdf(Proposal proposal) async {
-  final doc = await ProposalPdfBuilder.build(proposal);
-  final bytes = await doc.save();
+  final bytes = await proposalPdfBytes(proposal);
   final name =
       'Proposal_${proposal.referenceNo.replaceAll(RegExp(r'[^\w.\-]+'), '_')}.pdf';
-  await savePdfBytes(bytes: Uint8List.fromList(bytes), filename: name);
+  await savePdfBytes(bytes: bytes, filename: name);
 }
 
 class _ProposalPreviewCard extends StatelessWidget {

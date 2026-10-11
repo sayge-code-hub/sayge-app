@@ -26,6 +26,23 @@ abstract class DocumentRemoteDataSource {
     String notes = '',
   });
 
+  Future<void> deleteDocument(String documentId);
+
+  Future<DocumentModel> replaceDocument({
+    required DocumentModel existing,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+    String? title,
+    String? category,
+  });
+
+  Future<DmsEntity> createCatalogEntity({
+    required DmsEntityType type,
+    required String name,
+    String subtitle = '',
+  });
+
   Future<String> getDownloadUrl(String storagePath);
 }
 
@@ -46,12 +63,12 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     try {
       switch (type) {
         case DmsEntityType.employee:
-          return _employees();
+          return await _employees();
         case DmsEntityType.client:
-          return _clients();
+          return await _clients();
         case DmsEntityType.vendor:
         case DmsEntityType.candidate:
-          return _catalogEntities(type);
+          return await _catalogEntities(type);
       }
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
@@ -143,6 +160,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
         type: DmsEntityType.fromStorage(
           (map['entity_type'] ?? type.storageValue).toString(),
         ),
+        subtitle: (map['subtitle'] ?? '').toString(),
       );
     }).toList();
   }
@@ -264,6 +282,124 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to get document link.');
+    }
+  }
+
+  @override
+  Future<void> deleteDocument(String documentId) async {
+    final id = documentId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Document id is required.');
+    }
+    try {
+      final row = await _client
+          .from(_documentsTable)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (row == null) {
+        throw const ServerException('Document not found.');
+      }
+      final path = (row['storage_path'] ?? '').toString().trim();
+      await _client.from(_documentsTable).delete().eq('id', id);
+      if (path.isNotEmpty) {
+        try {
+          await _client.storage.from(_bucket).remove([path]);
+        } catch (_) {}
+      }
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to delete document.');
+    }
+  }
+
+  @override
+  Future<DocumentModel> replaceDocument({
+    required DocumentModel existing,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+    String? title,
+    String? category,
+  }) async {
+    await deleteDocument(existing.id);
+    return addDocument(
+      entityType: existing.entityType,
+      entityId: existing.entityId,
+      entityName: existing.entityName,
+      title: (title ?? existing.title).trim().isEmpty
+          ? existing.title
+          : (title ?? existing.title),
+      fileName: fileName,
+      category: category ?? existing.category,
+      fileBytes: fileBytes,
+      mimeType: mimeType,
+      notes: existing.notes,
+    );
+  }
+
+  @override
+  Future<DmsEntity> createCatalogEntity({
+    required DmsEntityType type,
+    required String name,
+    String subtitle = '',
+  }) async {
+    if (type != DmsEntityType.vendor && type != DmsEntityType.candidate) {
+      throw const ServerException(
+        'Only vendors and candidates can be added from DMS.',
+      );
+    }
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw const ServerException('Name is required.');
+    }
+    final id =
+        '${type.storageValue}_${DateTime.now().microsecondsSinceEpoch}';
+    final payload = {
+      'id': id,
+      'entity_type': type.storageValue,
+      'name': trimmed,
+      'subtitle': subtitle.trim(),
+    };
+    try {
+      final row = await _client
+          .from(_entitiesTable)
+          .insert(payload)
+          .select()
+          .single();
+      return DmsEntity(
+        id: (row['id'] ?? id).toString(),
+        name: (row['name'] ?? trimmed).toString(),
+        type: DmsEntityType.fromStorage(
+          (row['entity_type'] ?? type.storageValue).toString(),
+        ),
+        subtitle: (row['subtitle'] ?? subtitle).toString(),
+      );
+    } on PostgrestException catch (e) {
+      // Older schema without subtitle column.
+      if (e.message.contains('subtitle')) {
+        final row = await _client
+            .from(_entitiesTable)
+            .insert({
+              'id': id,
+              'entity_type': type.storageValue,
+              'name': trimmed,
+            })
+            .select()
+            .single();
+        return DmsEntity(
+          id: (row['id'] ?? id).toString(),
+          name: (row['name'] ?? trimmed).toString(),
+          type: type,
+          subtitle: subtitle.trim(),
+        );
+      }
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to create DMS entity.');
     }
   }
 }

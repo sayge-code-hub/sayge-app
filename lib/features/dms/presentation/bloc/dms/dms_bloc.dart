@@ -5,8 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../domain/entities/dms_entity.dart';
 import '../../../domain/entities/document_record.dart';
 import '../../../domain/usecases/add_document.dart';
+import '../../../domain/usecases/create_catalog_entity.dart';
+import '../../../domain/usecases/delete_document.dart';
 import '../../../domain/usecases/get_dms_entities.dart';
 import '../../../domain/usecases/get_documents.dart';
+import '../../../domain/usecases/replace_document.dart';
 import '../../widgets/document_drop_zone.dart';
 
 part 'dms_event.dart';
@@ -17,6 +20,9 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     required this.getDmsEntitiesUseCase,
     required this.getDocumentsUseCase,
     required this.addDocumentUseCase,
+    required this.deleteDocumentUseCase,
+    required this.replaceDocumentUseCase,
+    required this.createCatalogEntityUseCase,
   }) : super(const DmsState()) {
     on<DmsStarted>(_onStarted);
     on<DmsHubOpened>(_onHubOpened);
@@ -24,11 +30,17 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
     on<DmsEntitySelected>(_onEntitySelected);
     on<DmsSelectionCleared>(_onSelectionCleared);
     on<DmsFilesSelected>(_onFilesSelected);
+    on<DmsCatalogEntityCreateRequested>(_onCatalogCreate);
+    on<DmsDocumentDeleteRequested>(_onDocumentDelete);
+    on<DmsDocumentReplaceRequested>(_onDocumentReplace);
   }
 
   final GetDmsEntitiesUseCase getDmsEntitiesUseCase;
   final GetDocumentsUseCase getDocumentsUseCase;
   final AddDocumentUseCase addDocumentUseCase;
+  final DeleteDocumentUseCase deleteDocumentUseCase;
+  final ReplaceDocumentUseCase replaceDocumentUseCase;
+  final CreateCatalogEntityUseCase createCatalogEntityUseCase;
 
   Future<void> _onStarted(
     DmsStarted event,
@@ -180,6 +192,95 @@ class DmsBloc extends Bloc<DmsEvent, DmsState> {
         documents: [...uploaded, ...state.documents],
         errorMessage: firstError,
         clearError: firstError == null,
+      ),
+    );
+  }
+
+  Future<void> _onCatalogCreate(
+    DmsCatalogEntityCreateRequested event,
+    Emitter<DmsState> emit,
+  ) async {
+    emit(state.copyWith(status: DmsStatus.saving, clearError: true));
+    final result = await createCatalogEntityUseCase(
+      type: event.type,
+      name: event.name,
+      subtitle: event.subtitle,
+    );
+    await result.fold(
+      (failure) async {
+        emit(
+          state.copyWith(
+            status: DmsStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      (entity) async {
+        emit(
+          state.copyWith(
+            status: DmsStatus.ready,
+            entities: [entity, ...state.entities],
+            clearError: true,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onDocumentDelete(
+    DmsDocumentDeleteRequested event,
+    Emitter<DmsState> emit,
+  ) async {
+    emit(state.copyWith(status: DmsStatus.saving, clearError: true));
+    final result = await deleteDocumentUseCase(event.documentId);
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          status: DmsStatus.failure,
+          errorMessage: failure.message,
+        ),
+      ),
+      (_) => emit(
+        state.copyWith(
+          status: DmsStatus.ready,
+          documents: [
+            for (final doc in state.documents)
+              if (doc.id != event.documentId) doc,
+          ],
+          clearError: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onDocumentReplace(
+    DmsDocumentReplaceRequested event,
+    Emitter<DmsState> emit,
+  ) async {
+    emit(state.copyWith(status: DmsStatus.saving, clearError: true));
+    final result = await replaceDocumentUseCase(
+      existing: event.existing,
+      fileName: event.fileName,
+      fileBytes: event.fileBytes,
+      mimeType: event.mimeType,
+    );
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          status: DmsStatus.failure,
+          errorMessage: failure.message,
+        ),
+      ),
+      (replaced) => emit(
+        state.copyWith(
+          status: DmsStatus.success,
+          documents: [
+            replaced,
+            for (final doc in state.documents)
+              if (doc.id != event.existing.id) doc,
+          ],
+          clearError: true,
+        ),
       ),
     );
   }

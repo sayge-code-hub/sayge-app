@@ -57,6 +57,10 @@ class InvoiceModel extends Invoice {
     required super.igstAmount,
     required super.totalAmount,
     required super.amountInWords,
+    super.paymentStatus,
+    super.amountPaid,
+    super.dueDate,
+    super.paidAt,
   });
 
   factory InvoiceModel.fromEntity(Invoice invoice) {
@@ -81,6 +85,10 @@ class InvoiceModel extends Invoice {
       igstAmount: invoice.igstAmount,
       totalAmount: invoice.totalAmount,
       amountInWords: invoice.amountInWords,
+      paymentStatus: invoice.paymentStatus,
+      amountPaid: invoice.amountPaid,
+      dueDate: invoice.dueDate,
+      paidAt: invoice.paidAt,
     );
   }
 
@@ -88,6 +96,13 @@ class InvoiceModel extends Invoice {
     DateTime parseDate(dynamic value) {
       if (value is DateTime) return value;
       return DateTime.parse(value.toString());
+    }
+
+    DateTime? parseOptionalDate(dynamic value) {
+      if (value == null) return null;
+      final raw = value.toString().trim();
+      if (raw.isEmpty) return null;
+      return DateTime.tryParse(raw);
     }
 
     final linesRaw = json['invoice_line_items'];
@@ -120,6 +135,12 @@ class InvoiceModel extends Invoice {
       igstAmount: double.tryParse('${json['igst_amount'] ?? 0}') ?? 0,
       totalAmount: double.tryParse('${json['total_amount'] ?? 0}') ?? 0,
       amountInWords: (json['amount_in_words'] ?? '').toString(),
+      paymentStatus: InvoicePaymentStatus.fromDb(
+        json['payment_status']?.toString(),
+      ),
+      amountPaid: double.tryParse('${json['amount_paid'] ?? 0}') ?? 0,
+      dueDate: parseOptionalDate(json['due_date']),
+      paidAt: parseOptionalDate(json['paid_at']),
     );
   }
 
@@ -147,6 +168,10 @@ class InvoiceModel extends Invoice {
       'igst_amount': igstAmount,
       'total_amount': totalAmount,
       'amount_in_words': amountInWords,
+      'payment_status': paymentStatus.dbValue,
+      'amount_paid': amountPaid,
+      'due_date': dueDate == null ? null : ymd(dueDate!),
+      'paid_at': paidAt == null ? null : ymd(paidAt!),
     };
   }
 }

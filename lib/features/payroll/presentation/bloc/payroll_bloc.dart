@@ -5,7 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/domain/usecases/get_employees.dart';
+import '../../../settings/domain/entities/settings_entities.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
+import '../../data/datasources/payroll_run_remote_datasource.dart';
 import '../../data/payslip_pdf_builder.dart';
+import '../../domain/entities/payslip.dart';
 import '../../domain/services/payslip_calculator.dart';
 import '../../domain/services/payslip_period.dart';
 
@@ -13,8 +17,11 @@ part 'payroll_event.dart';
 part 'payroll_state.dart';
 
 class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
-  PayrollBloc({required this.getEmployeesUseCase})
-      : super(() {
+  PayrollBloc({
+    required this.getEmployeesUseCase,
+    required this.getCompanyDetailsUseCase,
+    required this.payrollRunRemoteDataSource,
+  }) : super(() {
           final latest = PayslipPeriod.latestAvailable();
           return PayrollState(month: latest.month, year: latest.year);
         }()) {
@@ -27,6 +34,13 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
   }
 
   final GetEmployeesUseCase getEmployeesUseCase;
+  final GetCompanyDetailsUseCase getCompanyDetailsUseCase;
+  final PayrollRunRemoteDataSource payrollRunRemoteDataSource;
+
+  Future<CompanyDetails?> _company() async {
+    final result = await getCompanyDetailsUseCase();
+    return result.fold((_) => null, (details) => details);
+  }
 
   Future<void> _onStarted(
     PayrollStarted event,
@@ -169,6 +183,8 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
 
     emit(state.copyWith(status: PayrollStatus.generating, clearError: true));
     try {
+      final company = await _company();
+      final slips = <Payslip>[];
       for (var i = 0; i < eligible.length; i++) {
         final employee = eligible[i];
         final slip = PayslipCalculator.fromEmployee(
@@ -176,7 +192,11 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
           month: state.month,
           year: state.year,
         );
-        final doc = await PayslipPdfBuilder.build([slip]);
+        slips.add(slip);
+        final doc = await PayslipPdfBuilder.build(
+          [slip],
+          company: company,
+        );
         final bytes = await doc.save();
         final filename =
             'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
@@ -185,6 +205,15 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
         if (i < eligible.length - 1) {
           await Future<void>.delayed(const Duration(milliseconds: 350));
         }
+      }
+      try {
+        await payrollRunRemoteDataSource.savePayrollRun(
+          periodYear: state.year,
+          periodMonth: state.month,
+          slips: slips,
+        );
+      } catch (e, st) {
+        debugPrint('Payroll run persist soft-failed: $e\n$st');
       }
       emit(state.copyWith(status: PayrollStatus.ready));
     } catch (e, st) {
