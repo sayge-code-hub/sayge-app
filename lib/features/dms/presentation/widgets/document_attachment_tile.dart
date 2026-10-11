@@ -42,7 +42,7 @@ CategoryStyle categoryStyleFor(String category) {
       );
     case 'general':
     default:
-      return const _CategoryStyle(
+      return const CategoryStyle(
         background: Color(0xFFF3F4F6),
         foreground: Color(0xFF4B5563),
       );
