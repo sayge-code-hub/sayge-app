@@ -47,6 +47,46 @@ class EmployeePoSubmitted extends EmployeePoEvent {
       ];
 }
 
+class EmployeePoUpdated extends EmployeePoEvent {
+  const EmployeePoUpdated({
+    required this.id,
+    required this.poNumber,
+    required this.startDate,
+    required this.endDate,
+    this.fileName,
+    this.fileBytes,
+    this.mimeType = 'application/pdf',
+  });
+
+  final String id;
+  final String poNumber;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String? fileName;
+  final Uint8List? fileBytes;
+  final String mimeType;
+
+  @override
+  List<Object?> get props => [
+        id,
+        poNumber,
+        startDate,
+        endDate,
+        fileName,
+        fileBytes,
+        mimeType,
+      ];
+}
+
+class EmployeePoDeleted extends EmployeePoEvent {
+  const EmployeePoDeleted(this.id);
+
+  final String id;
+
+  @override
+  List<Object?> get props => [id];
+}
+
 class EmployeePoDownloadRequested extends EmployeePoEvent {
   const EmployeePoDownloadRequested(this.order);
 

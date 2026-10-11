@@ -24,6 +24,26 @@ class CreateEmployeePurchaseOrderParams {
   final String mimeType;
 }
 
+class UpdateEmployeePurchaseOrderParams {
+  const UpdateEmployeePurchaseOrderParams({
+    required this.id,
+    required this.poNumber,
+    required this.startDate,
+    required this.endDate,
+    this.fileName,
+    this.fileBytes,
+    this.mimeType = 'application/pdf',
+  });
+
+  final String id;
+  final String poNumber;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String? fileName;
+  final Uint8List? fileBytes;
+  final String mimeType;
+}
+
 abstract class EmployeePurchaseOrderRepository {
   Future<Either<Failure, List<EmployeePurchaseOrder>>> getForEmployee(
     String employeeId,
@@ -34,6 +54,12 @@ abstract class EmployeePurchaseOrderRepository {
   Future<Either<Failure, EmployeePurchaseOrder>> create(
     CreateEmployeePurchaseOrderParams params,
   );
+
+  Future<Either<Failure, EmployeePurchaseOrder>> update(
+    UpdateEmployeePurchaseOrderParams params,
+  );
+
+  Future<Either<Failure, Unit>> delete(String id);
 
   Future<Either<Failure, String>> getDownloadUrl(EmployeePurchaseOrder po);
 }

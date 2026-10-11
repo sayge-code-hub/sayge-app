@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/usecases/exit_employee.dart';
+import '../../domain/usecases/rehire_employee.dart';
 import '../../domain/usecases/update_employee_photo_usecase.dart';
 import '../bloc/employees/employees_bloc.dart';
 import '../widgets/employee_avatar.dart';
@@ -48,6 +49,7 @@ class EmployeeDetailPage extends StatefulWidget {
 class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   late Employee _employee;
   bool _exiting = false;
+  bool _rehiring = false;
   bool _uploadingPhoto = false;
 
   @override
@@ -217,6 +219,100 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         } else {
           context.go(AppRoutes.employees);
         }
+      },
+    );
+  }
+
+  Future<void> _rehireEmployee() async {
+    final employee = _employee;
+    if (employee.isActive || _rehiring) return;
+
+    DateTime? joiningDate;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final formatted = joiningDate == null
+                ? 'Keep current'
+                : AppDates.compact.format(joiningDate!);
+            return AlertDialog(
+              backgroundColor: AppColors.background,
+              surfaceTintColor: AppColors.background,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              title: const Text('Rehire employee'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Reactivate ${employee.employeeName}? Their login will be '
+                    'enabled again and exit date cleared.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: joiningDate ?? DateTime.now(),
+                        firstDate: DateTime(2015),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => joiningDate = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text('Joining date: $formatted'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Rehire'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _rehiring = true);
+    final result = await sl<RehireEmployeeUseCase>()(
+      employeeId: employee.employeeId,
+      dateOfJoining: joiningDate,
+    );
+    if (!mounted) return;
+    setState(() => _rehiring = false);
+
+    await result.fold(
+      (failure) async {
+        await showAppMessageDialog(
+          context,
+          title: 'Rehire employee',
+          message: failure.message,
+        );
+      },
+      (updated) async {
+        setState(() => _employee = updated);
+        context.read<EmployeesBloc>().add(const EmployeesRequested());
+        await showAppMessageDialog(
+          context,
+          title: 'Rehire employee',
+          message: '${employee.employeeName} has been rehired.',
+        );
       },
     );
   }
@@ -504,16 +600,21 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             children: [
               if (employee.isActive)
                 OutlinedButton(
-                  onPressed: _exiting ? null : _exitEmployee,
+                  onPressed: _exiting || _rehiring ? null : _exitEmployee,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
                     side: const BorderSide(color: AppColors.error),
                   ),
                   child: Text(_exiting ? 'Exiting…' : 'Exit employee'),
+                )
+              else
+                OutlinedButton(
+                  onPressed: _exiting || _rehiring ? null : _rehireEmployee,
+                  child: Text(_rehiring ? 'Rehiring…' : 'Rehire'),
                 ),
               AppButton(
                 label: 'Edit',
-                enabled: !_exiting,
+                enabled: !_exiting && !_rehiring,
                 onPressed: () {
                   if (widget.embedded) {
                     widget.onEdit?.call();

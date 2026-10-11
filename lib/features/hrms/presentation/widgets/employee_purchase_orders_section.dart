@@ -142,7 +142,11 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
                   children: [
                     for (var i = 0; i < state.orders.length; i++) ...[
                       if (i > 0) const SizedBox(height: 8),
-                      _PoRow(order: state.orders[i]),
+                      _PoRow(
+                        order: state.orders[i],
+                        canManage: canManage,
+                        busy: saving,
+                      ),
                     ],
                   ],
                 ),
@@ -155,9 +159,58 @@ class _EmployeePurchaseOrdersBody extends StatelessWidget {
 }
 
 class _PoRow extends StatelessWidget {
-  const _PoRow({required this.order});
+  const _PoRow({
+    required this.order,
+    required this.canManage,
+    required this.busy,
+  });
 
   final EmployeePurchaseOrder order;
+  final bool canManage;
+  final bool busy;
+
+  Future<void> _onMenuSelected(BuildContext context, String action) async {
+    if (action == 'edit') {
+      await _showEditPoDialog(context, order, replacePdfOnly: false);
+      return;
+    }
+    if (action == 'replace') {
+      await _showEditPoDialog(context, order, replacePdfOnly: true);
+      return;
+    }
+    if (action != 'delete') return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: AppColors.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Text('Delete purchase order'),
+        content: Text(
+          'Delete PO ${order.poNumber}? The PDF will also be removed.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      context.read<EmployeePoBloc>().add(EmployeePoDeleted(order.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,13 +259,24 @@ class _PoRow extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'Open PDF',
-            onPressed: !order.hasFile
+            onPressed: !order.hasFile || busy
                 ? null
                 : () => context
                     .read<EmployeePoBloc>()
                     .add(EmployeePoDownloadRequested(order)),
             icon: const Icon(Icons.picture_as_pdf_outlined),
           ),
+          if (canManage)
+            PopupMenuButton<String>(
+              enabled: !busy,
+              tooltip: 'PO actions',
+              onSelected: (action) => _onMenuSelected(context, action),
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'replace', child: Text('Replace PDF')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
         ],
       ),
     );
@@ -236,6 +300,282 @@ Future<void> _showAddPoDialog(BuildContext context, String employeeId) async {
       context,
       title: 'Purchase order',
       message: 'Purchase order added.',
+    );
+  }
+}
+
+Future<void> _showEditPoDialog(
+  BuildContext context,
+  EmployeePurchaseOrder order, {
+  required bool replacePdfOnly,
+}) async {
+  final saved = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return BlocProvider.value(
+        value: context.read<EmployeePoBloc>(),
+        child: _EditPoDialog(
+          order: order,
+          replacePdfOnly: replacePdfOnly,
+        ),
+      );
+    },
+  );
+
+  if (saved == true && context.mounted) {
+    await showAppMessageDialog(
+      context,
+      title: 'Purchase order',
+      message: replacePdfOnly
+          ? 'PO PDF replaced.'
+          : 'Purchase order updated.',
+    );
+  }
+}
+
+class _EditPoDialog extends StatefulWidget {
+  const _EditPoDialog({
+    required this.order,
+    required this.replacePdfOnly,
+  });
+
+  final EmployeePurchaseOrder order;
+  final bool replacePdfOnly;
+
+  @override
+  State<_EditPoDialog> createState() => _EditPoDialogState();
+}
+
+class _EditPoDialogState extends State<_EditPoDialog> {
+  late final TextEditingController _poNumber;
+  late final TextEditingController _startCtrl;
+  late final TextEditingController _endCtrl;
+  final _dateFormat = DateFormat('dd-MM-yyyy');
+
+  late DateTime _startDate;
+  late DateTime _endDate;
+  String? _fileName;
+  Uint8List? _fileBytes;
+  String _mimeType = 'application/pdf';
+
+  @override
+  void initState() {
+    super.initState();
+    final order = widget.order;
+    _poNumber = TextEditingController(text: order.poNumber);
+    _startDate = order.startDate;
+    _endDate = order.endDate;
+    _startCtrl = TextEditingController(text: _dateFormat.format(_startDate));
+    _endCtrl = TextEditingController(text: _dateFormat.format(_endDate));
+  }
+
+  @override
+  void dispose() {
+    _poNumber.dispose();
+    _startCtrl.dispose();
+    _endCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate({required bool end}) async {
+    if (widget.replacePdfOnly) return;
+    final initial = end ? _endDate : _startDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2015),
+      lastDate: DateTime(2035),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (end) {
+        _endDate = picked;
+        _endCtrl.text = _dateFormat.format(picked);
+      } else {
+        _startDate = picked;
+        _startCtrl.text = _dateFormat.format(picked);
+        if (_endDate.isBefore(picked)) {
+          _endDate = picked;
+          _endCtrl.text = _dateFormat.format(picked);
+        }
+      }
+    });
+  }
+
+  Future<void> _pickPdf() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
+    if (files.isEmpty) return;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      if (!mounted) return;
+      await showAppMessageDialog(
+        context,
+        title: 'Purchase order',
+        message: 'Could not read the selected PDF. Try another file.',
+      );
+      return;
+    }
+    setState(() {
+      _fileName = file.name;
+      _fileBytes = bytes;
+      _mimeType = 'application/pdf';
+    });
+  }
+
+  void _submit() {
+    final poNumber = _poNumber.text.trim();
+    if (!widget.replacePdfOnly && poNumber.isEmpty) {
+      showAppMessageDialog(
+        context,
+        title: 'Purchase order',
+        message: 'Enter the PO number.',
+      );
+      return;
+    }
+    if (widget.replacePdfOnly &&
+        (_fileName == null || _fileBytes == null)) {
+      showAppMessageDialog(
+        context,
+        title: 'Purchase order',
+        message: 'Choose a replacement PDF.',
+      );
+      return;
+    }
+
+    context.read<EmployeePoBloc>().add(
+          EmployeePoUpdated(
+            id: widget.order.id,
+            poNumber: widget.replacePdfOnly ? widget.order.poNumber : poNumber,
+            startDate: _startDate,
+            endDate: _endDate,
+            fileName: _fileName,
+            fileBytes: _fileBytes,
+            mimeType: _mimeType,
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final metadataLocked = widget.replacePdfOnly;
+
+    return BlocConsumer<EmployeePoBloc, EmployeePoState>(
+      listenWhen: (prev, next) =>
+          prev.status == EmployeePoStatus.saving &&
+          next.status == EmployeePoStatus.ready &&
+          next.successMessage != null,
+      listener: (context, state) {
+        if (!Navigator.of(context).canPop()) return;
+        Navigator.of(context).pop(true);
+      },
+      builder: (context, state) {
+        final saving = state.status == EmployeePoStatus.saving;
+
+        return AlertDialog(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          title: Text(
+            widget.replacePdfOnly ? 'Replace PO PDF' : 'Edit purchase order',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!metadataLocked) ...[
+                  AppTextField(
+                    label: 'PO number',
+                    controller: _poNumber,
+                    enabled: !saving,
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    label: 'Start date',
+                    controller: _startCtrl,
+                    readOnly: true,
+                    enabled: !saving,
+                    hintText: 'Select date',
+                    onTap: saving ? null : () => _pickDate(end: false),
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    label: 'End date',
+                    controller: _endCtrl,
+                    readOnly: true,
+                    enabled: !saving,
+                    hintText: 'Select date',
+                    onTap: saving ? null : () => _pickDate(end: true),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.replacePdfOnly
+                        ? 'Replacement PDF'
+                        : 'Replace PDF (optional)',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontSize: 13,
+                          color: AppColors.textLight,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: saving ? null : _pickPdf,
+                      icon: const Icon(Icons.attach_file, size: 18),
+                      label: Text(_fileName == null ? 'Choose PDF' : 'Change'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _fileName ??
+                            (widget.replacePdfOnly
+                                ? 'No file selected'
+                                : 'Keep current: ${widget.order.fileName}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontSize: 12,
+                              color: AppColors.textLight,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            AppButton(
+              label: 'Save',
+              expand: false,
+              isLoading: saving,
+              enabled: !saving,
+              onPressed: _submit,
+            ),
+          ],
+        );
+      },
     );
   }
 }

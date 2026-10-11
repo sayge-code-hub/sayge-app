@@ -1,6 +1,12 @@
-// Invite an @sayge.in employee via Supabase Auth invite email.
+// Invite / manage @sayge.in employee auth invites.
 // Deploy: supabase functions deploy invite-employee --no-verify-jwt
 // (JWT is verified inside; service role is used only after caller checks out.)
+//
+// Body.action:
+//   invite (default) — inviteUserByEmail
+//   list             — pending invites (must_set_password / invited & unconfirmed)
+//   resend           — re-invite by email
+//   revoke           — deleteUser if never accepted, else users.is_active = false
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -59,67 +65,273 @@ Deno.serve(async (req) => {
       return json({ error: 'Only owners and admins can invite employees' }, 403)
     }
 
-    const body = await req.json()
-    const emailRaw = String(body.email ?? '').trim().toLowerCase()
-    const fullName = String(body.fullName ?? body.full_name ?? '').trim()
-    const roleId = String(body.roleId ?? body.role_id ?? 'role_employee').trim()
-    const employeeId = String(body.employeeId ?? body.employee_id ?? '').trim()
-    const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
+    const body = await req.json().catch(() => ({}))
+    const action = String(body.action ?? 'invite').trim().toLowerCase()
 
-    if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      return json(
-        { error: `Only @${ALLOWED_DOMAIN} emails can be invited` },
-        400,
-      )
+    if (action === 'list') {
+      return await listPendingInvites(admin)
     }
 
-    const inviteOptions: {
-      data: Record<string, string>
-      redirectTo?: string
-    } = {
-      data: {
-        full_name: fullName || emailRaw.split('@')[0],
-        name: fullName || emailRaw.split('@')[0],
-        role_id: roleId,
-        must_set_password: 'true',
-      },
-    }
-    if (redirectTo) {
-      inviteOptions.redirectTo = redirectTo
+    if (action === 'resend') {
+      return await resendInvite(admin, body)
     }
 
-    const { data: invited, error: inviteErr } =
-      await admin.auth.admin.inviteUserByEmail(emailRaw, inviteOptions)
-
-    if (inviteErr) {
-      return json({ error: inviteErr.message }, 400)
+    if (action === 'revoke') {
+      return await revokeInvite(admin, body)
     }
 
-    const userId = invited.user?.id
-    if (userId) {
-      const patch: Record<string, unknown> = {
-        email: emailRaw,
-        is_active: true,
-      }
-      if (fullName) patch.full_name = fullName
-      if (roleId) patch.role_id = roleId
-      if (employeeId) patch.employee_id = employeeId
-
-      // Profile row is created by on_auth_user_created; update extras.
-      await admin.from('users').update(patch).eq('id', userId)
+    if (action !== 'invite') {
+      return json({ error: `Unknown action: ${action}` }, 400)
     }
 
-    return json({
-      ok: true,
-      email: emailRaw,
-      userId,
-      message: 'Invite email sent. The employee will set their own password.',
-    })
+    return await inviteUser(admin, body)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Invite failed'
     return json({ error: message }, 500)
   }
 })
+
+async function listPendingInvites(
+  admin: ReturnType<typeof createClient>,
+) {
+  const pending: Array<{
+    id: string
+    email: string
+    fullName: string
+    invitedAt: string | null
+    createdAt: string | null
+  }> = []
+
+  let page = 1
+  const perPage = 200
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    })
+    if (error) {
+      return json({ error: error.message }, 400)
+    }
+    const users = data?.users ?? []
+    for (const user of users) {
+      if (!isPendingInvite(user)) continue
+      const email = (user.email ?? '').toLowerCase()
+      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) continue
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+      const fullName = String(meta.full_name ?? meta.name ?? '').trim()
+      pending.push({
+        id: user.id,
+        email,
+        fullName,
+        invitedAt: user.invited_at ?? null,
+        createdAt: user.created_at ?? null,
+      })
+    }
+    if (users.length < perPage) break
+    page += 1
+    if (page > 50) break
+  }
+
+  pending.sort((a, b) =>
+    (b.invitedAt ?? b.createdAt ?? '').localeCompare(
+      a.invitedAt ?? a.createdAt ?? '',
+    ),
+  )
+
+  return json({ ok: true, invites: pending })
+}
+
+function isPendingInvite(user: {
+  email_confirmed_at?: string | null
+  invited_at?: string | null
+  user_metadata?: Record<string, unknown> | null
+}): boolean {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+  const mustSet =
+    meta.must_set_password === true ||
+    meta.must_set_password === 'true' ||
+    meta.must_set_password === 1
+  const unconfirmed = !user.email_confirmed_at
+  const invited = Boolean(user.invited_at)
+  return mustSet || (invited && unconfirmed)
+}
+
+async function inviteUser(
+  admin: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+) {
+  const emailRaw = String(body.email ?? '').trim().toLowerCase()
+  const fullName = String(body.fullName ?? body.full_name ?? '').trim()
+  const roleId = String(body.roleId ?? body.role_id ?? 'role_employee').trim()
+  const employeeId = String(body.employeeId ?? body.employee_id ?? '').trim()
+  const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
+
+  if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
+    return json(
+      { error: `Only @${ALLOWED_DOMAIN} emails can be invited` },
+      400,
+    )
+  }
+
+  const inviteOptions: {
+    data: Record<string, string>
+    redirectTo?: string
+  } = {
+    data: {
+      full_name: fullName || emailRaw.split('@')[0],
+      name: fullName || emailRaw.split('@')[0],
+      role_id: roleId,
+      must_set_password: 'true',
+    },
+  }
+  if (redirectTo) {
+    inviteOptions.redirectTo = redirectTo
+  }
+
+  const { data: invited, error: inviteErr } =
+    await admin.auth.admin.inviteUserByEmail(emailRaw, inviteOptions)
+
+  if (inviteErr) {
+    return json({ error: inviteErr.message }, 400)
+  }
+
+  const userId = invited.user?.id
+  if (userId) {
+    const patch: Record<string, unknown> = {
+      email: emailRaw,
+      is_active: true,
+    }
+    if (fullName) patch.full_name = fullName
+    if (roleId) patch.role_id = roleId
+    if (employeeId) patch.employee_id = employeeId
+
+    // Profile row is created by on_auth_user_created; update extras.
+    await admin.from('users').update(patch).eq('id', userId)
+  }
+
+  return json({
+    ok: true,
+    email: emailRaw,
+    userId,
+    message: 'Invite email sent. The employee will set their own password.',
+  })
+}
+
+async function resendInvite(
+  admin: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+) {
+  const emailRaw = String(body.email ?? '').trim().toLowerCase()
+  if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
+    return json(
+      { error: `Only @${ALLOWED_DOMAIN} emails can be invited` },
+      400,
+    )
+  }
+
+  // Prefer existing profile metadata when re-sending.
+  const { data: profile } = await admin
+    .from('users')
+    .select('full_name, role_id, employee_id')
+    .eq('email', emailRaw)
+    .maybeSingle()
+
+  return await inviteUser(admin, {
+    email: emailRaw,
+    fullName: body.fullName ?? body.full_name ?? profile?.full_name ?? '',
+    roleId: body.roleId ?? body.role_id ?? profile?.role_id ?? 'role_employee',
+    employeeId:
+      body.employeeId ?? body.employee_id ?? profile?.employee_id ?? '',
+    redirectTo: body.redirectTo ?? body.redirect_to ?? '',
+  })
+}
+
+async function revokeInvite(
+  admin: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+) {
+  const emailRaw = String(body.email ?? '').trim().toLowerCase()
+  const userIdBody = String(body.userId ?? body.user_id ?? '').trim()
+
+  let userId = userIdBody
+  let authUser: {
+    id: string
+    email?: string
+    email_confirmed_at?: string | null
+    invited_at?: string | null
+    user_metadata?: Record<string, unknown> | null
+  } | null = null
+
+  if (userId) {
+    const { data, error } = await admin.auth.admin.getUserById(userId)
+    if (error || !data.user) {
+      return json({ error: error?.message ?? 'User not found' }, 404)
+    }
+    authUser = data.user
+  } else if (emailRaw) {
+    // Scan for matching email (listUsers has no email filter in all versions).
+    let page = 1
+    const perPage = 200
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({
+        page,
+        perPage,
+      })
+      if (error) return json({ error: error.message }, 400)
+      const found = (data?.users ?? []).find(
+        (u) => (u.email ?? '').toLowerCase() === emailRaw,
+      )
+      if (found) {
+        authUser = found
+        userId = found.id
+        break
+      }
+      if ((data?.users ?? []).length < perPage) break
+      page += 1
+      if (page > 50) break
+    }
+    if (!authUser) {
+      return json({ error: 'User not found' }, 404)
+    }
+  } else {
+    return json({ error: 'email or userId is required' }, 400)
+  }
+
+  const neverAccepted = isPendingInvite(authUser)
+
+  if (neverAccepted) {
+    const { error: delErr } = await admin.auth.admin.deleteUser(userId)
+    if (delErr) {
+      return json({ error: delErr.message }, 400)
+    }
+    // Best-effort cleanup of profile row if it remains.
+    await admin.from('users').delete().eq('id', userId)
+    return json({
+      ok: true,
+      revoked: true,
+      deleted: true,
+      userId,
+      email: authUser.email ?? emailRaw,
+    })
+  }
+
+  const { error: patchErr } = await admin
+    .from('users')
+    .update({ is_active: false })
+    .eq('id', userId)
+  if (patchErr) {
+    return json({ error: patchErr.message }, 400)
+  }
+
+  return json({
+    ok: true,
+    revoked: true,
+    deleted: false,
+    deactivated: true,
+    userId,
+    email: authUser.email ?? emailRaw,
+  })
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

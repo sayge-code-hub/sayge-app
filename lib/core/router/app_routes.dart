@@ -31,6 +31,7 @@ abstract final class AppRoutes {
   static const roles = '/settings/roles';
   static const ledger = '/settings/ledger';
   static const inviteEmployee = '/settings/invite';
+  static const manageInvites = '/settings/invites';
   static const setPassword = '/set-password';
   static const pos = '/pos';
   static const posHub = '/pos?hub=1';

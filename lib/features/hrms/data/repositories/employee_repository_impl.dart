@@ -80,6 +80,26 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
   }
 
   @override
+  Future<Either<Failure, Employee>> rehireEmployee({
+    required String employeeId,
+    DateTime? dateOfJoining,
+  }) async {
+    try {
+      final updated = await remoteDataSource.rehireEmployee(
+        employeeId: employeeId,
+        dateOfJoining: dateOfJoining,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, Employee>> updateEmployeePhoto({
     required String employeeId,
     required Uint8List bytes,

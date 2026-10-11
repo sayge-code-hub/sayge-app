@@ -35,6 +35,22 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> resetPasswordForEmail(String email) async {
+    try {
+      await _remoteDataSource.resetPasswordForEmail(email);
+      return const Right(unit);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Left(AuthFailure('Unable to send reset email.'));
+    }
+  }
+
+  @override
   Future<Either<Failure, User?>> restoreSession() async {
     try {
       return Right(await _remoteDataSource.restoreSession());

@@ -77,7 +77,7 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
       setState(() {
         _ready = false;
         _error =
-            'This invite link is invalid or expired. Ask an admin to resend the invite.';
+            'This invite or reset link is invalid or expired. Ask an admin to resend, or request a new reset from the login page.';
       });
     }
   }

@@ -16,6 +16,11 @@ abstract class EmployeeRepository {
     required DateTime dateOfExit,
   });
 
+  Future<Either<Failure, Employee>> rehireEmployee({
+    required String employeeId,
+    DateTime? dateOfJoining,
+  });
+
   Future<Either<Failure, Employee>> updateEmployeePhoto({
     required String employeeId,
     required Uint8List bytes,

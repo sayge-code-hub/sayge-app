@@ -37,6 +37,28 @@ class CreateEmployeePurchaseOrderUseCase {
   }
 }
 
+class UpdateEmployeePurchaseOrderUseCase {
+  const UpdateEmployeePurchaseOrderUseCase(this._repository);
+
+  final EmployeePurchaseOrderRepository _repository;
+
+  Future<Either<Failure, EmployeePurchaseOrder>> call(
+    UpdateEmployeePurchaseOrderParams params,
+  ) {
+    return _repository.update(params);
+  }
+}
+
+class DeleteEmployeePurchaseOrderUseCase {
+  const DeleteEmployeePurchaseOrderUseCase(this._repository);
+
+  final EmployeePurchaseOrderRepository _repository;
+
+  Future<Either<Failure, Unit>> call(String id) {
+    return _repository.delete(id);
+  }
+}
+
 class GetEmployeePurchaseOrderDownloadUrlUseCase {
   const GetEmployeePurchaseOrderDownloadUrlUseCase(this._repository);
 
@@ -49,4 +71,5 @@ class GetEmployeePurchaseOrderDownloadUrlUseCase {
 
 // Re-export params for callers.
 typedef PoCreateParams = CreateEmployeePurchaseOrderParams;
+typedef PoUpdateParams = UpdateEmployeePurchaseOrderParams;
 typedef PoFileBytes = Uint8List;

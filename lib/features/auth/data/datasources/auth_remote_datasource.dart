@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/error/exceptions.dart' as core;
 import '../models/user_model.dart';
 
@@ -9,6 +10,9 @@ abstract class AuthRemoteDataSource {
     required String email,
     required String password,
   });
+
+  /// Sends a password-recovery email; [SetPasswordPage] handles the link.
+  Future<void> resetPasswordForEmail(String email);
 
   /// Returns the profile for the current Supabase session, if any.
   Future<UserModel?> restoreSession();
@@ -59,6 +63,27 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (_) {
       throw const core.AuthException(
         'Unable to sign in. Check your credentials.',
+      );
+    }
+  }
+
+  @override
+  Future<void> resetPasswordForEmail(String email) async {
+    final trimmed = email.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      throw const core.AuthException('Enter your email to reset your password.');
+    }
+    try {
+      final redirect = AppConfig.inviteRedirectUrl;
+      await _client.auth.resetPasswordForEmail(
+        trimmed,
+        redirectTo: redirect.isEmpty ? null : redirect,
+      );
+    } on AuthException catch (e) {
+      throw core.AuthException(e.message);
+    } catch (_) {
+      throw const core.AuthException(
+        'Unable to send reset email. Try again later.',
       );
     }
   }

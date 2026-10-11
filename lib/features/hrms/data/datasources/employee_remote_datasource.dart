@@ -19,6 +19,12 @@ abstract class EmployeeRemoteDataSource {
     required DateTime dateOfExit,
   });
 
+  /// Reactivates an exited employee and re-enables linked login accounts.
+  Future<EmployeeModel> rehireEmployee({
+    required String employeeId,
+    DateTime? dateOfJoining,
+  });
+
   Future<EmployeeModel> updateEmployeePhoto({
     required String employeeId,
     required Uint8List bytes,
@@ -190,6 +196,47 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to exit employee.');
+    }
+  }
+
+  @override
+  Future<EmployeeModel> rehireEmployee({
+    required String employeeId,
+    DateTime? dateOfJoining,
+  }) async {
+    if (!AppAccess.isStaff(_authSession?.user)) {
+      throw const ServerException(
+        'Only owners and admins can rehire employees.',
+      );
+    }
+    try {
+      final patch = <String, dynamic>{
+        'is_active': true,
+        'date_of_exit': null,
+      };
+      if (dateOfJoining != null) {
+        patch['date_of_joining'] =
+            dateOfJoining.toIso8601String().split('T').first;
+      }
+
+      final row = await _client
+          .from(_table)
+          .update(patch)
+          .eq('employee_id', employeeId)
+          .select(_selectWithClient)
+          .single();
+
+      await _client
+          .from('users')
+          .update({'is_active': true})
+          .eq('employee_id', employeeId);
+
+      return _fromRow(row);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to rehire employee.');
     }
   }
 

@@ -12,6 +12,7 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/entities/user.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
+import 'features/auth/domain/usecases/reset_password_usecase.dart';
 import 'features/auth/domain/usecases/sign_out_usecase.dart';
 import 'features/auth/domain/usecases/update_avatar_usecase.dart';
 import 'features/auth/presentation/bloc/login_bloc.dart';
@@ -38,6 +39,7 @@ import 'features/hrms/domain/usecases/add_employee.dart';
 import 'features/hrms/domain/usecases/employee_purchase_order_usecases.dart';
 import 'features/hrms/domain/usecases/get_employees.dart';
 import 'features/hrms/domain/usecases/exit_employee.dart';
+import 'features/hrms/domain/usecases/rehire_employee.dart';
 import 'features/hrms/domain/usecases/set_employee_photo_from_document_usecase.dart';
 import 'features/hrms/domain/usecases/update_employee.dart';
 import 'features/hrms/domain/usecases/update_employee_photo_usecase.dart';
@@ -125,6 +127,7 @@ Future<void> initDependencies() async {
 
   sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
   sl.registerLazySingleton(() => LoginUseCase(sl()));
+  sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
   sl.registerLazySingleton(() => SignOutUseCase(sl(), sl()));
   sl.registerLazySingleton(() => UpdateAvatarUseCase(sl()));
 
@@ -184,6 +187,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => AddEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => UpdateEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => ExitEmployeeUseCase(sl()));
+  sl.registerLazySingleton(() => RehireEmployeeUseCase(sl()));
   sl.registerLazySingleton(() => UpdateEmployeePhotoUseCase(sl()));
   sl.registerLazySingleton(() => SetEmployeePhotoFromDocumentUseCase(sl()));
   sl.registerLazySingleton<EmployeeRemoteDataSource>(
@@ -197,12 +201,16 @@ Future<void> initDependencies() async {
     () => EmployeePoBloc(
       getPosUseCase: sl(),
       createPoUseCase: sl(),
+      updatePoUseCase: sl(),
+      deletePoUseCase: sl(),
       getDownloadUrlUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetEmployeePurchaseOrdersUseCase(sl()));
   sl.registerLazySingleton(() => GetAllEmployeePurchaseOrdersUseCase(sl()));
   sl.registerLazySingleton(() => CreateEmployeePurchaseOrderUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateEmployeePurchaseOrderUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteEmployeePurchaseOrderUseCase(sl()));
   sl.registerLazySingleton(
     () => GetEmployeePurchaseOrderDownloadUrlUseCase(sl()),
   );
