@@ -9,6 +9,7 @@ class ProfitabilityState extends Equatable {
     this.clients = const [],
     this.expenses = const [],
     this.invoices = const [],
+    this.registry = const [],
     this.query = '',
     this.fyStartYear = 0,
     this.errorMessage,
@@ -19,6 +20,8 @@ class ProfitabilityState extends Equatable {
   final List<ClientProfitability> clients;
   final List<Expense> expenses;
   final List<Invoice> invoices;
+  /// Settings clients (including billing salutations) used for company merge.
+  final List<Client> registry;
   final String query;
   final int fyStartYear;
   final String? errorMessage;
@@ -41,8 +44,13 @@ class ProfitabilityState extends Equatable {
 
   ClientProfitability? clientById(String clientId) {
     final id = clientId.trim();
+    if (id.isEmpty) return null;
     for (final client in clients) {
       if (client.clientId == id) return client;
+    }
+    // Salutation rows share one company card — match any linked employee id.
+    for (final client in clients) {
+      if (client.employees.any((e) => e.clientId == id)) return client;
     }
     return null;
   }
@@ -65,6 +73,7 @@ class ProfitabilityState extends Equatable {
     List<ClientProfitability>? clients,
     List<Expense>? expenses,
     List<Invoice>? invoices,
+    List<Client>? registry,
     String? query,
     int? fyStartYear,
     String? errorMessage,
@@ -76,6 +85,7 @@ class ProfitabilityState extends Equatable {
       clients: clients ?? this.clients,
       expenses: expenses ?? this.expenses,
       invoices: invoices ?? this.invoices,
+      registry: registry ?? this.registry,
       query: query ?? this.query,
       fyStartYear: fyStartYear ?? this.fyStartYear,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -89,6 +99,7 @@ class ProfitabilityState extends Equatable {
         clients,
         expenses,
         invoices,
+        registry,
         query,
         fyStartYear,
         errorMessage,

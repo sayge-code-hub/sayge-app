@@ -82,6 +82,7 @@ class _ProjectionsBodyState extends State<_ProjectionsBody> {
           fyStartYear: _fyStartYear,
           expenses: state.expenses,
           invoices: state.invoices,
+          registry: state.registry,
         );
         final totalBilling =
             months.fold<double>(0, (s, m) => s + m.billing).roundToDouble();

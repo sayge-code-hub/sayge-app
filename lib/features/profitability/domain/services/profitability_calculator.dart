@@ -2,14 +2,16 @@ import '../../../expenses/domain/entities/expense.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../invoices/domain/entities/invoice.dart';
 import '../../../payroll/domain/services/payslip_period.dart';
+import '../../../settings/domain/entities/client.dart';
 import '../entities/profitability.dart';
 
 /// Profitability from placement margin:
 /// invoiced billing − package − approved expenses = profit.
 ///
-/// Client billing uses tax invoices (`taxableAmount`) matched by buyer company
-/// name. Employee `monthlyRate` remains the contracted rate on employee rows
-/// and is used only to forecast months that are still in the future.
+/// Client billing uses tax invoices (`taxableAmount`) matched to a company
+/// identity (not a billing salutation). Employee `monthlyRate` remains the
+/// contracted rate on employee rows and is used only to forecast months that
+/// are still in the future.
 abstract final class ProfitabilityCalculator {
   static EmployeeProfitability forEmployee(Employee employee) {
     final billing = _round(employee.monthlyRate);
@@ -55,15 +57,15 @@ abstract final class ProfitabilityCalculator {
     List<EmployeeProfitability> rows, {
     List<Expense> expenses = const [],
     List<Invoice> invoices = const [],
+    List<Client> registry = const [],
     DateTime? now,
   }) {
+    final index = _CompanyIndex.fromClients(registry);
+
     // One company is one entity even when billing salutations are separate rows.
     final byClient = <String, List<EmployeeProfitability>>{};
     for (final row in rows) {
-      final name = row.clientName.trim().toLowerCase();
-      final key = name.isEmpty
-          ? (row.clientId.trim().isEmpty ? '__unassigned__' : row.clientId.trim())
-          : name;
+      final key = index.keyForEmployee(row);
       (byClient[key] ??= []).add(row);
     }
 
@@ -85,18 +87,23 @@ abstract final class ProfitabilityCalculator {
           .toList(growable: false);
       final package =
           _round(activeNow.fold<double>(0, (s, e) => s + e.packageMonthly));
-      final clientId = _representativeClientId(list);
-      final clientName = list.first.clientName;
+      final clientId =
+          index.canonicalId(entry.key) ?? _representativeClientId(list);
+      final clientName =
+          index.displayName(entry.key) ?? list.first.clientName;
       final billing = _invoicesInMonth(
         invoices,
-        clientName: clientName,
+        companyKey: entry.key,
+        index: index,
         year: current.year,
         month: current.month,
       );
       final monthExpenses = _expensesInMonth(
         approved,
+        companyKey: entry.key,
         clientKey: clientId,
         clientName: clientName,
+        index: index,
         year: current.year,
         month: current.month,
       );
@@ -120,6 +127,7 @@ abstract final class ProfitabilityCalculator {
 
     final companyExpenses = _expensesInMonth(
       approved,
+      companyKey: Expense.companyScopeId,
       clientKey: Expense.companyScopeId,
       year: current.year,
       month: current.month,
@@ -141,71 +149,80 @@ abstract final class ProfitabilityCalculator {
     }
 
     // Clients that only have expenses (no employees) still appear.
-    final seenNames = clients
-        .map((c) => c.clientName.trim().toLowerCase())
-        .toSet();
-    final seenIds = clients.map((c) => c.clientId).toSet();
+    final seenKeys = <String>{
+      for (final c in clients)
+        if (c.clientId != Expense.companyScopeId)
+          index.keyForClient(clientId: c.clientId, clientName: c.clientName),
+    };
     final orphanExpenseKeys = <String, String>{};
     for (final expense in approved) {
       if (expense.isCompanyExpense) continue;
+      final key = index.keyForExpense(expense);
+      if (seenKeys.contains(key)) continue;
       final name = expense.clientName?.trim() ?? '';
-      final nameKey = name.toLowerCase();
-      if (nameKey.isNotEmpty && seenNames.contains(nameKey)) continue;
-      final key = expense.profitabilityClientKey;
-      if (seenIds.contains(key)) continue;
-      orphanExpenseKeys[key] = name.isNotEmpty ? name : 'Client';
+      orphanExpenseKeys[key] = index.displayName(key) ??
+          (name.isNotEmpty ? name : 'Client');
     }
     for (final entry in orphanExpenseKeys.entries) {
       final name = entry.value;
+      final clientId = index.canonicalId(entry.key) ?? entry.key;
       final billing = _invoicesInMonth(
         invoices,
-        clientName: name,
+        companyKey: entry.key,
+        index: index,
         year: current.year,
         month: current.month,
       );
       final monthExpenses = _expensesInMonth(
         approved,
-        clientKey: entry.key,
+        companyKey: entry.key,
+        clientKey: clientId,
         clientName: name,
+        index: index,
         year: current.year,
         month: current.month,
       );
       clients.add(
         ClientProfitability(
-          clientId: entry.key,
+          clientId: clientId,
           clientName: name,
           employeeCount: 0,
           billingMonthly: billing,
           packageMonthly: 0,
           expensesMonthly: monthExpenses,
           grossProfit: _round(billing - monthExpenses),
-          marginPercent:
-              billing > 0 ? _round(((billing - monthExpenses) / billing) * 1000) / 10 : 0,
+          marginPercent: billing > 0
+              ? _round(((billing - monthExpenses) / billing) * 1000) / 10
+              : 0,
           employees: const [],
         ),
       );
-      seenNames.add(name.trim().toLowerCase());
+      seenKeys.add(entry.key);
     }
 
     // Clients that only have invoices (no employees / expenses) still appear.
-    final orphanInvoiceNames = <String>{};
+    final orphanInvoiceKeys = <String, String>{};
     for (final invoice in invoices) {
-      final name = invoice.buyerCompany.trim();
-      if (name.isEmpty) continue;
-      final nameKey = name.toLowerCase();
-      if (seenNames.contains(nameKey)) continue;
-      orphanInvoiceNames.add(name);
+      final key = index.keyForInvoice(invoice);
+      if (key == null || key.isEmpty) continue;
+      if (seenKeys.contains(key)) continue;
+      orphanInvoiceKeys[key] = index.displayName(key) ??
+          invoice.buyerCompany.trim();
     }
-    for (final name in orphanInvoiceNames) {
+    for (final entry in orphanInvoiceKeys.entries) {
+      final name = entry.value;
+      if (name.isEmpty) continue;
+      final clientId = index.canonicalId(entry.key) ?? entry.key;
       final billing = _invoicesInMonth(
         invoices,
-        clientName: name,
+        companyKey: entry.key,
+        index: index,
         year: current.year,
         month: current.month,
       );
       clients.add(
         ClientProfitability(
-          clientId: name.toLowerCase(),
+          clientId: clientId,
           clientName: name,
           employeeCount: 0,
           billingMonthly: billing,
@@ -216,6 +233,7 @@ abstract final class ProfitabilityCalculator {
           employees: const [],
         ),
       );
+      seenKeys.add(entry.key);
     }
 
     clients.sort((a, b) {
@@ -234,6 +252,7 @@ abstract final class ProfitabilityCalculator {
     ClientProfitability client, {
     List<Expense> expenses = const [],
     List<Invoice> invoices = const [],
+    List<Client> registry = const [],
     DateTime? now,
     int? fyStartYear,
   }) {
@@ -243,6 +262,7 @@ abstract final class ProfitabilityCalculator {
     final approved = expenses
         .where((e) => e.approvalStatus == ExpenseApprovalStatus.approved)
         .toList(growable: false);
+    final index = _CompanyIndex.fromClients(registry);
 
     final rows = [
       for (final period in months.reversed)
@@ -252,6 +272,7 @@ abstract final class ProfitabilityCalculator {
           period.month,
           expenses: approved,
           invoices: invoices,
+          index: index,
           now: current,
           forecastMissingInvoices: false,
         ),
@@ -284,12 +305,14 @@ abstract final class ProfitabilityCalculator {
     required int fyStartYear,
     List<Expense> expenses = const [],
     List<Invoice> invoices = const [],
+    List<Client> registry = const [],
     DateTime? now,
   }) {
     final approved = expenses
         .where((e) => e.approvalStatus == ExpenseApprovalStatus.approved)
         .toList(growable: false);
     final current = now ?? DateTime.now();
+    final index = _CompanyIndex.fromClients(registry);
     return [
       for (var i = 0; i < 12; i++)
         _monthRow(
@@ -298,6 +321,7 @@ abstract final class ProfitabilityCalculator {
           i < 9 ? i + 4 : i - 8,
           expenses: approved,
           invoices: invoices,
+          index: index,
           now: current,
           forecastMissingInvoices: true,
         ),
@@ -333,6 +357,7 @@ abstract final class ProfitabilityCalculator {
     required int fyStartYear,
     List<Expense> expenses = const [],
     List<Invoice> invoices = const [],
+    List<Client> registry = const [],
     DateTime? now,
   }) {
     final buffer = StringBuffer()
@@ -345,6 +370,7 @@ abstract final class ProfitabilityCalculator {
         fyStartYear: fyStartYear,
         expenses: expenses,
         invoices: invoices,
+        registry: registry,
         now: now,
       );
       // Export actuals only: zero out forecast months (future with no invoices).
@@ -397,6 +423,7 @@ abstract final class ProfitabilityCalculator {
     int month, {
     List<Expense> expenses = const [],
     List<Invoice> invoices = const [],
+    _CompanyIndex index = const _CompanyIndex.empty(),
     DateTime? now,
     bool forecastMissingInvoices = false,
   }) {
@@ -407,9 +434,14 @@ abstract final class ProfitabilityCalculator {
         _round(active.fold<double>(0, (s, e) => s + e.billingMonthly));
     final package =
         _round(active.fold<double>(0, (s, e) => s + e.packageMonthly));
+    final companyKey = index.keyForClient(
+      clientId: client.clientId,
+      clientName: client.clientName,
+    );
     final invoiced = _invoicesInMonth(
       invoices,
-      clientName: client.clientName,
+      companyKey: companyKey,
+      index: index,
       year: year,
       month: month,
     );
@@ -429,8 +461,10 @@ abstract final class ProfitabilityCalculator {
 
     final monthExpenses = _expensesInMonth(
       expenses,
+      companyKey: companyKey,
       clientKey: client.clientId,
       clientName: client.clientName,
+      index: index,
       year: year,
       month: month,
     );
@@ -469,19 +503,21 @@ abstract final class ProfitabilityCalculator {
 
   static double _invoicesInMonth(
     List<Invoice> invoices, {
-    required String clientName,
+    required String companyKey,
+    _CompanyIndex index = const _CompanyIndex.empty(),
     required int year,
     required int month,
   }) {
-    final company = clientName.trim().toLowerCase();
-    if (company.isEmpty ||
-        company == Expense.companyScopeLabel.toLowerCase()) {
+    final target = companyKey.trim().toLowerCase();
+    if (target.isEmpty ||
+        target == Expense.companyScopeLabel.toLowerCase() ||
+        target == Expense.companyScopeId) {
       return 0;
     }
     var total = 0.0;
     for (final invoice in invoices) {
-      final buyer = invoice.buyerCompany.trim().toLowerCase();
-      if (buyer.isEmpty || buyer != company) continue;
+      final key = index.keyForInvoice(invoice);
+      if (key == null || key != target) continue;
       final date = invoice.invoiceDate;
       if (date.year != year || date.month != month) continue;
       final amount =
@@ -493,23 +529,30 @@ abstract final class ProfitabilityCalculator {
 
   static double _expensesInMonth(
     List<Expense> expenses, {
+    required String companyKey,
     required String clientKey,
     String? clientName,
+    _CompanyIndex index = const _CompanyIndex.empty(),
     required int year,
     required int month,
   }) {
     final company = (clientName ?? '').trim().toLowerCase();
+    final targetKey = companyKey.trim().toLowerCase();
     var total = 0.0;
     for (final expense in expenses) {
-      if (clientKey == Expense.companyScopeId) {
+      if (clientKey == Expense.companyScopeId ||
+          targetKey == Expense.companyScopeId) {
         if (!expense.isCompanyExpense) continue;
       } else if (expense.isCompanyExpense) {
         continue;
       } else {
+        final expenseKey = index.keyForExpense(expense);
+        final byCompanyKey = expenseKey == targetKey;
         final byName = company.isNotEmpty &&
             (expense.clientName ?? '').trim().toLowerCase() == company;
-        final byId = (expense.clientId ?? '').trim() == clientKey;
-        if (!byName && !byId) continue;
+        final byId = (expense.clientId ?? '').trim() == clientKey ||
+            index.idsForKey(targetKey).contains((expense.clientId ?? '').trim());
+        if (!byCompanyKey && !byName && !byId) continue;
       }
       final at = expense.reportingDate?.toLocal();
       if (at == null) continue;
@@ -534,4 +577,222 @@ abstract final class ProfitabilityCalculator {
   }
 
   static double _round(double value) => value.roundToDouble();
+}
+
+/// Resolves billing salutations / legal-name variants to one company key.
+class _CompanyIndex {
+  const _CompanyIndex._({
+    required this.idToKey,
+    required this.nameToKey,
+    required this.gstinToKey,
+    required this.contactToKey,
+    required this.keyToDisplayName,
+    required this.keyToCanonicalId,
+    required this.keyToIds,
+  });
+
+  const _CompanyIndex.empty()
+      : idToKey = const {},
+        nameToKey = const {},
+        gstinToKey = const {},
+        contactToKey = const {},
+        keyToDisplayName = const {},
+        keyToCanonicalId = const {},
+        keyToIds = const {};
+
+  final Map<String, String> idToKey;
+  final Map<String, String> nameToKey;
+  final Map<String, String> gstinToKey;
+  final Map<String, String> contactToKey;
+  final Map<String, String> keyToDisplayName;
+  final Map<String, String> keyToCanonicalId;
+  final Map<String, Set<String>> keyToIds;
+
+  bool get isEmpty =>
+      idToKey.isEmpty && nameToKey.isEmpty && gstinToKey.isEmpty;
+
+  factory _CompanyIndex.fromClients(List<Client> clients) {
+    if (clients.isEmpty) return const _CompanyIndex.empty();
+
+    // Union-find so shared GSTIN merges legal-name variants of one company.
+    final parent = <String, String>{};
+    String find(String x) {
+      parent.putIfAbsent(x, () => x);
+      var cur = x;
+      while (parent[cur] != cur) {
+        parent[cur] = parent[parent[cur]!]!;
+        cur = parent[cur]!;
+      }
+      return cur;
+    }
+
+    void union(String a, String b) {
+      final pa = find(a);
+      final pb = find(b);
+      if (pa == pb) return;
+      // Prefer the lexicographically smaller key for stability.
+      if (pa.compareTo(pb) <= 0) {
+        parent[pb] = pa;
+      } else {
+        parent[pa] = pb;
+      }
+    }
+
+    final byGstin = <String, String>{};
+    for (final client in clients) {
+      final key = client.companyKey;
+      if (key.isEmpty) continue;
+      find(key);
+      final gstin = client.gstin.trim().toUpperCase();
+      if (gstin.isEmpty) continue;
+      final existing = byGstin[gstin];
+      if (existing == null) {
+        byGstin[gstin] = key;
+      } else {
+        union(existing, key);
+      }
+    }
+
+    final idToKey = <String, String>{};
+    final nameToKey = <String, String>{};
+    final gstinToKey = <String, String>{};
+    final contactToKey = <String, String>{};
+    final keyToDisplayName = <String, String>{};
+    final keyToCanonicalId = <String, String>{};
+    final keyToIds = <String, Set<String>>{};
+    final ambiguousContacts = <String>{};
+
+    final preferred = Client.uniqueByCompany(clients);
+
+    for (final client in clients) {
+      final rawKey = client.companyKey;
+      if (rawKey.isEmpty) continue;
+      final key = find(rawKey);
+      idToKey[client.id] = key;
+      nameToKey[rawKey] = key;
+      (keyToIds[key] ??= {}).add(client.id);
+
+      final gstin = client.gstin.trim().toUpperCase();
+      if (gstin.isNotEmpty) gstinToKey[gstin] = key;
+
+      final contact = _normalizeContact(client.contactName);
+      if (contact.isNotEmpty) {
+        final existing = contactToKey[contact];
+        if (existing == null) {
+          contactToKey[contact] = key;
+        } else if (existing != key) {
+          ambiguousContacts.add(contact);
+        }
+      }
+
+      keyToDisplayName.putIfAbsent(key, () => client.name.trim());
+    }
+
+    for (final contact in ambiguousContacts) {
+      contactToKey.remove(contact);
+    }
+
+    for (final client in preferred) {
+      final key = idToKey[client.id];
+      if (key == null) continue;
+      keyToCanonicalId[key] = client.id;
+      keyToDisplayName[key] = client.name.trim();
+    }
+
+    return _CompanyIndex._(
+      idToKey: idToKey,
+      nameToKey: nameToKey,
+      gstinToKey: gstinToKey,
+      contactToKey: contactToKey,
+      keyToDisplayName: keyToDisplayName,
+      keyToCanonicalId: keyToCanonicalId,
+      keyToIds: keyToIds,
+    );
+  }
+
+  String keyForEmployee(EmployeeProfitability row) {
+    return keyForClient(clientId: row.clientId, clientName: row.clientName);
+  }
+
+  String keyForClient({String? clientId, String? clientName}) {
+    final id = (clientId ?? '').trim();
+    if (id == Expense.companyScopeId) return Expense.companyScopeId;
+    if (id.isNotEmpty) {
+      final byId = idToKey[id];
+      if (byId != null) return byId;
+    }
+    final name = (clientName ?? '').trim().toLowerCase();
+    if (name.isNotEmpty) {
+      final byName = nameToKey[name];
+      if (byName != null) return byName;
+      return name;
+    }
+    if (id.isNotEmpty) return id;
+    return '__unassigned__';
+  }
+
+  String? keyForInvoice(Invoice invoice) {
+    final company = invoice.buyerCompany.trim().toLowerCase();
+    if (company.isNotEmpty) {
+      final byName = nameToKey[company];
+      if (byName != null) return byName;
+    }
+
+    final gstin = invoice.buyerGstin.trim().toUpperCase();
+    if (gstin.isNotEmpty) {
+      final byGstin = gstinToKey[gstin];
+      if (byGstin != null) return byGstin;
+    }
+
+    for (final raw in [invoice.buyerContact, invoice.buyerName]) {
+      final contact = _normalizeContact(raw);
+      if (contact.isEmpty) continue;
+      final byContact = contactToKey[contact];
+      if (byContact != null) return byContact;
+    }
+
+    if (company.isNotEmpty) return company;
+    return null;
+  }
+
+  String keyForExpense(Expense expense) {
+    if (expense.isCompanyExpense) return Expense.companyScopeId;
+    final id = (expense.clientId ?? '').trim();
+    if (id.isNotEmpty) {
+      final byId = idToKey[id];
+      if (byId != null) return byId;
+    }
+    final name = (expense.clientName ?? '').trim().toLowerCase();
+    if (name.isNotEmpty) {
+      final byName = nameToKey[name];
+      if (byName != null) return byName;
+      return name;
+    }
+    return id.isNotEmpty ? id : '__unassigned__';
+  }
+
+  String? displayName(String key) => keyToDisplayName[key];
+
+  String? canonicalId(String key) => keyToCanonicalId[key];
+
+  Set<String> idsForKey(String key) => keyToIds[key] ?? const {};
+
+  static String _normalizeContact(String raw) {
+    var s = raw.trim().toLowerCase();
+    const prefixes = [
+      'mr. ',
+      'mrs. ',
+      'ms. ',
+      'mr ',
+      'mrs ',
+      'ms ',
+    ];
+    for (final prefix in prefixes) {
+      if (s.startsWith(prefix)) {
+        s = s.substring(prefix.length);
+        break;
+      }
+    }
+    return s.trim();
+  }
 }

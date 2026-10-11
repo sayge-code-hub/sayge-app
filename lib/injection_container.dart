@@ -240,6 +240,7 @@ Future<void> initDependencies() async {
       getEmployeesUseCase: sl(),
       getExpensesUseCase: sl(),
       getInvoicesUseCase: sl(),
+      getClientsUseCase: sl(),
     ),
   );
 

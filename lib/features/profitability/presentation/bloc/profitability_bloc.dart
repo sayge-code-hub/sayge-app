@@ -10,6 +10,8 @@ import '../../../expenses/domain/usecases/expense_usecases.dart';
 import '../../../hrms/domain/usecases/get_employees.dart';
 import '../../../invoices/domain/entities/invoice.dart';
 import '../../../invoices/domain/usecases/invoice_usecases.dart';
+import '../../../settings/domain/entities/client.dart';
+import '../../../settings/domain/usecases/get_clients.dart';
 import '../../domain/entities/profitability.dart';
 import '../../domain/services/profitability_calculator.dart';
 
@@ -21,6 +23,7 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
     required this.getEmployeesUseCase,
     required this.getExpensesUseCase,
     required this.getInvoicesUseCase,
+    required this.getClientsUseCase,
   }) : super(
           ProfitabilityState(
             fyStartYear: ProfitabilityCalculator.currentFinancialYearStart(),
@@ -35,6 +38,7 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
   final GetEmployeesUseCase getEmployeesUseCase;
   final GetExpensesUseCase getExpensesUseCase;
   final GetInvoicesUseCase getInvoicesUseCase;
+  final GetClientsUseCase getClientsUseCase;
 
   Future<void> _onStarted(
     ProfitabilityStarted event,
@@ -45,12 +49,16 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
     final employeesResult = await getEmployeesUseCase();
     final expensesResult = await getExpensesUseCase();
     final invoicesResult = await getInvoicesUseCase();
+    final clientsResult = await getClientsUseCase();
 
     List<Expense> expenses = const [];
     expensesResult.fold((_) {}, (list) => expenses = list);
 
     List<Invoice> invoices = const [];
     invoicesResult.fold((_) {}, (list) => invoices = list);
+
+    List<Client> registry = const [];
+    clientsResult.fold((_) {}, (list) => registry = list);
 
     employeesResult.fold(
       (failure) => emit(
@@ -65,6 +73,7 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
           rows,
           expenses: expenses,
           invoices: invoices,
+          registry: registry,
         );
         emit(
           state.copyWith(
@@ -73,6 +82,7 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
             clients: clients,
             expenses: expenses,
             invoices: invoices,
+            registry: registry,
           ),
         );
       },
@@ -103,6 +113,7 @@ class ProfitabilityBloc extends Bloc<ProfitabilityEvent, ProfitabilityState> {
       fyStartYear: state.fyStartYear,
       expenses: state.expenses,
       invoices: state.invoices,
+      registry: state.registry,
     );
     final label = ProfitabilityCalculator.financialYearLabel(state.fyStartYear)
         .replaceAll(' ', '_');

@@ -70,6 +70,7 @@ class _ProfitabilityClientBody extends StatelessWidget {
           client,
           expenses: state.expenses,
           invoices: state.invoices,
+          registry: state.registry,
           fyStartYear: state.fyStartYear > 0
               ? state.fyStartYear
               : ProfitabilityCalculator.currentFinancialYearStart(),

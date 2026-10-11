@@ -182,6 +182,7 @@ class _ClientProfitCard extends StatelessWidget {
       client,
       expenses: blocState.expenses,
       invoices: blocState.invoices,
+      registry: blocState.registry,
       fyStartYear: fyStartYear,
     );
     final profitTillDate =
