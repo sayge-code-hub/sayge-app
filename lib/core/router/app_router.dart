@@ -38,6 +38,7 @@ import '../../features/settings/presentation/pages/company_details_page.dart';
 import '../../features/settings/presentation/pages/invite_employee_page.dart';
 import '../../features/settings/presentation/pages/ledger_page.dart';
 import '../../features/settings/presentation/pages/manage_clients_page.dart';
+import '../../features/settings/presentation/pages/manage_invites_page.dart';
 import '../../features/settings/presentation/pages/roles_page.dart';
 import '../../features/settings/presentation/pages/settings_hub_page.dart';
 import '../auth/app_access.dart';
@@ -539,6 +540,15 @@ GoRouter createAppRouter(AuthSession authSession) {
                 pageBuilder: (context, state) => _page(
                   state,
                   InviteEmployeePage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
+                ),
+              ),
+              GoRoute(
+                path: 'invites',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  ManageInvitesPage(
                     onBack: () => _goBack(context, AppRoutes.settings),
                   ),
                 ),

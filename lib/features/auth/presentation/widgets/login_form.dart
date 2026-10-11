@@ -7,8 +7,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_password_field.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../injection_container.dart';
+import '../../domain/usecases/reset_password_usecase.dart';
 import '../bloc/login_bloc.dart';
 
 class LoginForm extends StatefulWidget {
@@ -23,6 +26,7 @@ class _LoginFormState extends State<LoginForm> {
   final _passwordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
   late final TapGestureRecognizer _emailTapRecognizer;
+  bool _resetting = false;
 
   static final _supportEmailUri = Uri(
     scheme: 'mailto',
@@ -56,6 +60,43 @@ class _LoginFormState extends State<LoginForm> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    if (_resetting) return;
+
+    final localPart = _emailController.text.trim();
+    final localError = Validators.emailLocalPart(localPart);
+    if (localError != null) {
+      context.read<LoginBloc>().add(LoginEmailChanged(localPart));
+      await showAppMessageDialog(
+        context,
+        title: 'Forgot password',
+        message: 'Enter your email username first, then try again.',
+      );
+      return;
+    }
+
+    final email = Validators.composeEmail(localPart);
+    setState(() => _resetting = true);
+    final result = await sl<ResetPasswordUseCase>()(email);
+    if (!mounted) return;
+    setState(() => _resetting = false);
+
+    await result.fold(
+      (failure) => showAppMessageDialog(
+        context,
+        title: 'Forgot password',
+        message: failure.message,
+      ),
+      (_) => showAppMessageDialog(
+        context,
+        title: 'Check your email',
+        message:
+            'If an account exists for $email, we sent a reset link. '
+            'Open it to choose a new password.',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -66,7 +107,7 @@ class _LoginFormState extends State<LoginForm> {
 
     return BlocBuilder<LoginBloc, LoginState>(
       builder: (context, state) {
-        final isLoading = state.status == LoginStatus.loading;
+        final isLoading = state.status == LoginStatus.loading || _resetting;
 
         return AutofillGroup(
           child: Column(
@@ -107,16 +148,38 @@ class _LoginFormState extends State<LoginForm> {
                 onSubmitted: (_) =>
                     context.read<LoginBloc>().add(const LoginSubmitted()),
               ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: isLoading ? null : _forgotPassword,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.text,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _resetting ? 'Sending…' : 'Forgot password?',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
+                  ),
+                ),
+              ),
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 16),
                 _ErrorBanner(message: state.errorMessage!),
               ],
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
               AppButton(
                 label: 'Sign in',
-                isLoading: isLoading,
-                onPressed: () =>
-                    context.read<LoginBloc>().add(const LoginSubmitted()),
+                isLoading: state.status == LoginStatus.loading,
+                onPressed: isLoading
+                    ? null
+                    : () =>
+                        context.read<LoginBloc>().add(const LoginSubmitted()),
               ),
               const SizedBox(height: 24),
               Text.rich(
@@ -125,7 +188,7 @@ class _LoginFormState extends State<LoginForm> {
                   children: [
                     const TextSpan(
                       text:
-                          'If you forgot your password, contact your admin or email ',
+                          'Use Forgot password? to receive a reset link, or email ',
                     ),
                     TextSpan(
                       text: 'humans@sayge.in',
@@ -137,6 +200,7 @@ class _LoginFormState extends State<LoginForm> {
                       ),
                       recognizer: _emailTapRecognizer,
                     ),
+                    const TextSpan(text: ' for help.'),
                   ],
                 ),
                 textAlign: TextAlign.center,

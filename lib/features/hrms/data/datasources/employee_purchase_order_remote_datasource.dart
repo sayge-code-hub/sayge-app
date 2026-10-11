@@ -20,6 +20,18 @@ abstract class EmployeePurchaseOrderRemoteDataSource {
     String mimeType = 'application/pdf',
   });
 
+  Future<EmployeePurchaseOrderModel> update({
+    required String id,
+    required String poNumber,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? fileName,
+    Uint8List? fileBytes,
+    String mimeType = 'application/pdf',
+  });
+
+  Future<void> delete(String id);
+
   Future<String> getDownloadUrl(String storagePath);
 }
 
@@ -142,6 +154,131 @@ class EmployeePurchaseOrderRemoteDataSourceImpl
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to save purchase order.');
+    }
+  }
+
+  @override
+  Future<EmployeePurchaseOrderModel> update({
+    required String id,
+    required String poNumber,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? fileName,
+    Uint8List? fileBytes,
+    String mimeType = 'application/pdf',
+  }) async {
+    final trimmedPo = poNumber.trim();
+    if (trimmedPo.isEmpty) {
+      throw const ServerException('PO number is required.');
+    }
+    if (endDate.isBefore(startDate)) {
+      throw const ServerException('End date must be on or after start date.');
+    }
+
+    final replacementName = fileName?.trim() ?? '';
+    final replacementBytes = fileBytes;
+    final replaceFile = replacementName.isNotEmpty &&
+        replacementBytes != null &&
+        replacementBytes.isNotEmpty;
+
+    try {
+      final existing = await _client
+          .from(_table)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (existing == null) {
+        throw const ServerException('Purchase order not found.');
+      }
+
+      final current = EmployeePurchaseOrderModel.fromJson(existing);
+      String ymd(DateTime d) =>
+          '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+
+      final patch = <String, dynamic>{
+        'po_number': trimmedPo,
+        'start_date': ymd(startDate),
+        'end_date': ymd(endDate),
+      };
+
+      String? newPath;
+      String? previousPath;
+      if (replaceFile) {
+        final safeFile =
+            replacementName.replaceAll(RegExp(r'[^\w.\-]+'), '_');
+        newPath = '${current.employeeId}/$id/$safeFile';
+        previousPath = current.storagePath.trim();
+
+        await _client.storage.from(_bucket).uploadBinary(
+              newPath,
+              replacementBytes,
+              fileOptions: FileOptions(
+                contentType: mimeType,
+                upsert: true,
+              ),
+            );
+
+        patch['file_name'] = safeFile;
+        patch['mime_type'] = mimeType;
+        patch['file_size_bytes'] = replacementBytes.length;
+        patch['storage_path'] = newPath;
+      }
+
+      final row = await _client
+          .from(_table)
+          .update(patch)
+          .eq('id', id)
+          .select()
+          .single();
+
+      if (previousPath != null &&
+          previousPath.isNotEmpty &&
+          previousPath != newPath) {
+        try {
+          await _client.storage.from(_bucket).remove([previousPath]);
+        } catch (_) {}
+      }
+
+      return EmployeePurchaseOrderModel.fromJson(row);
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update purchase order.');
+    }
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) {
+      throw const ServerException('Purchase order id is required.');
+    }
+    try {
+      final existing = await _client
+          .from(_table)
+          .select('storage_path')
+          .eq('id', trimmed)
+          .maybeSingle();
+      final storagePath =
+          (existing?['storage_path'] ?? '').toString().trim();
+
+      await _client.from(_table).delete().eq('id', trimmed);
+
+      if (storagePath.isNotEmpty) {
+        try {
+          await _client.storage.from(_bucket).remove([storagePath]);
+        } catch (_) {}
+      }
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to delete purchase order.');
     }
   }
 

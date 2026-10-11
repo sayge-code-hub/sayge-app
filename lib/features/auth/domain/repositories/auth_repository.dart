@@ -10,6 +10,8 @@ abstract class AuthRepository {
     required String password,
   });
 
+  Future<Either<Failure, Unit>> resetPasswordForEmail(String email);
+
   Future<Either<Failure, User?>> restoreSession();
 
   Future<Either<Failure, Unit>> signOut();

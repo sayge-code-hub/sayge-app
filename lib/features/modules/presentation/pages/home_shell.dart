@@ -242,6 +242,7 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (path.startsWith(AppRoutes.clients)) return 'Manage clients';
     if (path == AppRoutes.inviteEmployee) return 'Invite employee';
+    if (path == AppRoutes.manageInvites) return 'Manage invites';
     if (path == AppRoutes.companyDetails) return 'Company Details';
     if (path == AppRoutes.roles) return 'Roles';
     if (path == AppRoutes.ledger) return 'Activity ledger';
@@ -341,7 +342,8 @@ class _HomeShellState extends State<HomeShell> {
     if (path == AppRoutes.clients ||
         path == AppRoutes.companyDetails ||
         path == AppRoutes.roles ||
-        path == AppRoutes.ledger) {
+        path == AppRoutes.ledger ||
+        path == AppRoutes.manageInvites) {
       return () => _goBack(AppRoutes.settings);
     }
     if (path == AppRoutes.inviteEmployee) {

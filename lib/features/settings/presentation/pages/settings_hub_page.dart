@@ -18,6 +18,11 @@ class SettingsHubPage extends StatelessWidget {
         path: AppRoutes.inviteEmployee,
       ),
       _SettingsTileData(
+        title: 'Manage invites',
+        icon: Icons.mark_email_unread_outlined,
+        path: AppRoutes.manageInvites,
+      ),
+      _SettingsTileData(
         title: 'Manage clients',
         icon: Icons.apartment_outlined,
         path: AppRoutes.clients,

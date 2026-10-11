@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
+import '../../domain/employee_list_filters.dart';
 import '../../domain/entities/employee.dart';
 import '../bloc/employees/employees_bloc.dart';
 import '../widgets/employee_avatar.dart';
@@ -66,17 +67,8 @@ class _EmployeesBody extends StatefulWidget {
 
 class _EmployeesBodyState extends State<_EmployeesBody> {
   String _query = '';
-
-  List<Employee> _filter(List<Employee> employees) {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return employees;
-    return employees.where((e) {
-      return e.employeeName.toLowerCase().contains(q) ||
-          e.employeeId.toLowerCase().contains(q) ||
-          e.designation.toLowerCase().contains(q) ||
-          e.client.toLowerCase().contains(q);
-    }).toList();
-  }
+  EmployeeListStatusFilter _statusFilter = EmployeeListStatusFilter.active;
+  String? _clientFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +98,18 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
           );
         }
 
-        final filtered = _filter(state.employees);
+        final clients = EmployeeListFilters.distinctClients(state.employees);
+        final clientFilter =
+            (_clientFilter != null && clients.contains(_clientFilter))
+                ? _clientFilter
+                : null;
+
+        final filtered = EmployeeListFilters.apply(
+          employees: state.employees,
+          status: _statusFilter,
+          client: clientFilter,
+          query: _query,
+        );
         final searchPad = EdgeInsets.fromLTRB(
           isDesktop ? 32 : 16,
           isDesktop ? 12 : 8,
@@ -150,19 +153,78 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
           children: [
             Padding(
               padding: searchPad,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: AppListSearchField(
-                      hintText: 'Search employees…',
-                      onChanged: (value) => setState(() => _query = value),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppListSearchField(
+                          hintText: 'Search employees…',
+                          onChanged: (value) => setState(() => _query = value),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Export CSV',
+                        onPressed: state.employees.isEmpty ? null : exportCsv,
+                        icon: const Icon(Icons.download_outlined),
+                        color: AppColors.text,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    tooltip: 'Export CSV',
-                    onPressed: state.employees.isEmpty ? null : exportCsv,
-                    icon: const Icon(Icons.download_outlined),
-                    color: AppColors.text,
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final filter in EmployeeListStatusFilter.values)
+                        FilterChip(
+                          label: Text(_statusChipLabel(filter)),
+                          selected: _statusFilter == filter,
+                          onSelected: (_) =>
+                              setState(() => _statusFilter = filter),
+                          showCheckmark: false,
+                          selectedColor: AppColors.highlight,
+                          backgroundColor: AppColors.background,
+                          side: const BorderSide(color: AppColors.border),
+                          labelStyle:
+                              Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    fontSize: 12,
+                                    color: _statusFilter == filter
+                                        ? AppColors.background
+                                        : AppColors.text,
+                                  ),
+                        ),
+                      if (clients.isNotEmpty)
+                        SizedBox(
+                          width: isDesktop ? 220 : double.infinity,
+                          child: DropdownButtonFormField<String?>(
+                            // ignore: deprecated_member_use
+                            value: clientFilter,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Client',
+                              isDense: true,
+                              filled: true,
+                              fillColor: AppColors.background,
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('All clients'),
+                              ),
+                              for (final client in clients)
+                                DropdownMenuItem<String?>(
+                                  value: client,
+                                  child: Text(client),
+                                ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _clientFilter = value),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -191,6 +253,19 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
         );
       },
     );
+  }
+
+  static String _statusChipLabel(EmployeeListStatusFilter filter) {
+    switch (filter) {
+      case EmployeeListStatusFilter.all:
+        return 'All';
+      case EmployeeListStatusFilter.active:
+        return 'Active';
+      case EmployeeListStatusFilter.draft:
+        return 'Draft';
+      case EmployeeListStatusFilter.exited:
+        return 'Exited';
+    }
   }
 }
 
@@ -353,18 +428,14 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                   ),
                                   DataCell(
                                     Text(
-                                      employee.isDraft
-                                          ? 'Draft'
-                                          : (employee.isActive
-                                              ? 'Active'
-                                              : 'Inactive'),
+                                      EmployeeListFilters.statusLabel(employee),
                                       style: textTheme.labelLarge?.copyWith(
                                         fontSize: 13,
-                                        color: employee.isDraft
-                                            ? AppColors.textLight
-                                            : (employee.isActive
-                                                ? AppColors.success
-                                                : AppColors.textLight),
+                                        color: EmployeeListFilters
+                                                    .statusLabel(employee) ==
+                                                'Active'
+                                            ? AppColors.success
+                                            : AppColors.textLight,
                                       ),
                                     ),
                                   ),
@@ -530,16 +601,13 @@ class _EmployeesMobileList extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    employee.isDraft
-                        ? 'Draft'
-                        : (employee.isActive ? 'Active' : 'Inactive'),
+                    EmployeeListFilters.statusLabel(employee),
                     style: textTheme.labelLarge?.copyWith(
                       fontSize: 12,
-                      color: employee.isDraft
-                          ? AppColors.textLight
-                          : (employee.isActive
+                      color:
+                          EmployeeListFilters.statusLabel(employee) == 'Active'
                               ? AppColors.success
-                              : AppColors.textLight),
+                              : AppColors.textLight,
                     ),
                   ),
                 ],

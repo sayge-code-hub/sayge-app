@@ -67,6 +67,44 @@ class EmployeePurchaseOrderRepositoryImpl
   }
 
   @override
+  Future<Either<Failure, EmployeePurchaseOrder>> update(
+    UpdateEmployeePurchaseOrderParams params,
+  ) async {
+    try {
+      final updated = await remoteDataSource.update(
+        id: params.id,
+        poNumber: params.poNumber,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        fileName: params.fileName,
+        fileBytes: params.fileBytes,
+        mimeType: params.mimeType,
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update purchase order.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> delete(String id) async {
+    try {
+      await remoteDataSource.delete(id);
+      return const Right(unit);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to delete purchase order.'));
+    }
+  }
+
+  @override
   Future<Either<Failure, String>> getDownloadUrl(
     EmployeePurchaseOrder po,
   ) async {
