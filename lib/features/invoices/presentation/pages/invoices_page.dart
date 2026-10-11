@@ -19,6 +19,7 @@ import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/domain/entities/employee_purchase_order.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
+import '../../../proposals/domain/entities/proposal.dart';
 import '../../../settings/domain/entities/client.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
 import '../../../settings/presentation/widgets/client_name_label.dart';
@@ -28,12 +29,24 @@ import '../bloc/invoices_bloc.dart';
 import '../widgets/invoice_preview_dialog.dart';
 
 class InvoicesPage extends StatelessWidget {
-  const InvoicesPage({super.key});
+  const InvoicesPage({super.key, this.fromProposal});
+
+  /// When set, opens a new invoice draft prefilled from this proposal.
+  final Proposal? fromProposal;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => sl<InvoicesBloc>()..add(const InvoicesStarted()),
+      create: (_) {
+        final bloc = sl<InvoicesBloc>();
+        final proposal = fromProposal;
+        if (proposal != null) {
+          bloc.add(InvoiceFromProposalOpened(proposal));
+        } else {
+          bloc.add(const InvoicesStarted());
+        }
+        return bloc;
+      },
       child: const _InvoicesBody(),
     );
   }
@@ -529,6 +542,41 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
           child: ListView(
             padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 32),
             children: [
+              if ((widget.state.sourceProposalRef ?? '').isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.request_quote_outlined,
+                        size: 18,
+                        color: AppColors.textLight,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Draft from proposal ${widget.state.sourceProposalRef}. '
+                          'Review tax and PO, then save.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                                color: AppColors.text,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               _card(
                 context,
                 title: 'Invoice details',

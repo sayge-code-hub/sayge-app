@@ -6,9 +6,11 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../hrms/domain/entities/employee_purchase_order.dart';
 import '../../../hrms/domain/usecases/employee_purchase_order_usecases.dart';
+import '../../../proposals/domain/entities/proposal.dart';
 import '../../data/invoice_pdf_builder.dart';
 import '../../domain/entities/invoice.dart';
 import '../../domain/services/invoice_calculator.dart';
+import '../../domain/services/proposal_to_invoice_mapper.dart';
 import '../../domain/usecases/invoice_usecases.dart';
 
 part 'invoices_event.dart';
@@ -25,6 +27,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     on<InvoiceFormOpened>(_onFormOpened);
     on<InvoiceEditOpened>(_onEditOpened);
     on<InvoiceCloneOpened>(_onCloneOpened);
+    on<InvoiceFromProposalOpened>(_onFromProposalOpened);
     on<InvoiceListRequested>(_onList);
     on<InvoiceSubmitted>(_onSubmitted);
     on<InvoiceDownloadRequested>(_onDownload);
@@ -97,6 +100,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
         draftBuyerContact: '',
         draftIntraState: AppInvoiceConfig.defaultIntraState,
         draftLines: const [InvoiceDraftLine(particulars: '', amount: '')],
+        clearSourceProposalRef: true,
       ),
     );
   }
@@ -132,6 +136,52 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     );
   }
 
+  Future<void> _onFromProposalOpened(
+    InvoiceFromProposalOpened event,
+    Emitter<InvoicesState> emit,
+  ) async {
+    emit(state.copyWith(status: InvoicesStatus.loading, clearError: true));
+    final now = DateTime.now();
+    final latest = await getInvoicesUseCase();
+    final invoices = latest.fold((_) => state.invoices, (list) => list);
+    final existing = invoices.map((e) => e.invoiceNo);
+    final posResult = await getAllPosUseCase();
+    final pos = posResult.fold((_) => state.purchaseOrders, (list) => list);
+    final draft = ProposalToInvoiceMapper.draftFrom(event.proposal, at: now);
+
+    emit(
+      state.copyWith(
+        view: InvoicesView.form,
+        status: InvoicesStatus.editing,
+        clearError: true,
+        clearEditingId: true,
+        invoices: invoices,
+        purchaseOrders: pos,
+        draftInvoiceNo: InvoiceCalculator.generateInvoiceNo(
+          existing: existing,
+          at: now,
+        ),
+        draftInvoiceDate: draft.invoiceDate,
+        draftPoNumber: draft.poNumber,
+        draftPlaceOfSupply: draft.placeOfSupply,
+        draftBuyerName: draft.buyerName,
+        draftBuyerCompany: draft.buyerCompany,
+        draftBuyerAddress: draft.buyerAddress,
+        draftBuyerGstin: draft.buyerGstin,
+        draftBuyerContact: draft.buyerContact,
+        draftIntraState: draft.intraState,
+        draftLines: [
+          for (final line in draft.lines)
+            InvoiceDraftLine(
+              particulars: line.particulars,
+              amount: line.amount,
+            ),
+        ],
+        sourceProposalRef: draft.sourceProposalRef,
+      ),
+    );
+  }
+
   InvoicesState _formFromInvoice(
     Invoice invoice, {
     String? editingId,
@@ -157,6 +207,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
       status: InvoicesStatus.editing,
       clearError: true,
       clearEditingId: clearEditingId,
+      clearSourceProposalRef: true,
       editingId: editingId,
       invoices: invoices,
       draftInvoiceNo: draftInvoiceNo ?? invoice.invoiceNo,

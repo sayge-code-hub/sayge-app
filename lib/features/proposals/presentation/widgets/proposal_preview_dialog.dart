@@ -18,6 +18,7 @@ Future<void> showProposalPreview({
   required Proposal proposal,
   VoidCallback? onEdit,
   VoidCallback? onClone,
+  VoidCallback? onConvertToInvoice,
 }) {
   final isDesktop = Breakpoints.isDesktop(context);
   final size = MediaQuery.sizeOf(context);
@@ -92,6 +93,15 @@ Future<void> showProposalPreview({
                           onClone();
                         },
                         icon: const Icon(Icons.copy_outlined),
+                      ),
+                    if (onConvertToInvoice != null)
+                      IconButton(
+                        tooltip: 'Convert to invoice',
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          onConvertToInvoice();
+                        },
+                        icon: const Icon(Icons.receipt_long_outlined),
                       ),
                     IconButton(
                       tooltip: 'Download PDF',

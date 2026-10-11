@@ -24,6 +24,7 @@ import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../domain/entities/proposal.dart';
 import '../../domain/services/proposal_calculator.dart';
 import '../bloc/proposals_bloc.dart';
+import '../proposal_invoice_navigation.dart';
 import '../widgets/proposal_preview_dialog.dart';
 
 class ProposalsPage extends StatelessWidget {
@@ -225,6 +226,7 @@ class _ProposalCard extends StatelessWidget {
       onClone: () => context.read<ProposalsBloc>().add(
             ProposalCloneOpened(proposal),
           ),
+      onConvertToInvoice: () => openInvoiceFromProposal(context, proposal),
     );
   }
 
@@ -386,6 +388,14 @@ class _ProposalCard extends StatelessWidget {
                       ProposalCloneOpened(proposal),
                     ),
                 icon: Icons.copy_outlined,
+              ),
+              const SizedBox(width: 6),
+              AppListIconButton(
+                tooltip: 'Convert to invoice',
+                iconSize: 15,
+                buttonSize: 28,
+                onPressed: () => openInvoiceFromProposal(context, proposal),
+                icon: Icons.receipt_long_outlined,
               ),
               const SizedBox(width: 6),
               AppListIconButton(
