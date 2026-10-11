@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/expense.dart';
@@ -11,10 +12,13 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
   ExpensesBloc({
     required this.getExpensesUseCase,
     required this.addExpenseUseCase,
+    required this.updateExpenseUseCase,
     required this.setExpenseApprovalUseCase,
+    required this.uploadExpenseReceiptUseCase,
   }) : super(const ExpensesState()) {
     on<ExpensesStarted>(_onStarted);
     on<ExpenseFormOpened>(_onFormOpened);
+    on<ExpenseEditOpened>(_onEditOpened);
     on<ExpenseFormCancelled>(_onFormCancelled);
     on<ExpenseSubmitted>(_onSubmitted);
     on<ExpenseApprovalChanged>(_onApprovalChanged);
@@ -22,7 +26,9 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
 
   final GetExpensesUseCase getExpensesUseCase;
   final AddExpenseUseCase addExpenseUseCase;
+  final UpdateExpenseUseCase updateExpenseUseCase;
   final SetExpenseApprovalUseCase setExpenseApprovalUseCase;
+  final UploadExpenseReceiptUseCase uploadExpenseReceiptUseCase;
 
   Future<void> _onStarted(
     ExpensesStarted event,
@@ -42,6 +48,7 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
           status: ExpensesStatus.ready,
           expenses: expenses,
           showingForm: false,
+          clearEditing: true,
         ),
       ),
     );
@@ -52,6 +59,28 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
       state.copyWith(
         showingForm: true,
         status: ExpensesStatus.ready,
+        clearError: true,
+        clearEditing: true,
+      ),
+    );
+  }
+
+  void _onEditOpened(ExpenseEditOpened event, Emitter<ExpensesState> emit) {
+    if (event.expense.approvalStatus != ExpenseApprovalStatus.pending) {
+      emit(
+        state.copyWith(
+          status: ExpensesStatus.failure,
+          errorMessage: 'Only pending expenses can be edited.',
+        ),
+      );
+      emit(state.copyWith(status: ExpensesStatus.ready, clearError: true));
+      return;
+    }
+    emit(
+      state.copyWith(
+        showingForm: true,
+        status: ExpensesStatus.ready,
+        editingExpense: event.expense,
         clearError: true,
       ),
     );
@@ -66,6 +95,7 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
         showingForm: false,
         status: ExpensesStatus.ready,
         clearError: true,
+        clearEditing: true,
       ),
     );
   }
@@ -75,7 +105,27 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
     Emitter<ExpensesState> emit,
   ) async {
     emit(state.copyWith(status: ExpensesStatus.saving, clearError: true));
-    final result = await addExpenseUseCase(event.expense);
+    final editing = state.editingExpense;
+    final result = editing == null
+        ? await addExpenseUseCase(event.expense)
+        : await updateExpenseUseCase(
+            Expense(
+              id: editing.id,
+              madeFor: event.expense.madeFor,
+              amount: event.expense.amount,
+              paidFrom: event.expense.paidFrom,
+              category: event.expense.category,
+              clientId: event.expense.clientId,
+              clientName: event.expense.clientName,
+              approvalStatus: editing.approvalStatus,
+              expenseDate: event.expense.expenseDate,
+              receiptPath: editing.receiptPath,
+              receiptName: editing.receiptName,
+              createdAt: editing.createdAt,
+              createdBy: editing.createdBy,
+            ),
+          );
+
     await result.fold(
       (failure) async {
         emit(
@@ -85,14 +135,36 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
           ),
         );
       },
-      (_) async {
+      (saved) async {
+        Expense finalExpense = saved;
+        final receipt = event.receiptBytes;
+        final receiptName = event.receiptFileName?.trim() ?? '';
+        if (receipt != null &&
+            receipt.isNotEmpty &&
+            receiptName.isNotEmpty) {
+          final upload = await uploadExpenseReceiptUseCase(
+            expenseId: saved.id,
+            fileName: receiptName,
+            fileBytes: receipt,
+            mimeType: event.receiptMimeType ?? 'application/octet-stream',
+          );
+          upload.fold((_) {}, (updated) => finalExpense = updated);
+        }
+
         final latest = await getExpensesUseCase();
         latest.fold(
           (failure) => emit(
             state.copyWith(
               status: ExpensesStatus.success,
               showingForm: false,
+              clearEditing: true,
               successMessage: 'Expense saved',
+              expenses: [
+                for (final e in state.expenses)
+                  if (e.id == finalExpense.id) finalExpense else e,
+                if (!state.expenses.any((e) => e.id == finalExpense.id))
+                  finalExpense,
+              ],
               errorMessage: failure.message,
             ),
           ),
@@ -101,6 +173,7 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
               status: ExpensesStatus.success,
               expenses: expenses,
               showingForm: false,
+              clearEditing: true,
               successMessage: 'Expense saved',
             ),
           ),

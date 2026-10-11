@@ -6,11 +6,14 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../hrms/domain/entities/employee.dart';
+import '../../../hrms/domain/usecases/update_employee.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
 import '../../../hrms/presentation/widgets/employee_avatar.dart';
 import '../../../hrms/presentation/widgets/employee_documents_section.dart';
@@ -145,9 +148,13 @@ class _ProfileView extends StatelessWidget {
                 _DetailsGrid(fields: fields, isDesktop: isDesktop),
                 if (linked) ...[
                   const SizedBox(height: 16),
+                  _ContactEditCard(employee: employee!),
+                  const SizedBox(height: 16),
                   EmployeeDocumentsSection(
                     employeeId: employee!.employeeId,
+                    employeeName: employee!.employeeName,
                     isDesktop: isDesktop,
+                    canUpload: true,
                   ),
                   const SizedBox(height: 12),
                   EmployeePurchaseOrdersSection(
@@ -511,6 +518,151 @@ class _SalarySlipDownload extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ContactEditCard extends StatefulWidget {
+  const _ContactEditCard({required this.employee});
+
+  final Employee employee;
+
+  @override
+  State<_ContactEditCard> createState() => _ContactEditCardState();
+}
+
+class _ContactEditCardState extends State<_ContactEditCard> {
+  late final TextEditingController _contactNo;
+  late final TextEditingController _personalEmail;
+  late final TextEditingController _address;
+  late final TextEditingController _alternate;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.employee;
+    _contactNo = TextEditingController(text: e.contactNo);
+    _personalEmail = TextEditingController(text: e.personalEmail);
+    _address = TextEditingController(text: e.residentialAddress);
+    _alternate = TextEditingController(text: e.alternateContact);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContactEditCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.employee.employeeId != widget.employee.employeeId ||
+        oldWidget.employee.contactNo != widget.employee.contactNo ||
+        oldWidget.employee.personalEmail != widget.employee.personalEmail ||
+        oldWidget.employee.residentialAddress !=
+            widget.employee.residentialAddress ||
+        oldWidget.employee.alternateContact !=
+            widget.employee.alternateContact) {
+      _contactNo.text = widget.employee.contactNo;
+      _personalEmail.text = widget.employee.personalEmail;
+      _address.text = widget.employee.residentialAddress;
+      _alternate.text = widget.employee.alternateContact;
+    }
+  }
+
+  @override
+  void dispose() {
+    _contactNo.dispose();
+    _personalEmail.dispose();
+    _address.dispose();
+    _alternate.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final updated = widget.employee.copyWith(
+      contactNo: _contactNo.text.trim(),
+      personalEmail: _personalEmail.text.trim(),
+      residentialAddress: _address.text.trim(),
+      alternateContact: _alternate.text.trim(),
+    );
+    final result = await sl<UpdateEmployeeUseCase>()(updated);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    await result.fold(
+      (failure) => showAppMessageDialog(
+        context,
+        title: 'Contact details',
+        message: failure.message,
+      ),
+      (_) async {
+        context.read<EmployeesBloc>().add(const EmployeesRequested());
+        await showAppMessageDialog(
+          context,
+          message: 'Contact details updated',
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Contact details',
+            style: textTheme.titleMedium?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.highlight,
+            ),
+          ),
+          const SizedBox(height: 14),
+          AppTextField(
+            label: 'Contact no.',
+            controller: _contactNo,
+            enabled: !_saving,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            label: 'Personal email',
+            controller: _personalEmail,
+            enabled: !_saving,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            label: 'Alternate contact',
+            controller: _alternate,
+            enabled: !_saving,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            label: 'Residential address',
+            controller: _address,
+            enabled: !_saving,
+            maxLines: 3,
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AppButton(
+              label: _saving ? 'Saving…' : 'Save contact',
+              isLoading: _saving,
+              enabled: !_saving,
+              onPressed: _save,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

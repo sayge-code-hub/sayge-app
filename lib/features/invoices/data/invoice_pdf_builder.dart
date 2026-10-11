@@ -5,6 +5,8 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_invoice_config.dart';
+import '../../../../core/pdf/pdf_company_profile.dart';
+import '../../settings/domain/entities/settings_entities.dart';
 import '../domain/entities/invoice.dart';
 
 abstract final class InvoicePdfBuilder {
@@ -31,8 +33,14 @@ abstract final class InvoicePdfBuilder {
     }
   }
 
-  static Future<pw.Document> build(Invoice invoice) async {
-    final logo = await _load(AppInvoiceConfig.logoAsset);
+  static Future<pw.Document> build(
+    Invoice invoice, {
+    CompanyDetails? company,
+  }) async {
+    final profile = await PdfCompanyProfile.resolve(company);
+    final logo = profile.logoBytes != null
+        ? pw.MemoryImage(profile.logoBytes!)
+        : await _load(AppInvoiceConfig.logoAsset);
     final signature = await _load(AppInvoiceConfig.signatureAsset);
 
     final doc = pw.Document();
@@ -43,7 +51,7 @@ abstract final class InvoicePdfBuilder {
         build: (_) => [
           _titleBar(),
           pw.SizedBox(height: 10),
-          _companyHeader(logo),
+          _companyHeader(logo, profile),
           pw.SizedBox(height: 8),
           pw.Container(height: 4, color: PdfColor.fromHex('#1E3A5F')),
           pw.SizedBox(height: 0),
@@ -52,7 +60,7 @@ abstract final class InvoicePdfBuilder {
           _lineTable(invoice),
           _taxAndTotals(invoice),
           pw.SizedBox(height: 0),
-          _footer(invoice, signature),
+          _footer(invoice, signature, profile),
         ],
       ),
     );
@@ -75,7 +83,10 @@ abstract final class InvoicePdfBuilder {
     );
   }
 
-  static pw.Widget _companyHeader(pw.MemoryImage? logo) {
+  static pw.Widget _companyHeader(
+    pw.MemoryImage? logo,
+    PdfCompanyProfile profile,
+  ) {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey700, width: 0.6),
       columnWidths: const {
@@ -91,7 +102,7 @@ abstract final class InvoicePdfBuilder {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    AppInvoiceConfig.companyName,
+                    profile.displayName,
                     style: pw.TextStyle(
                       fontSize: 20,
                       fontWeight: pw.FontWeight.bold,
@@ -99,27 +110,27 @@ abstract final class InvoicePdfBuilder {
                   ),
                   pw.SizedBox(height: 4),
                   pw.Text(
-                    _safe(AppInvoiceConfig.companyAddress),
+                    _safe(profile.address),
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                   pw.Text(
-                    'GSTIN: ${AppInvoiceConfig.companyGstin}',
+                    'GSTIN: ${profile.gstin}',
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                   pw.Text(
-                    'PAN: ${AppInvoiceConfig.companyPan}',
+                    'PAN: ${profile.pan}',
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                   pw.Text(
-                    'SAC Code: ${AppInvoiceConfig.sacCode}',
+                    'SAC Code: ${profile.sacCode}',
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                   pw.Text(
-                    'Tel: ${AppInvoiceConfig.companyTel}',
+                    'Tel: ${profile.telephone}',
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                   pw.Text(
-                    'Email: ${AppInvoiceConfig.companyEmail}',
+                    'Email: ${profile.email}',
                     style: const pw.TextStyle(fontSize: 9),
                   ),
                 ],
@@ -314,7 +325,11 @@ abstract final class InvoicePdfBuilder {
     );
   }
 
-  static pw.Widget _footer(Invoice invoice, pw.MemoryImage? signature) {
+  static pw.Widget _footer(
+    Invoice invoice,
+    pw.MemoryImage? signature,
+    PdfCompanyProfile profile,
+  ) {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey700, width: 0.6),
       columnWidths: const {
@@ -382,10 +397,10 @@ abstract final class InvoicePdfBuilder {
                     ),
                   ),
                   pw.SizedBox(height: 4),
-                  _kv('Bank Name', AppInvoiceConfig.bankName),
-                  _kv('A/c No.', AppInvoiceConfig.bankAccountNo),
-                  _kv('Branch', AppInvoiceConfig.bankBranch),
-                  _kv('IFSC Code', AppInvoiceConfig.bankIfsc),
+                  _kv('Bank Name', profile.bankName),
+                  _kv('A/c No.', profile.bankAccountNo),
+                  _kv('Branch', profile.bankBranch),
+                  _kv('IFSC Code', profile.bankIfsc),
                   pw.SizedBox(height: 10),
                   pw.Align(
                     alignment: pw.Alignment.centerRight,

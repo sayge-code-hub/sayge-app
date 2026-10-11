@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/csv_export.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
@@ -113,14 +114,57 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
           0,
         );
 
+        Future<void> exportCsv() async {
+          await CsvExport.download(
+            filename: 'employees.csv',
+            headers: const [
+              'Employee ID',
+              'Name',
+              'Designation',
+              'Department',
+              'Client',
+              'Joining date',
+              'Active',
+              'Contact',
+              'Personal email',
+            ],
+            rows: [
+              for (final e in state.employees)
+                [
+                  e.employeeId,
+                  e.employeeName,
+                  e.designation,
+                  e.department,
+                  e.client,
+                  AppDates.compact.format(e.dateOfJoining),
+                  e.isActive ? 'Yes' : 'No',
+                  e.contactNo,
+                  e.personalEmail,
+                ],
+            ],
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: searchPad,
-              child: AppListSearchField(
-                hintText: 'Search employees…',
-                onChanged: (value) => setState(() => _query = value),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AppListSearchField(
+                      hintText: 'Search employees…',
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Export CSV',
+                    onPressed: state.employees.isEmpty ? null : exportCsv,
+                    icon: const Icon(Icons.download_outlined),
+                    color: AppColors.text,
+                  ),
+                ],
               ),
             ),
             Expanded(

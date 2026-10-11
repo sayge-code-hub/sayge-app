@@ -511,7 +511,7 @@ abstract final class ProfitabilityCalculator {
         final byId = (expense.clientId ?? '').trim() == clientKey;
         if (!byName && !byId) continue;
       }
-      final at = expense.createdAt?.toLocal();
+      final at = expense.reportingDate?.toLocal();
       if (at == null) continue;
       if (at.year != year || at.month != month) continue;
       total += expense.amount;

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/config/app_proposal_config.dart';
 import '../../../../core/utils/pdf_saver.dart';
+import '../../../settings/domain/entities/settings_entities.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../data/proposal_pdf_builder.dart';
 import '../../domain/entities/proposal.dart';
 import '../../domain/services/proposal_calculator.dart';
@@ -17,6 +19,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     required this.createProposalUseCase,
     required this.updateProposalUseCase,
     required this.updateProposalStatusUseCase,
+    required this.getCompanyDetailsUseCase,
   }) : super(ProposalsState.initial()) {
     on<ProposalsStarted>(_onStarted);
     on<ProposalFormOpened>(_onFormOpened);
@@ -38,6 +41,12 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
   final CreateProposalUseCase createProposalUseCase;
   final UpdateProposalUseCase updateProposalUseCase;
   final UpdateProposalStatusUseCase updateProposalStatusUseCase;
+  final GetCompanyDetailsUseCase getCompanyDetailsUseCase;
+
+  Future<CompanyDetails?> _company() async {
+    final result = await getCompanyDetailsUseCase();
+    return result.fold((_) => null, (details) => details);
+  }
 
   Future<void> _onStarted(
     ProposalsStarted event,
@@ -438,7 +447,11 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     Emitter<ProposalsState> emit,
   ) async {
     try {
-      final doc = await ProposalPdfBuilder.build(event.proposal);
+      final company = await _company();
+      final doc = await ProposalPdfBuilder.build(
+        event.proposal,
+        company: company,
+      );
       final bytes = await doc.save();
       final name =
           'Proposal_${event.proposal.referenceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
@@ -474,9 +487,13 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     }
 
     try {
+      final company = await _company();
       for (var i = 0; i < toDownload.length; i++) {
         final proposal = toDownload[i];
-        final doc = await ProposalPdfBuilder.build(proposal);
+        final doc = await ProposalPdfBuilder.build(
+          proposal,
+          company: company,
+        );
         final bytes = await doc.save();
         final name =
             'Proposal_${proposal.referenceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';

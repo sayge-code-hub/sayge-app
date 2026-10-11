@@ -15,17 +15,39 @@ class ExpenseFormOpened extends ExpensesEvent {
   const ExpenseFormOpened();
 }
 
-class ExpenseFormCancelled extends ExpensesEvent {
-  const ExpenseFormCancelled();
-}
-
-class ExpenseSubmitted extends ExpensesEvent {
-  const ExpenseSubmitted(this.expense);
+class ExpenseEditOpened extends ExpensesEvent {
+  const ExpenseEditOpened(this.expense);
 
   final Expense expense;
 
   @override
   List<Object?> get props => [expense];
+}
+
+class ExpenseFormCancelled extends ExpensesEvent {
+  const ExpenseFormCancelled();
+}
+
+class ExpenseSubmitted extends ExpensesEvent {
+  const ExpenseSubmitted(
+    this.expense, {
+    this.receiptBytes,
+    this.receiptFileName,
+    this.receiptMimeType,
+  });
+
+  final Expense expense;
+  final Uint8List? receiptBytes;
+  final String? receiptFileName;
+  final String? receiptMimeType;
+
+  @override
+  List<Object?> get props => [
+        expense,
+        receiptFileName,
+        receiptBytes?.length,
+        receiptMimeType,
+      ];
 }
 
 class ExpenseApprovalChanged extends ExpensesEvent {

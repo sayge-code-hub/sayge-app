@@ -1,16 +1,21 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_hub_tile.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/dms_entity.dart';
+import '../../domain/entities/document_record.dart';
 import '../bloc/dms/dms_bloc.dart';
 import '../widgets/document_attachment_tile.dart';
 import '../widgets/document_drop_zone.dart';
+import '../widgets/document_opener.dart';
 import '../../../hrms/presentation/widgets/employee_avatar.dart';
 
 class DmsPage extends StatelessWidget {
@@ -164,6 +169,57 @@ class _EntityListViewState extends State<_EntityListView> {
                 e.subtitle.toLowerCase().contains(q);
           }).toList();
 
+    final canAddCatalog = state.entityType == DmsEntityType.vendor ||
+        state.entityType == DmsEntityType.candidate;
+
+    Future<void> addCatalogEntity() async {
+      final nameCtrl = TextEditingController();
+      final subtitleCtrl = TextEditingController();
+      final created = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            backgroundColor: AppColors.background,
+            surfaceTintColor: AppColors.background,
+            title: Text('Add ${state.entityType.singular.toLowerCase()}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppTextField(label: 'Name', controller: nameCtrl, autofocus: true),
+                const SizedBox(height: 12),
+                AppTextField(label: 'Subtitle', controller: subtitleCtrl),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              AppButton(
+                label: 'Add',
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  Navigator.of(dialogContext).pop(true);
+                },
+              ),
+            ],
+          );
+        },
+      );
+      final name = nameCtrl.text.trim();
+      final subtitle = subtitleCtrl.text.trim();
+      nameCtrl.dispose();
+      subtitleCtrl.dispose();
+      if (created != true || name.isEmpty || !context.mounted) return;
+      context.read<DmsBloc>().add(
+            DmsCatalogEntityCreateRequested(
+              type: state.entityType,
+              name: name,
+              subtitle: subtitle,
+            ),
+          );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -181,6 +237,12 @@ class _EntityListViewState extends State<_EntityListView> {
                 style: textTheme.titleMedium?.copyWith(fontSize: 16),
               ),
             ),
+            if (canAddCatalog)
+              TextButton.icon(
+                onPressed: addCatalogEntity,
+                icon: const Icon(Icons.add, size: 18),
+                label: Text('Add ${state.entityType.singular.toLowerCase()}'),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -203,9 +265,8 @@ class _EntityListViewState extends State<_EntityListView> {
                 : state.entities.isEmpty
                     ? Center(
                         child: Text(
-                          state.entityType == DmsEntityType.vendor ||
-                                  state.entityType == DmsEntityType.candidate
-                              ? 'No ${state.entityType.label.toLowerCase()} in DMS yet. Add rows to dms_entities.'
+                          canAddCatalog
+                              ? 'No ${state.entityType.label.toLowerCase()} yet. Tap Add to create one.'
                               : 'No ${state.entityType.label.toLowerCase()} found.',
                           style: textTheme.bodyMedium?.copyWith(
                             color: AppColors.textLight,
@@ -362,7 +423,10 @@ class _DocumentsView extends StatelessWidget {
                           ),
                         )
                       else
-                        DocumentAttachmentGrid(documents: state.documents),
+                        for (final doc in state.documents) ...[
+                          _DocumentRow(document: doc),
+                          const SizedBox(height: 10),
+                        ],
                       const Divider(height: 24, color: AppColors.border),
                       DocumentDropZone(
                         enabled: state.status != DmsStatus.saving,
@@ -392,6 +456,107 @@ class _DocumentsView extends StatelessWidget {
                       ],
                     ],
                   ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DocumentRow extends StatelessWidget {
+  const _DocumentRow({required this.document});
+
+  final DocumentRecord document;
+
+  Future<void> _replace(BuildContext context) async {
+    final files = await FilePicker.pickFiles();
+    if (files.isEmpty) return;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return;
+    if (!context.mounted) return;
+    context.read<DmsBloc>().add(
+          DmsDocumentReplaceRequested(
+            existing: document,
+            fileName: file.name,
+            fileBytes: bytes,
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DocumentAttachmentTile(
+          document: document,
+          onTap: () => openDocumentRecord(context, document),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                document.title.trim().isEmpty
+                    ? document.fileName
+                    : document.title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                document.fileName,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textLight,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => _replace(context),
+                    child: const Text('Replace'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          backgroundColor: AppColors.background,
+                          title: const Text('Delete document?'),
+                          content: Text(
+                            'Remove "${document.title.isEmpty ? document.fileName : document.title}"?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok != true || !context.mounted) return;
+                      context
+                          .read<DmsBloc>()
+                          .add(DmsDocumentDeleteRequested(document.id));
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                    ),
+                    child: const Text('Delete'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],

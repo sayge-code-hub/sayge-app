@@ -63,6 +63,10 @@ class InvoiceSubmitted extends InvoicesEvent {
     required this.buyerContact,
     required this.intraState,
     required this.lines,
+    this.paymentStatus = InvoicePaymentStatus.unpaid,
+    this.amountPaid = 0,
+    this.dueDate,
+    this.paidAt,
   });
 
   final String invoiceNo;
@@ -76,6 +80,10 @@ class InvoiceSubmitted extends InvoicesEvent {
   final String buyerContact;
   final bool intraState;
   final List<InvoiceDraftLine> lines;
+  final InvoicePaymentStatus paymentStatus;
+  final double amountPaid;
+  final DateTime? dueDate;
+  final DateTime? paidAt;
 
   @override
   List<Object?> get props => [
@@ -90,6 +98,10 @@ class InvoiceSubmitted extends InvoicesEvent {
         buyerContact,
         intraState,
         lines,
+        paymentStatus,
+        amountPaid,
+        dueDate,
+        paidAt,
       ];
 }
 
@@ -100,4 +112,35 @@ class InvoiceDownloadRequested extends InvoicesEvent {
 
   @override
   List<Object?> get props => [invoice];
+}
+
+class InvoicePaymentUpdated extends InvoicesEvent {
+  const InvoicePaymentUpdated({
+    required this.invoice,
+    required this.paymentStatus,
+    required this.amountPaid,
+    this.dueDate,
+    this.paidAt,
+    this.clearDueDate = false,
+    this.clearPaidAt = false,
+  });
+
+  final Invoice invoice;
+  final InvoicePaymentStatus paymentStatus;
+  final double amountPaid;
+  final DateTime? dueDate;
+  final DateTime? paidAt;
+  final bool clearDueDate;
+  final bool clearPaidAt;
+
+  @override
+  List<Object?> get props => [
+        invoice,
+        paymentStatus,
+        amountPaid,
+        dueDate,
+        paidAt,
+        clearDueDate,
+        clearPaidAt,
+      ];
 }

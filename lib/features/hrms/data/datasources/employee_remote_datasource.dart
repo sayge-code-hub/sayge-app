@@ -134,15 +134,34 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
 
   @override
   Future<EmployeeModel> updateEmployee(EmployeeModel employee) async {
-    if (!AppAccess.isStaff(_authSession?.user)) {
+    final user = _authSession?.user;
+    final isStaff = AppAccess.isStaff(user);
+    final selfId = user?.employeeId?.trim() ?? '';
+    final targetId = employee.employeeId.trim();
+    final isSelf = selfId.isNotEmpty && selfId == targetId;
+
+    if (!isStaff && !isSelf) {
       throw const ServerException(
-        'Only owners and admins can update employees.',
+        'Only owners, admins, or the employee themselves can update this profile.',
       );
     }
+
     try {
+      final Map<String, dynamic> payload;
+      if (isStaff) {
+        payload = employee.toJson();
+      } else {
+        // Self-service: contact fields only (RLS trigger enforces the same).
+        payload = {
+          'contact_no': employee.contactNo,
+          'personal_email': employee.personalEmail,
+          'residential_address': employee.residentialAddress,
+          'alternate_contact': employee.alternateContact,
+        };
+      }
       final row = await _client
           .from(_table)
-          .update(employee.toJson())
+          .update(payload)
           .eq('employee_id', employee.employeeId)
           .select(_selectWithClient)
           .single();
@@ -152,7 +171,8 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
         throw const ServerException('Selected client does not exist.');
       }
       throw ServerException(e.message);
-    } catch (_) {
+    } catch (e) {
+      if (e is ServerException) rethrow;
       throw const NetworkException('Failed to update employee.');
     }
   }

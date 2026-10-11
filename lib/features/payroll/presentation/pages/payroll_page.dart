@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import 'dart:typed_data';
+
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/document_email.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
@@ -14,6 +17,9 @@ import '../../../../core/widgets/app_sticky_actions.dart';
 import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/presentation/widgets/employee_avatar.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
+import '../../data/payslip_pdf_builder.dart';
+import '../../domain/services/payslip_calculator.dart';
 import '../../domain/services/payslip_period.dart';
 import '../bloc/payroll_bloc.dart';
 import '../widgets/payslip_preview_dialog.dart';
@@ -205,8 +211,55 @@ class _PayrollStickyActions extends StatelessWidget {
           context.read<PayrollBloc>().add(const PayrollDownloadSelected()),
     );
 
+    Future<void> emailSelected() async {
+      final selected = state.employeesForPeriod
+          .where((e) => state.selectedIds.contains(e.employeeId))
+          .toList();
+      if (selected.isEmpty) return;
+      await showEmailRecipientDialog(
+        context: context,
+        title: 'Email payslip',
+        onRecipient: (to) async {
+          final company =
+              (await sl<GetCompanyDetailsUseCase>()()).fold((_) => null, (d) => d);
+          for (var i = 0; i < selected.length; i++) {
+            final employee = selected[i];
+            final slip = PayslipCalculator.fromEmployee(
+              employee: employee,
+              month: state.month,
+              year: state.year,
+            );
+            final doc = await PayslipPdfBuilder.build(
+              [slip],
+              company: company,
+            );
+            final bytes = Uint8List.fromList(await doc.save());
+            final filename =
+                'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
+            await emailPdfDocument(
+              bytes: bytes,
+              filename: filename,
+              subject:
+                  'Payslip ${employee.employeeName} · ${slip.periodLabel}',
+              body:
+                  'Please find the payslip PDF attached (downloaded to your device).\n\n${employee.employeeName} · ${slip.periodLabel}',
+              to: to,
+            );
+            if (i < selected.length - 1) {
+              await Future<void>.delayed(const Duration(milliseconds: 350));
+            }
+          }
+        },
+      );
+    }
+
+    final emailButton = OutlinedButton(
+      onPressed: generating || !hasSelection ? null : emailSelected,
+      child: const Text('Email'),
+    );
+
     if (hasSelection || AppAccess.isEmployeeOnly(sl<AuthSession>().user)) {
-      return AppStickyActions(children: [downloadSelected]);
+      return AppStickyActions(children: [emailButton, downloadSelected]);
     }
 
     return AppStickyActions(
@@ -218,6 +271,7 @@ class _PayrollStickyActions extends StatelessWidget {
                   context.read<PayrollBloc>().add(const PayrollDownloadAll()),
           child: const Text('Download all'),
         ),
+        emailButton,
         downloadSelected,
       ],
     );

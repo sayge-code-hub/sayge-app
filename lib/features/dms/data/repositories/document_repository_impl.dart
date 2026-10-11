@@ -7,6 +7,7 @@ import '../../domain/entities/dms_entity.dart';
 import '../../domain/entities/document_record.dart';
 import '../../domain/repositories/document_repository.dart';
 import '../datasources/document_remote_datasource.dart';
+import '../models/document_model.dart';
 
 class DocumentRepositoryImpl implements DocumentRepository {
   const DocumentRepositoryImpl({required this.remoteDataSource});
@@ -76,6 +77,70 @@ class DocumentRepositoryImpl implements DocumentRepository {
         notes: notes,
       );
       return Right(created);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteDocument(String documentId) async {
+    try {
+      await remoteDataSource.deleteDocument(documentId);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, DocumentRecord>> replaceDocument({
+    required DocumentRecord existing,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+    String? title,
+    String? category,
+  }) async {
+    try {
+      final replaced = await remoteDataSource.replaceDocument(
+        existing: DocumentModel.fromEntity(existing),
+        fileName: fileName,
+        fileBytes: fileBytes,
+        mimeType: mimeType,
+        title: title,
+        category: category,
+      );
+      return Right(replaced);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, DmsEntity>> createCatalogEntity({
+    required DmsEntityType type,
+    required String name,
+    String subtitle = '',
+  }) async {
+    try {
+      final entity = await remoteDataSource.createCatalogEntity(
+        type: type,
+        name: name,
+        subtitle: subtitle,
+      );
+      return Right(entity);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } on NetworkException catch (e) {

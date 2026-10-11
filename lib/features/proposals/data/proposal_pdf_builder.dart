@@ -5,6 +5,8 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_proposal_config.dart';
+import '../../../../core/pdf/pdf_company_profile.dart';
+import '../../settings/domain/entities/settings_entities.dart';
 import '../domain/entities/proposal.dart';
 
 /// Builds proposal PDFs matching the Sayge quote template.
@@ -36,8 +38,14 @@ abstract final class ProposalPdfBuilder {
         .replaceAll('\u00A0', ' ');
   }
 
-  static Future<pw.Document> build(Proposal proposal) async {
-    final logo = await _loadAssetImage(_logoAsset);
+  static Future<pw.Document> build(
+    Proposal proposal, {
+    CompanyDetails? company,
+  }) async {
+    final profile = await PdfCompanyProfile.resolve(company);
+    final logo = profile.logoBytes != null
+        ? pw.MemoryImage(profile.logoBytes!)
+        : await _loadAssetImage(_logoAsset);
     final signature = await _loadAssetImage(AppProposalConfig.signatureAsset);
 
     final doc = pw.Document();
@@ -46,7 +54,7 @@ abstract final class ProposalPdfBuilder {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(36, 36, 36, 36),
         build: (_) => [
-          _header(logo),
+          _header(logo, profile),
           pw.SizedBox(height: 16),
           pw.Center(
             child: pw.Text(
@@ -127,7 +135,13 @@ abstract final class ProposalPdfBuilder {
     );
   }
 
-  static pw.Widget _header(pw.MemoryImage? logo) {
+  static pw.Widget _header(
+    pw.MemoryImage? logo,
+    PdfCompanyProfile profile,
+  ) {
+    final region = profile.regionLabel.trim().isEmpty
+        ? AppProposalConfig.companyRegion
+        : profile.regionLabel;
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -136,7 +150,7 @@ abstract final class ProposalPdfBuilder {
           pw.Image(logo, height: 32)
         else
           pw.Text(
-            AppProposalConfig.companyName,
+            profile.displayName,
             style: pw.TextStyle(
               fontSize: 16,
               fontWeight: pw.FontWeight.bold,
@@ -146,7 +160,7 @@ abstract final class ProposalPdfBuilder {
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              AppProposalConfig.companyRegion,
+              region,
               style: const pw.TextStyle(fontSize: 10),
               textAlign: pw.TextAlign.right,
             ),
@@ -156,7 +170,7 @@ abstract final class ProposalPdfBuilder {
               textAlign: pw.TextAlign.right,
             ),
             pw.Text(
-              'GSTIN: ${AppProposalConfig.companyGstin}',
+              'GSTIN: ${profile.gstin}',
               style: const pw.TextStyle(fontSize: 10),
               textAlign: pw.TextAlign.right,
             ),

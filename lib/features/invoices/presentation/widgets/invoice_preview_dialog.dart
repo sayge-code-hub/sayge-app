@@ -6,9 +6,12 @@ import 'package:intl/intl.dart';
 import '../../../../core/config/app_invoice_config.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/document_email.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../injection_container.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../data/invoice_pdf_builder.dart';
 import '../../domain/entities/invoice.dart';
@@ -76,7 +79,13 @@ Future<void> showInvoicePreview({
                       tooltip: 'Download PDF',
                       onPressed: () async {
                         try {
-                          final doc = await InvoicePdfBuilder.build(invoice);
+                          final company =
+                              (await sl<GetCompanyDetailsUseCase>()())
+                                  .fold((_) => null, (d) => d);
+                          final doc = await InvoicePdfBuilder.build(
+                            invoice,
+                            company: company,
+                          );
                           final bytes = await doc.save();
                           final name =
                               'Invoice_${invoice.invoiceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
@@ -94,6 +103,37 @@ Future<void> showInvoicePreview({
                         }
                       },
                       icon: const Icon(Icons.download_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Email PDF',
+                      onPressed: () async {
+                        await showEmailRecipientDialog(
+                          context: dialogContext,
+                          title: 'Email invoice',
+                          onRecipient: (to) async {
+                            final company =
+                                (await sl<GetCompanyDetailsUseCase>()())
+                                    .fold((_) => null, (d) => d);
+                            final doc = await InvoicePdfBuilder.build(
+                              invoice,
+                              company: company,
+                            );
+                            final bytes =
+                                Uint8List.fromList(await doc.save());
+                            final name =
+                                'Invoice_${invoice.invoiceNo.replaceAll(RegExp(r"[^\w.\-]+"), "_")}.pdf';
+                            await emailPdfDocument(
+                              bytes: bytes,
+                              filename: name,
+                              subject: 'Invoice ${invoice.invoiceNo}',
+                              body:
+                                  'Please find the invoice PDF attached (downloaded to your device).\n\nInvoice: ${invoice.invoiceNo}',
+                              to: to,
+                            );
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.email_outlined),
                     ),
                     IconButton(
                       tooltip: 'Close',

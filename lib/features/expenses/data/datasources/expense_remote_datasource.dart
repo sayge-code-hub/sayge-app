@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/auth/app_access.dart';
@@ -11,9 +12,18 @@ abstract class ExpenseRemoteDataSource {
 
   Future<ExpenseModel> addExpense(Expense expense);
 
+  Future<ExpenseModel> updateExpense(Expense expense);
+
   Future<ExpenseModel> setApprovalStatus({
     required String expenseId,
     required ExpenseApprovalStatus status,
+  });
+
+  Future<ExpenseModel> uploadReceipt({
+    required String expenseId,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
   });
 }
 
@@ -28,6 +38,7 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
   static const _table = 'expenses';
   static const _selectWithClient = '*, clients(id, name)';
+  static const _bucket = 'documents';
 
   @override
   Future<List<ExpenseModel>> getExpenses() async {
@@ -45,8 +56,6 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
           .toList();
     } on PostgrestException catch (e) {
-      // Older DBs without created_by: staff still see all; employees see none
-      // until the column / RLS migration is applied.
       if (e.message.contains('created_by') &&
           AppAccess.isEmployeeOnly(_authSession?.user)) {
         return const [];
@@ -61,7 +70,6 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
             .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
             .toList();
       }
-      // Fallback before client_id / join migration.
       if (e.message.contains('client_id') || e.message.contains('clients')) {
         final rows = await _client
             .from(_table)
@@ -103,6 +111,7 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         _client.auth.currentUser?.id ?? _authSession?.user?.id;
 
     final clientId = expense.isCompanyExpense ? null : expense.clientId?.trim();
+    final expenseDate = expense.expenseDate ?? DateTime.now();
 
     try {
       final payload = ExpenseModel(
@@ -113,6 +122,9 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
         category: category,
         clientId: clientId,
         clientName: expense.clientName,
+        expenseDate: expenseDate,
+        receiptPath: expense.receiptPath,
+        receiptName: expense.receiptName,
         createdBy: uid,
       ).toJson();
 
@@ -123,7 +135,27 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .single();
       return ExpenseModel.fromJson(row);
     } on PostgrestException catch (e) {
-      // Fallback if created_by column is not migrated yet.
+      if (e.message.contains('expense_date')) {
+        final payload = ExpenseModel(
+          id: id,
+          madeFor: madeFor,
+          amount: expense.amount,
+          paidFrom: paidFrom,
+          category: category,
+          clientId: clientId,
+          clientName: expense.clientName,
+          createdBy: uid,
+        ).toJson()
+          ..remove('expense_date')
+          ..remove('receipt_path')
+          ..remove('receipt_name');
+        final row = await _client
+            .from(_table)
+            .insert(payload)
+            .select(_selectWithClient)
+            .single();
+        return ExpenseModel.fromJson(row);
+      }
       if (e.message.contains('created_by')) {
         final row = await _client
             .from(_table)
@@ -135,13 +167,13 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
                 paidFrom: paidFrom,
                 category: category,
                 clientId: clientId,
+                expenseDate: expenseDate,
               ).toJson(),
             )
             .select(_selectWithClient)
             .single();
         return ExpenseModel.fromJson(row);
       }
-      // Fallback before client_id migration.
       if (e.message.contains('client_id')) {
         final row = await _client
             .from(_table)
@@ -152,6 +184,7 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
                 amount: expense.amount,
                 paidFrom: paidFrom,
                 category: category,
+                expenseDate: expenseDate,
                 createdBy: uid,
               ).toJson()
                 ..remove('client_id'),
@@ -164,6 +197,153 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to save expense.');
+    }
+  }
+
+  @override
+  Future<ExpenseModel> updateExpense(Expense expense) async {
+    final id = expense.id.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Expense id is required.');
+    }
+
+    final existing = await _client
+        .from(_table)
+        .select(_selectWithClient)
+        .eq('id', id)
+        .maybeSingle();
+    if (existing == null) {
+      throw const ServerException('Expense not found.');
+    }
+    final current = ExpenseModel.fromJson(existing);
+    if (current.approvalStatus != ExpenseApprovalStatus.pending) {
+      throw const ServerException('Only pending expenses can be edited.');
+    }
+
+    final user = _authSession?.user;
+    final uid = _client.auth.currentUser?.id ?? user?.id;
+    final isStaff = AppAccess.isStaff(user);
+    final isCreator =
+        uid != null && current.createdBy != null && current.createdBy == uid;
+    if (!isStaff && !isCreator) {
+      throw const ServerException(
+        'Only the creator or staff can edit this expense.',
+      );
+    }
+
+    final madeFor = expense.madeFor.trim();
+    final paidFrom = expense.paidFrom.trim();
+    final category = expense.category.trim();
+    if (madeFor.isEmpty) {
+      throw const ServerException('Expense made for is required.');
+    }
+    if (expense.amount <= 0) {
+      throw const ServerException('Amount must be greater than zero.');
+    }
+    if (paidFrom.isEmpty) {
+      throw const ServerException('Paid from is required.');
+    }
+    if (!Expense.categories.contains(category)) {
+      throw const ServerException('Select a valid category.');
+    }
+
+    final clientId = expense.isCompanyExpense ? null : expense.clientId?.trim();
+    final expenseDate = expense.expenseDate ?? current.expenseDate;
+
+    String? ymd(DateTime? d) {
+      if (d == null) return null;
+      return '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+    }
+
+    final payload = <String, dynamic>{
+      'made_for': madeFor,
+      'amount': expense.amount,
+      'paid_from': paidFrom,
+      'category': category,
+      'client_id': clientId,
+      'expense_date': ymd(expenseDate),
+      if (expense.receiptPath != null) 'receipt_path': expense.receiptPath,
+      if (expense.receiptName != null) 'receipt_name': expense.receiptName,
+    };
+
+    try {
+      final row = await _client
+          .from(_table)
+          .update(payload)
+          .eq('id', id)
+          .select(_selectWithClient)
+          .single();
+      return ExpenseModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      if (e.message.contains('expense_date') ||
+          e.message.contains('receipt_')) {
+        payload.remove('expense_date');
+        payload.remove('receipt_path');
+        payload.remove('receipt_name');
+        final row = await _client
+            .from(_table)
+            .update(payload)
+            .eq('id', id)
+            .select(_selectWithClient)
+            .single();
+        return ExpenseModel.fromJson(row);
+      }
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to update expense.');
+    }
+  }
+
+  @override
+  Future<ExpenseModel> uploadReceipt({
+    required String expenseId,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    final id = expenseId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Expense id is required.');
+    }
+    final safeName = fileName.trim().replaceAll(RegExp(r'[^\w.\-]+'), '_');
+    if (safeName.isEmpty || fileBytes.isEmpty) {
+      throw const ServerException('Choose a receipt file.');
+    }
+
+    final path =
+        'expenses/$id/${DateTime.now().microsecondsSinceEpoch}_$safeName';
+    final resolvedMime =
+        mimeType.trim().isEmpty ? 'application/octet-stream' : mimeType.trim();
+
+    try {
+      await _client.storage.from(_bucket).uploadBinary(
+            path,
+            fileBytes,
+            fileOptions: FileOptions(
+              contentType: resolvedMime,
+              upsert: true,
+            ),
+          );
+      final row = await _client
+          .from(_table)
+          .update({
+            'receipt_path': path,
+            'receipt_name': safeName,
+          })
+          .eq('id', id)
+          .select(_selectWithClient)
+          .single();
+      return ExpenseModel.fromJson(row);
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to upload receipt.');
     }
   }
 

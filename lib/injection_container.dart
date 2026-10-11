@@ -19,9 +19,12 @@ import 'features/dms/data/datasources/document_remote_datasource.dart';
 import 'features/dms/data/repositories/document_repository_impl.dart';
 import 'features/dms/domain/repositories/document_repository.dart';
 import 'features/dms/domain/usecases/add_document.dart';
+import 'features/dms/domain/usecases/create_catalog_entity.dart';
+import 'features/dms/domain/usecases/delete_document.dart';
 import 'features/dms/domain/usecases/get_dms_entities.dart';
 import 'features/dms/domain/usecases/get_document_download_url.dart';
 import 'features/dms/domain/usecases/get_documents.dart';
+import 'features/dms/domain/usecases/replace_document.dart';
 import 'features/dms/presentation/bloc/dms/dms_bloc.dart';
 import 'features/expenses/data/datasources/expense_remote_datasource.dart';
 import 'features/expenses/data/repositories/expense_repository_impl.dart';
@@ -49,6 +52,7 @@ import 'features/invoices/data/repositories/invoice_repository_impl.dart';
 import 'features/invoices/domain/repositories/invoice_repository.dart';
 import 'features/invoices/domain/usecases/invoice_usecases.dart';
 import 'features/invoices/presentation/bloc/invoices_bloc.dart';
+import 'features/payroll/data/datasources/payroll_run_remote_datasource.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
 import 'features/profitability/presentation/bloc/profitability_bloc.dart';
 import 'features/pos/data/datasources/pos_remote_datasource.dart';
@@ -213,7 +217,16 @@ Future<void> initDependencies() async {
     () => EmployeePurchaseOrderRepositoryImpl(remoteDataSource: sl()),
   );
 
-  sl.registerFactory(() => PayrollBloc(getEmployeesUseCase: sl()));
+  sl.registerLazySingleton<PayrollRunRemoteDataSource>(
+    () => PayrollRunRemoteDataSourceImpl(),
+  );
+  sl.registerFactory(
+    () => PayrollBloc(
+      getEmployeesUseCase: sl(),
+      getCompanyDetailsUseCase: sl(),
+      payrollRunRemoteDataSource: sl(),
+    ),
+  );
   sl.registerFactory(
     () => ProfitabilityBloc(
       getEmployeesUseCase: sl(),
@@ -226,12 +239,16 @@ Future<void> initDependencies() async {
     () => ExpensesBloc(
       getExpensesUseCase: sl(),
       addExpenseUseCase: sl(),
+      updateExpenseUseCase: sl(),
       setExpenseApprovalUseCase: sl(),
+      uploadExpenseReceiptUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetExpensesUseCase(sl()));
   sl.registerLazySingleton(() => AddExpenseUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateExpenseUseCase(sl()));
   sl.registerLazySingleton(() => SetExpenseApprovalUseCase(sl()));
+  sl.registerLazySingleton(() => UploadExpenseReceiptUseCase(sl()));
   sl.registerLazySingleton<ExpenseRemoteDataSource>(
     () => ExpenseRemoteDataSourceImpl(authSession: sl()),
   );
@@ -245,6 +262,7 @@ Future<void> initDependencies() async {
       createInvoiceUseCase: sl(),
       updateInvoiceUseCase: sl(),
       getAllPosUseCase: sl(),
+      getCompanyDetailsUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetInvoicesUseCase(sl()));
@@ -263,6 +281,7 @@ Future<void> initDependencies() async {
       createProposalUseCase: sl(),
       updateProposalUseCase: sl(),
       updateProposalStatusUseCase: sl(),
+      getCompanyDetailsUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetProposalsUseCase(sl()));
@@ -281,11 +300,17 @@ Future<void> initDependencies() async {
       getDmsEntitiesUseCase: sl(),
       getDocumentsUseCase: sl(),
       addDocumentUseCase: sl(),
+      deleteDocumentUseCase: sl(),
+      replaceDocumentUseCase: sl(),
+      createCatalogEntityUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetDmsEntitiesUseCase(sl()));
   sl.registerLazySingleton(() => GetDocumentsUseCase(sl()));
   sl.registerLazySingleton(() => AddDocumentUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteDocumentUseCase(sl()));
+  sl.registerLazySingleton(() => ReplaceDocumentUseCase(sl()));
+  sl.registerLazySingleton(() => CreateCatalogEntityUseCase(sl()));
   sl.registerLazySingleton(() => GetDocumentDownloadUrlUseCase(sl()));
   sl.registerLazySingleton<DocumentRemoteDataSource>(
     () => DocumentRemoteDataSourceImpl(),

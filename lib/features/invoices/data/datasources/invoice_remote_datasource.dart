@@ -38,10 +38,33 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     }
   }
 
+  Map<String, dynamic> _headerWithoutPayment(Map<String, dynamic> header) {
+    return Map<String, dynamic>.from(header)
+      ..remove('payment_status')
+      ..remove('amount_paid')
+      ..remove('due_date')
+      ..remove('paid_at');
+  }
+
+  bool _isMissingPaymentColumn(PostgrestException e) {
+    final msg = e.message.toLowerCase();
+    return msg.contains('payment_status') ||
+        msg.contains('amount_paid') ||
+        msg.contains('due_date') ||
+        msg.contains('paid_at');
+  }
+
   @override
   Future<InvoiceModel> createInvoice(InvoiceModel invoice) async {
     try {
-      await _client.from(_table).insert(invoice.toHeaderJson());
+      var header = invoice.toHeaderJson();
+      try {
+        await _client.from(_table).insert(header);
+      } on PostgrestException catch (e) {
+        if (!_isMissingPaymentColumn(e)) rethrow;
+        header = _headerWithoutPayment(header);
+        await _client.from(_table).insert(header);
+      }
 
       if (invoice.lineItems.isNotEmpty) {
         final rows = invoice.lineItems
@@ -74,10 +97,14 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   @override
   Future<InvoiceModel> updateInvoice(InvoiceModel invoice) async {
     try {
-      await _client
-          .from(_table)
-          .update(invoice.toHeaderJson())
-          .eq('id', invoice.id);
+      var header = invoice.toHeaderJson();
+      try {
+        await _client.from(_table).update(header).eq('id', invoice.id);
+      } on PostgrestException catch (e) {
+        if (!_isMissingPaymentColumn(e)) rethrow;
+        header = _headerWithoutPayment(header);
+        await _client.from(_table).update(header).eq('id', invoice.id);
+      }
 
       await _client.from(_lines).delete().eq('invoice_id', invoice.id);
 

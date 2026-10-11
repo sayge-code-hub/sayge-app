@@ -7,9 +7,12 @@ import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_payroll_config.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/document_email.dart';
 import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
+import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
+import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../data/payslip_pdf_builder.dart';
 import '../../domain/entities/payslip.dart';
 import '../../domain/services/payslip_calculator.dart';
@@ -102,6 +105,38 @@ Future<void> showPayslipPreview({
                       icon: const Icon(Icons.download_outlined),
                     ),
                     IconButton(
+                      tooltip: 'Email PDF',
+                      onPressed: () async {
+                        await showEmailRecipientDialog(
+                          context: dialogContext,
+                          title: 'Email payslip',
+                          onRecipient: (to) async {
+                            final filename =
+                                'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
+                            final company =
+                                (await sl<GetCompanyDetailsUseCase>()())
+                                    .fold((_) => null, (d) => d);
+                            final doc = await PayslipPdfBuilder.build(
+                              [slip],
+                              company: company,
+                            );
+                            final bytes =
+                                Uint8List.fromList(await doc.save());
+                            await emailPdfDocument(
+                              bytes: bytes,
+                              filename: filename,
+                              subject:
+                                  'Payslip ${employee.employeeName} · ${slip.periodLabel}',
+                              body:
+                                  'Please find the payslip PDF attached (downloaded to your device).\n\n${employee.employeeName} · ${slip.periodLabel}',
+                              to: to,
+                            );
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.email_outlined),
+                    ),
+                    IconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       icon: const Icon(Icons.close),
@@ -138,7 +173,9 @@ Future<void> downloadPayslipPdf({
   required List<Payslip> slips,
   required String filename,
 }) async {
-  final doc = await PayslipPdfBuilder.build(slips);
+  final company =
+      (await sl<GetCompanyDetailsUseCase>()()).fold((_) => null, (d) => d);
+  final doc = await PayslipPdfBuilder.build(slips, company: company);
   final bytes = await doc.save();
   await savePdfBytes(bytes: Uint8List.fromList(bytes), filename: filename);
 }

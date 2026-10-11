@@ -26,5 +26,22 @@ abstract class DocumentRepository {
     String notes = '',
   });
 
+  Future<Either<Failure, void>> deleteDocument(String documentId);
+
+  Future<Either<Failure, DocumentRecord>> replaceDocument({
+    required DocumentRecord existing,
+    required String fileName,
+    required Uint8List fileBytes,
+    String mimeType = 'application/octet-stream',
+    String? title,
+    String? category,
+  });
+
+  Future<Either<Failure, DmsEntity>> createCatalogEntity({
+    required DmsEntityType type,
+    required String name,
+    String subtitle = '',
+  });
+
   Future<Either<Failure, String>> getDownloadUrl(DocumentRecord document);
 }

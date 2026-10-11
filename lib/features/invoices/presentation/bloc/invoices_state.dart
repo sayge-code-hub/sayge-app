@@ -22,6 +22,10 @@ class InvoicesState extends Equatable {
     required this.draftLines,
     this.editingId,
     this.draftInvoiceDate,
+    this.draftPaymentStatus = InvoicePaymentStatus.unpaid,
+    this.draftAmountPaid = 0,
+    this.draftDueDate,
+    this.draftPaidAt,
     this.errorMessage,
   });
 
@@ -59,6 +63,10 @@ class InvoicesState extends Equatable {
   final String draftBuyerContact;
   final bool draftIntraState;
   final List<InvoiceDraftLine> draftLines;
+  final InvoicePaymentStatus draftPaymentStatus;
+  final double draftAmountPaid;
+  final DateTime? draftDueDate;
+  final DateTime? draftPaidAt;
   /// When set, Save updates this invoice instead of creating a new one.
   final String? editingId;
   final String? errorMessage;
@@ -81,10 +89,16 @@ class InvoicesState extends Equatable {
     String? draftBuyerContact,
     bool? draftIntraState,
     List<InvoiceDraftLine>? draftLines,
+    InvoicePaymentStatus? draftPaymentStatus,
+    double? draftAmountPaid,
+    DateTime? draftDueDate,
+    DateTime? draftPaidAt,
     String? editingId,
     String? errorMessage,
     bool clearError = false,
     bool clearEditingId = false,
+    bool clearDraftDueDate = false,
+    bool clearDraftPaidAt = false,
   }) {
     return InvoicesState(
       status: status ?? this.status,
@@ -102,6 +116,12 @@ class InvoicesState extends Equatable {
       draftBuyerContact: draftBuyerContact ?? this.draftBuyerContact,
       draftIntraState: draftIntraState ?? this.draftIntraState,
       draftLines: draftLines ?? this.draftLines,
+      draftPaymentStatus: draftPaymentStatus ?? this.draftPaymentStatus,
+      draftAmountPaid: draftAmountPaid ?? this.draftAmountPaid,
+      draftDueDate:
+          clearDraftDueDate ? null : (draftDueDate ?? this.draftDueDate),
+      draftPaidAt:
+          clearDraftPaidAt ? null : (draftPaidAt ?? this.draftPaidAt),
       editingId: clearEditingId ? null : (editingId ?? this.editingId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -124,6 +144,10 @@ class InvoicesState extends Equatable {
         draftBuyerContact,
         draftIntraState,
         draftLines,
+        draftPaymentStatus,
+        draftAmountPaid,
+        draftDueDate,
+        draftPaidAt,
         editingId,
         errorMessage,
       ];
