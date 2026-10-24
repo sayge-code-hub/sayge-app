@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -8,6 +10,15 @@ abstract class CafePosRemoteDataSource {
   Future<List<CafeModel>> getCafes();
 
   Future<CafeModel> upsertCafe(Cafe cafe);
+
+  Future<CafeModel> uploadGuestLogo({
+    required String cafeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  });
+
+  Future<CafeModel> clearGuestLogo(String cafeId);
 
   Future<List<CafeCategoryModel>> getCategories(String cafeId);
 
@@ -82,6 +93,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
   final SupabaseClient _client;
 
   static const _orderSelect = '*, cafe_order_items(*)';
+  static const _brandLogosBucket = 'brand-logos';
 
   String _id(String prefix) =>
       '${prefix}_${DateTime.now().microsecondsSinceEpoch}';
@@ -95,11 +107,21 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       throw const ServerException(
         'Cafe POS tables are missing. Run cafe_pos.sql (and '
         'cafe_pos_coupons.sql / cafe_pos_tables.sql / '
-        'cafe_pos_gst_settings.sql as needed), then '
+        'cafe_pos_gst_settings.sql / cafe_pos_guest_brand.sql as needed), then '
         'security_hardening.sql or cafe_pos_rls_fix.sql.',
       );
     }
     throw ServerException(e.message);
+  }
+
+  bool _isGuestBrandColumnError(String message) {
+    final msg = message.toLowerCase();
+    return msg.contains('guest_logo') ||
+        msg.contains('guest_show_logo') ||
+        msg.contains('guest_tagline') ||
+        msg.contains('guest_accent') ||
+        msg.contains('guest_layout') ||
+        msg.contains('guest_show_search');
   }
 
   @override
@@ -131,18 +153,25 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       'gst_label': cafe.gstLabel.trim().isEmpty ? 'GST' : cafe.gstLabel.trim(),
       'gst_split_halves': cafe.gstSplitHalves,
       'table_count': cafe.tableCount.clamp(1, 100),
+      'guest_logo_path': cafe.guestLogoPath.trim(),
+      'guest_show_logo': cafe.guestShowLogo,
+      'guest_tagline': cafe.guestTagline.trim(),
+      'guest_accent_hex': cafe.guestAccentHex.trim(),
+      'guest_layout': cafe.guestLayout.dbValue,
+      'guest_show_search': cafe.guestShowSearch,
     };
     try {
       final row =
           await _client.from('cafes').upsert(payload).select().single();
       return CafeModel.fromJson(row);
     } on PostgrestException catch (e) {
-      // Older DBs before cafe_pos_gst_settings / cafe_pos_tables — strip new cols.
+      // Older DBs — strip unknown columns progressively.
       final msg = e.message.toLowerCase();
       if (msg.contains('show_gst') ||
           msg.contains('gst_label') ||
           msg.contains('gst_split') ||
-          msg.contains('table_count')) {
+          msg.contains('table_count') ||
+          _isGuestBrandColumnError(msg)) {
         try {
           final stripped = <String, dynamic>{
             'id': id,
@@ -156,6 +185,17 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
             stripped['gst_label'] =
                 cafe.gstLabel.trim().isEmpty ? 'GST' : cafe.gstLabel.trim();
             stripped['gst_split_halves'] = cafe.gstSplitHalves;
+          }
+          if (!msg.contains('table_count')) {
+            stripped['table_count'] = cafe.tableCount.clamp(1, 100);
+          }
+          if (!_isGuestBrandColumnError(msg)) {
+            stripped['guest_logo_path'] = cafe.guestLogoPath.trim();
+            stripped['guest_show_logo'] = cafe.guestShowLogo;
+            stripped['guest_tagline'] = cafe.guestTagline.trim();
+            stripped['guest_accent_hex'] = cafe.guestAccentHex.trim();
+            stripped['guest_layout'] = cafe.guestLayout.dbValue;
+            stripped['guest_show_search'] = cafe.guestShowSearch;
           }
           final row = await _client
               .from('cafes')
@@ -171,6 +211,118 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to save cafe.');
+    }
+  }
+
+  @override
+  Future<CafeModel> uploadGuestLogo({
+    required String cafeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) async {
+    if (bytes.isEmpty) {
+      throw const ServerException('Choose an image to upload.');
+    }
+    final id = cafeId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Cafe id is required.');
+    }
+
+    var safeName = fileName.trim().replaceAll(RegExp(r'[^\w.\-]+'), '_');
+    if (safeName.isEmpty) safeName = 'logo.jpg';
+    final ext = safeName.contains('.')
+        ? safeName.substring(safeName.lastIndexOf('.') + 1).toLowerCase()
+        : 'jpg';
+    final path =
+        'cafes/$id/guest_logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final contentType =
+        mimeType.trim().isEmpty ? 'image/jpeg' : mimeType.trim();
+
+    try {
+      final existing = await _client
+          .from('cafes')
+          .select('guest_logo_path')
+          .eq('id', id)
+          .maybeSingle();
+      final previous = (existing?['guest_logo_path'] ?? '').toString().trim();
+
+      await _client.storage.from(_brandLogosBucket).uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: contentType,
+              upsert: true,
+            ),
+          );
+
+      final row = await _client
+          .from('cafes')
+          .update({'guest_logo_path': path})
+          .eq('id', id)
+          .select()
+          .single();
+
+      if (previous.isNotEmpty && previous != path) {
+        try {
+          await _client.storage.from(_brandLogosBucket).remove([previous]);
+        } catch (_) {}
+      }
+
+      return CafeModel.fromJson(row);
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
+    } on PostgrestException catch (e) {
+      if (_isGuestBrandColumnError(e.message)) {
+        throw const ServerException(
+          'Guest menu branding is not set up. Run cafe_pos_guest_brand.sql.',
+        );
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to upload guest logo.');
+    }
+  }
+
+  @override
+  Future<CafeModel> clearGuestLogo(String cafeId) async {
+    final id = cafeId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Cafe id is required.');
+    }
+    try {
+      final existing = await _client
+          .from('cafes')
+          .select('guest_logo_path')
+          .eq('id', id)
+          .maybeSingle();
+      final previous = (existing?['guest_logo_path'] ?? '').toString().trim();
+
+      final row = await _client
+          .from('cafes')
+          .update({'guest_logo_path': ''})
+          .eq('id', id)
+          .select()
+          .single();
+
+      if (previous.isNotEmpty) {
+        try {
+          await _client.storage.from(_brandLogosBucket).remove([previous]);
+        } catch (_) {}
+      }
+
+      return CafeModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      if (_isGuestBrandColumnError(e.message)) {
+        throw const ServerException(
+          'Guest menu branding is not set up. Run cafe_pos_guest_brand.sql.',
+        );
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to remove guest logo.');
     }
   }
 

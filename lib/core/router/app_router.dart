@@ -30,6 +30,7 @@ import '../../features/pos/presentation/pages/cafe_orders_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_cafes_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_hub_page.dart';
 import '../../features/pos/presentation/pages/cafe_floor_settings_page.dart';
+import '../../features/pos/presentation/pages/cafe_guest_brand_settings_page.dart';
 import '../../features/pos/presentation/pages/cafe_guest_menu_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_settings_page.dart';
 import '../../features/pos/presentation/pages/cafe_qr_print_page.dart';
@@ -467,6 +468,15 @@ GoRouter createAppRouter(AuthSession authSession) {
             pageBuilder: (context, state) => _page(
               state,
               CafeQrPrintPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/settings/guest-look',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeGuestBrandSettingsPage(
+                cafeId: state.pathParameters['cafeId']!,
+              ),
             ),
           ),
           GoRoute(

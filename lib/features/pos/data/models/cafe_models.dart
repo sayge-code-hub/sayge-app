@@ -9,11 +9,18 @@ class CafeModel extends Cafe {
     super.gstLabel,
     super.gstSplitHalves,
     super.tableCount,
+    super.guestLogoPath,
+    super.guestShowLogo,
+    super.guestTagline,
+    super.guestAccentHex,
+    super.guestLayout,
+    super.guestShowSearch,
   });
 
   factory CafeModel.fromJson(Map<String, dynamic> json) {
     final label = (json['gst_label'] ?? 'GST').toString().trim();
     final tables = (json['table_count'] as num?)?.toInt() ?? 16;
+    final accent = (json['guest_accent_hex'] ?? '').toString().trim();
     return CafeModel(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -22,6 +29,12 @@ class CafeModel extends Cafe {
       gstLabel: label.isEmpty ? 'GST' : label,
       gstSplitHalves: json['gst_split_halves'] == true,
       tableCount: tables.clamp(1, 100),
+      guestLogoPath: (json['guest_logo_path'] ?? '').toString(),
+      guestShowLogo: json['guest_show_logo'] != false,
+      guestTagline: (json['guest_tagline'] ?? '').toString(),
+      guestAccentHex: accent,
+      guestLayout: GuestMenuLayoutX.fromDb(json['guest_layout']?.toString()),
+      guestShowSearch: json['guest_show_search'] == true,
     );
   }
 
@@ -33,6 +46,12 @@ class CafeModel extends Cafe {
         'gst_label': gstLabel.trim().isEmpty ? 'GST' : gstLabel.trim(),
         'gst_split_halves': gstSplitHalves,
         'table_count': tableCount.clamp(1, 100),
+        'guest_logo_path': guestLogoPath.trim(),
+        'guest_show_logo': guestShowLogo,
+        'guest_tagline': guestTagline.trim(),
+        'guest_accent_hex': guestAccentHex.trim(),
+        'guest_layout': guestLayout.dbValue,
+        'guest_show_search': guestShowSearch,
       };
 }
 

@@ -1,7 +1,30 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/error/exceptions.dart';
+import '../../../core/storage/app_storage_urls.dart';
 import '../domain/entities/cafe_entities.dart';
+
+class GuestCafeBrand {
+  const GuestCafeBrand({
+    this.logoPath = '',
+    this.logoUrl,
+    this.showLogo = true,
+    this.tagline = '',
+    this.accentHex = '',
+    this.layout = GuestMenuLayout.night,
+    this.showSearch = false,
+  });
+
+  final String logoPath;
+  final String? logoUrl;
+  final bool showLogo;
+  final String tagline;
+  final String accentHex;
+  final GuestMenuLayout layout;
+  final bool showSearch;
+
+  static const defaults = GuestCafeBrand();
+}
 
 class GuestCafeMenu {
   const GuestCafeMenu({
@@ -9,12 +32,14 @@ class GuestCafeMenu {
     required this.cafeName,
     required this.categories,
     required this.items,
+    this.brand = GuestCafeBrand.defaults,
   });
 
   final String cafeId;
   final String cafeName;
   final List<CafeCategory> categories;
   final List<CafeMenuItem> items;
+  final GuestCafeBrand brand;
 }
 
 class GuestOrderResult {
@@ -93,11 +118,28 @@ class CafeGuestMenuApi {
           );
         }
       }
+
+      final logoPath = (cafe['guest_logo_path'] ?? '').toString().trim();
+      final logoUrl = AppStorageUrls.publicUrl(
+        _client,
+        bucket: 'brand-logos',
+        path: logoPath,
+      );
+
       return GuestCafeMenu(
         cafeId: (cafe['id'] ?? cafeId).toString(),
         cafeName: (cafe['name'] ?? 'Cafe').toString(),
         categories: categories,
         items: items,
+        brand: GuestCafeBrand(
+          logoPath: logoPath,
+          logoUrl: logoUrl,
+          showLogo: cafe['guest_show_logo'] != false,
+          tagline: (cafe['guest_tagline'] ?? '').toString(),
+          accentHex: (cafe['guest_accent_hex'] ?? '').toString().trim(),
+          layout: GuestMenuLayoutX.fromDb(cafe['guest_layout']?.toString()),
+          showSearch: cafe['guest_show_search'] == true,
+        ),
       );
     } on PostgrestException catch (e) {
       final msg = e.message.toLowerCase();
@@ -105,7 +147,8 @@ class CafeGuestMenuApi {
           msg.contains('schema cache') ||
           e.code == 'PGRST202') {
         throw const ServerException(
-          'Guest menu is not set up. Run cafe_pos_guest_menu.sql in Supabase.',
+          'Guest menu is not set up. Run cafe_pos_guest_menu.sql '
+          '(and cafe_pos_guest_brand.sql) in Supabase.',
         );
       }
       throw ServerException(e.message);

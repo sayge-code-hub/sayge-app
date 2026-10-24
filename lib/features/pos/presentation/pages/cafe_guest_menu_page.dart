@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../injection_container.dart';
 import '../../data/cafe_guest_menu_api.dart';
 import '../../domain/entities/cafe_entities.dart';
+import '../guest/guest_menu_theme.dart';
 
 /// Public customer menu — mobile-first QR experience (`/m/:cafeId`).
 class CafeGuestMenuPage extends StatefulWidget {
@@ -34,9 +35,11 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
   bool _loading = true;
   bool _placing = false;
   String? _categoryId;
+  String _search = '';
   final List<CafeCartLine> _cart = [];
   late final AnimationController _heroPulse;
   late final AnimationController _cartBounce;
+  late final TextEditingController _searchCtrl;
   GuestOrderResult? _placed;
 
   String get _tableNo => widget.tableNo.trim();
@@ -44,6 +47,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
   @override
   void initState() {
     super.initState();
+    _searchCtrl = TextEditingController();
     _heroPulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4200),
@@ -57,6 +61,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _heroPulse.dispose();
     _cartBounce.dispose();
     super.dispose();
@@ -130,9 +135,19 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
   List<CafeMenuItem> get _visible {
     final menu = _menu;
     if (menu == null) return const [];
-    if (_categoryId == null) return menu.items;
-    return menu.items.where((i) => i.categoryId == _categoryId).toList();
+    var list = menu.items;
+    if (_categoryId != null) {
+      list = list.where((i) => i.categoryId == _categoryId).toList();
+    }
+    final q = _search.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((i) => i.name.toLowerCase().contains(q)).toList();
+    }
+    return list;
   }
+
+  GuestMenuTheme get _theme =>
+      GuestMenuTheme.fromBrand(_menu?.brand ?? GuestCafeBrand.defaults);
 
   Future<void> _placeOrder() async {
     if (_cart.isEmpty || _placing) return;
@@ -277,23 +292,72 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     }
 
     final menu = _menu!;
-    final accent = AppColors.highlight;
+    final theme = _theme;
+    final accent = theme.accent;
+    final bg = switch (theme.layout) {
+      GuestMenuLayout.night => const Color(0xFFF3F3F1),
+      GuestMenuLayout.fresh => const Color(0xFFFafaf8),
+      GuestMenuLayout.gallery => const Color(0xFFF5F4F1),
+    };
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F3F1),
+      backgroundColor: bg,
       body: Stack(
         children: [
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: _GuestHero(
-                  cafeName: menu.cafeName,
-                  tableNo: _tableNo,
-                  pulse: _heroPulse,
-                  accent: accent,
-                ),
+                child: switch (theme.layout) {
+                  GuestMenuLayout.night => _GuestHero(
+                      cafeName: menu.cafeName,
+                      tableNo: _tableNo,
+                      pulse: _heroPulse,
+                      accent: accent,
+                      tagline: theme.tagline.isEmpty
+                          ? 'Tap what you want. We’ll send it to the kitchen.'
+                          : theme.tagline,
+                      showLogo: theme.showLogo,
+                      logoUrl: theme.logoUrl,
+                      style: GuestHeroStyle.night,
+                    ),
+                  GuestMenuLayout.fresh => _GuestHero(
+                      cafeName: menu.cafeName,
+                      tableNo: _tableNo,
+                      pulse: _heroPulse,
+                      accent: accent,
+                      tagline: theme.tagline.isEmpty
+                          ? 'What are you craving?'
+                          : theme.tagline,
+                      showLogo: theme.showLogo,
+                      logoUrl: theme.logoUrl,
+                      style: GuestHeroStyle.fresh,
+                    ),
+                  GuestMenuLayout.gallery => _GuestHero(
+                      cafeName: menu.cafeName,
+                      tableNo: _tableNo,
+                      pulse: _heroPulse,
+                      accent: accent,
+                      tagline: theme.tagline.isEmpty
+                          ? 'Signature picks, ready when you are.'
+                          : theme.tagline,
+                      showLogo: theme.showLogo,
+                      logoUrl: theme.logoUrl,
+                      style: GuestHeroStyle.gallery,
+                    ),
+                },
               ),
+              if (theme.showSearch)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: _GuestSearchField(
+                      controller: _searchCtrl,
+                      accent: accent,
+                      onChanged: (v) => setState(() => _search = v),
+                    ),
+                  ),
+                ),
               if (menu.categories.isNotEmpty)
                 SliverPersistentHeader(
                   pinned: true,
@@ -302,6 +366,10 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                     selectedId: _categoryId,
                     onSelected: (id) => setState(() => _categoryId = id),
                     accent: accent,
+                    background: bg,
+                    chipStyle: theme.layout == GuestMenuLayout.fresh
+                        ? GuestChipStyle.accent
+                        : GuestChipStyle.ink,
                   ),
                 ),
               if (_visible.isEmpty)
@@ -321,6 +389,37 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                     ),
                   ),
                 )
+              else if (theme.layout == GuestMenuLayout.gallery)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    10,
+                    14,
+                    _cart.isEmpty ? 32 : 120,
+                  ),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.72,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = _visible[index];
+                        return _GalleryCard(
+                          item: item,
+                          qty: _qty(item),
+                          accent: accent,
+                          onAdd: () => _add(item),
+                          onRemove: () => _remove(item),
+                        );
+                      },
+                      childCount: _visible.length,
+                    ),
+                  ),
+                )
               else
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
@@ -335,6 +434,15 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                     itemBuilder: (context, index) {
                       final item = _visible[index];
                       final qty = _qty(item);
+                      if (theme.layout == GuestMenuLayout.fresh) {
+                        return _FreshMenuRow(
+                          item: item,
+                          qty: qty,
+                          accent: accent,
+                          onAdd: () => _add(item),
+                          onRemove: () => _remove(item),
+                        );
+                      }
                       return _MenuRow(
                         item: item,
                         qty: qty,
@@ -368,6 +476,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                       total: _subtotal,
                       accent: accent,
                       onTap: _openCart,
+                      pill: theme.layout != GuestMenuLayout.night,
                     ),
                   ),
                 ),
@@ -379,21 +488,147 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
   }
 }
 
+enum GuestHeroStyle { night, fresh, gallery }
+
+enum GuestChipStyle { ink, accent }
+
 class _GuestHero extends StatelessWidget {
   const _GuestHero({
     required this.cafeName,
     required this.tableNo,
     required this.pulse,
     required this.accent,
+    required this.tagline,
+    required this.showLogo,
+    required this.style,
+    this.logoUrl,
   });
 
   final String cafeName;
   final String tableNo;
   final Animation<double> pulse;
   final Color accent;
+  final String tagline;
+  final bool showLogo;
+  final String? logoUrl;
+  final GuestHeroStyle style;
+
+  Widget _logo({required bool onDark, double size = 52}) {
+    final url = logoUrl;
+    if (!showLogo || url == null || url.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      width: size,
+      height: size,
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: onDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white,
+        border: Border.all(
+          color: onDark
+              ? Colors.white.withValues(alpha: 0.18)
+              : const Color(0xFFE2E2DF),
+        ),
+        boxShadow: onDark
+            ? null
+            : [
+                BoxShadow(
+                  color: const Color(0xFF141210).withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Icon(
+          Icons.storefront_rounded,
+          color: accent,
+          size: size * 0.45,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (style == GuestHeroStyle.fresh || style == GuestHeroStyle.gallery) {
+      final top = MediaQuery.paddingOf(context).top;
+      return Padding(
+        padding: EdgeInsets.fromLTRB(20, top + 18, 20, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _logo(onDark: false, size: 48),
+                      Text(
+                        cafeName,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                              color: const Color(0xFF141210),
+                              fontSize: style == GuestHeroStyle.gallery
+                                  ? 28
+                                  : 26,
+                              height: 1.1,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        tagline,
+                        style: TextStyle(
+                          color: const Color(0xFF6B7280),
+                          fontSize: style == GuestHeroStyle.gallery ? 16 : 14,
+                          height: 1.35,
+                          fontWeight: style == GuestHeroStyle.gallery
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (tableNo.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(left: 10, top: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'T$tableNo',
+                      style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return AnimatedBuilder(
       animation: pulse,
       builder: (context, _) {
@@ -449,14 +684,16 @@ class _GuestHero extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Icon(
-                    Icons.local_cafe_rounded,
-                    color: Colors.white.withValues(alpha: 0.35),
-                    size: 22,
-                  ),
+                  if (!(showLogo && (logoUrl?.isNotEmpty ?? false)))
+                    Icon(
+                      Icons.local_cafe_rounded,
+                      color: Colors.white.withValues(alpha: 0.35),
+                      size: 22,
+                    ),
                 ],
               ),
               const SizedBox(height: 18),
+              _logo(onDark: true, size: 56),
               Text(
                 cafeName,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -469,7 +706,7 @@ class _GuestHero extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Tap what you want. We’ll send it to the kitchen.',
+                tagline,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.72),
                   fontSize: 14,
@@ -491,12 +728,16 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.selectedId,
     required this.onSelected,
     required this.accent,
+    required this.background,
+    this.chipStyle = GuestChipStyle.ink,
   });
 
   final List<CafeCategory> categories;
   final String? selectedId;
   final ValueChanged<String?> onSelected;
   final Color accent;
+  final Color background;
+  final GuestChipStyle chipStyle;
 
   @override
   double get minExtent => 58;
@@ -511,7 +752,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: const Color(0xFFF3F3F1),
+      color: background,
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: ListView(
@@ -521,6 +762,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
             label: 'All',
             selected: selectedId == null,
             accent: accent,
+            style: chipStyle,
             onTap: () => onSelected(null),
           ),
           const SizedBox(width: 8),
@@ -529,6 +771,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
               label: c.name,
               selected: selectedId == c.id,
               accent: accent,
+              style: chipStyle,
               onTap: () => onSelected(c.id),
             ),
             const SizedBox(width: 8),
@@ -541,7 +784,10 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
     return oldDelegate.selectedId != selectedId ||
-        oldDelegate.categories != categories;
+        oldDelegate.categories != categories ||
+        oldDelegate.chipStyle != chipStyle ||
+        oldDelegate.accent != accent ||
+        oldDelegate.background != background;
   }
 }
 
@@ -551,22 +797,32 @@ class _CatChip extends StatelessWidget {
     required this.selected,
     required this.accent,
     required this.onTap,
+    this.style = GuestChipStyle.ink,
   });
 
   final String label;
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
+  final GuestChipStyle style;
 
   @override
   Widget build(BuildContext context) {
+    final fill = !selected
+        ? Colors.white
+        : style == GuestChipStyle.accent
+            ? accent
+            : const Color(0xFF141210);
+    final border = !selected
+        ? const Color(0xFFE2E2DF)
+        : style == GuestChipStyle.accent
+            ? accent
+            : const Color(0xFF141210);
     return Material(
-      color: selected ? const Color(0xFF141210) : Colors.white,
+      color: fill,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
-        side: BorderSide(
-          color: selected ? const Color(0xFF141210) : const Color(0xFFE2E2DF),
-        ),
+        side: BorderSide(color: border),
       ),
       child: InkWell(
         onTap: onTap,
@@ -775,48 +1031,40 @@ class _CartBar extends StatelessWidget {
     required this.total,
     required this.accent,
     required this.onTap,
+    this.pill = false,
   });
 
   final int count;
   final double total;
   final Color accent;
   final VoidCallback onTap;
+  final bool pill;
 
   @override
   Widget build(BuildContext context) {
+    final radius = pill ? 28.0 : 18.0;
     return Material(
-      color: const Color(0xFF141210),
-      borderRadius: BorderRadius.circular(18),
+      color: pill ? accent : const Color(0xFF141210),
+      borderRadius: BorderRadius.circular(radius),
       elevation: 12,
       shadowColor: Colors.black54,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(radius),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Row(
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
+              Icon(
+                Icons.shopping_bag_outlined,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: 20,
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              const SizedBox(width: 10),
+              Expanded(
                 child: Text(
-                  'View order',
-                  style: TextStyle(
+                  'View cart ($count)',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -1212,6 +1460,403 @@ class _DesktopGate extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestSearchField extends StatelessWidget {
+  const _GuestSearchField({
+    required this.controller,
+    required this.accent,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final Color accent;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+        color: Color(0xFF141210),
+      ),
+      decoration: InputDecoration(
+        hintText: 'Search menu',
+        hintStyle: TextStyle(
+          color: const Color(0xFF9CA3AF).withValues(alpha: 0.95),
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(Icons.search_rounded, color: accent, size: 22),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFE2E2DF)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFE2E2DF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: accent, width: 1.4),
+        ),
+      ),
+    );
+  }
+}
+
+class _FreshMenuRow extends StatelessWidget {
+  const _FreshMenuRow({
+    required this.item,
+    required this.qty,
+    required this.accent,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final CafeMenuItem item;
+  final int qty;
+  final Color accent;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  String get _initials {
+    final parts = item.name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      final s = parts.first;
+      return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8E8E4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accent.withValues(alpha: 0.28),
+                  accent.withValues(alpha: 0.08),
+                ],
+              ),
+            ),
+            child: Text(
+              _initials,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: Color(0xFF141210),
+                    height: 1.2,
+                  ),
+                ),
+                if (item.categoryName.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.categoryName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF8B8B86),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      MoneyFormat.format(item.price),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Color(0xFF141210),
+                      ),
+                    ),
+                    const Spacer(),
+                    _QtyPill(
+                      qty: qty,
+                      accent: accent,
+                      onAdd: onAdd,
+                      onRemove: onRemove,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QtyPill extends StatelessWidget {
+  const _QtyPill({
+    required this.qty,
+    required this.accent,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final int qty;
+  final Color accent;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (qty == 0) {
+      return Material(
+        color: accent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onAdd,
+          borderRadius: BorderRadius.circular(20),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Text(
+              'Add',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onRemove,
+            icon: Icon(Icons.remove_rounded, size: 18, color: accent),
+          ),
+          Text(
+            '$qty',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              color: accent,
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onAdd,
+            icon: Icon(Icons.add_rounded, size: 18, color: accent),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryCard extends StatelessWidget {
+  const _GalleryCard({
+    required this.item,
+    required this.qty,
+    required this.accent,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final CafeMenuItem item;
+  final int qty;
+  final Color accent;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  String get _initials {
+    final parts = item.name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      final s = parts.first;
+      return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onAdd,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          accent.withValues(alpha: 0.35),
+                          accent.withValues(alpha: 0.08),
+                          const Color(0xFFEDEBE6),
+                        ],
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _initials,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 28,
+                          color: accent.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Material(
+                      color: accent,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: onAdd,
+                        child: const SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (qty > 0)
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141210),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '×$qty',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        height: 1.15,
+                        color: Color(0xFF141210),
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            MoneyFormat.format(item.price),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                        if (qty > 0)
+                          GestureDetector(
+                            onTap: onRemove,
+                            child: Icon(
+                              Icons.remove_circle_outline_rounded,
+                              size: 20,
+                              color: accent.withValues(alpha: 0.85),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
