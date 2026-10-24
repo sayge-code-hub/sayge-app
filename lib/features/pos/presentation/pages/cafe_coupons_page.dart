@@ -294,11 +294,6 @@ class _CafeCouponsPageState extends State<CafeCouponsPage> {
                 : ListView(
                     padding: CafePosSpace.page(context),
                     children: [
-                      const CafePosPageHeader(
-                        title: 'Coupon codes',
-                        subtitle: 'Active codes can be applied at checkout',
-                      ),
-                      const SizedBox(height: 16),
                       for (final c in _coupons) ...[
                         Material(
                           color: AppColors.background,

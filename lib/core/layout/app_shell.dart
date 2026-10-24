@@ -132,16 +132,21 @@ class _DesktopShell extends StatelessWidget {
                       onBack: onBack,
                       actions: actions,
                     )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(32, 20, 32, 8),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: AppVersionLabel(
-                          alignment: Alignment.centerRight,
-                          textAlign: TextAlign.right,
-                          fontSize: 11,
-                        ),
+                  else if (onBack != null ||
+                      (actions != null && actions!.isNotEmpty))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 24, 4),
+                      child: Row(
+                        children: [
+                          if (onBack != null)
+                            IconButton(
+                              tooltip: 'Back',
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: onBack,
+                            ),
+                          const Spacer(),
+                          ...?actions,
+                        ],
                       ),
                     ),
                   // Full main-panel width (top header + body + sticky footers).
@@ -200,17 +205,8 @@ class _MobileShell extends StatelessWidget {
                 onPressed: onBack,
               ),
         actions: [
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Center(
-              child: AppVersionLabel(
-                alignment: Alignment.centerRight,
-                textAlign: TextAlign.right,
-                fontSize: 11,
-              ),
-            ),
-          ),
           ...?actions,
+          const SizedBox(width: 8),
         ],
       ),
       drawer: Drawer(
@@ -280,15 +276,7 @@ class _DesktopHeader extends StatelessWidget {
                         ),
                   ),
           ),
-          const AppVersionLabel(
-            alignment: Alignment.centerRight,
-            textAlign: TextAlign.right,
-            fontSize: 11,
-          ),
-          if (actions != null && actions!.isNotEmpty) ...[
-            const SizedBox(width: 12),
-            ...actions!,
-          ],
+          if (actions != null && actions!.isNotEmpty) ...actions!,
         ],
       ),
     );
@@ -447,7 +435,15 @@ class _SidebarState extends State<_Sidebar> {
             color: AppColors.border,
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: const AppVersionLabel(
+              alignment: Alignment.centerLeft,
+              textAlign: TextAlign.left,
+              fontSize: 11,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

@@ -40,10 +40,11 @@ class CafePosBackdrop extends StatelessWidget {
   }
 }
 
+/// POS screen toolbar — titles/subtitles are intentionally omitted (hub chrome).
 class CafePosPageHeader extends StatelessWidget {
   const CafePosPageHeader({
     super.key,
-    required this.title,
+    this.title = '',
     this.subtitle,
     this.trailing,
   });
@@ -54,44 +55,19 @@ class CafePosPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                  height: 1.15,
-                  color: AppColors.text,
-                ),
-              ),
-              if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  subtitle!,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textLight,
-                    height: 1.35,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (trailing != null) ...[
-          const SizedBox(width: 12),
-          trailing!,
-        ],
-      ],
+    if (trailing == null) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerRight,
+      child: trailing!,
     );
   }
+}
+
+/// Bumps when shell "New table" is tapped on the terminal route.
+abstract final class CafePosTerminalChrome {
+  static final ValueNotifier<int> newTableTick = ValueNotifier<int>(0);
+
+  static void requestNewTable() => newTableTick.value++;
 }
 
 class CafePosEmptyState extends StatelessWidget {
@@ -221,9 +197,9 @@ class CafePosNavTile extends StatelessWidget {
   const CafePosNavTile({
     super.key,
     required this.title,
-    required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.subtitle = '',
   });
 
   final String title;
@@ -270,17 +246,19 @@ class CafePosNavTile extends StatelessWidget {
                   color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontSize: 11,
-                  height: 1.25,
-                  color: AppColors.textLight,
+              if (subtitle.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontSize: 11,
+                    height: 1.25,
+                    color: AppColors.textLight,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

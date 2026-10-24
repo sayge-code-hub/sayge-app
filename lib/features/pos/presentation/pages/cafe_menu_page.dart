@@ -144,20 +144,6 @@ class _CafeMenuPageState extends State<CafeMenuPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  CafePosPageHeader(
-                    title: 'Menu',
-                    subtitle: 'Tap a product to edit',
-                    trailing: IconButton(
-                      tooltip: 'Categories',
-                      onPressed: _openCategories,
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.background,
-                        side: const BorderSide(color: AppColors.border),
-                      ),
-                      icon: const Icon(Icons.edit_rounded, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
                   CafePosCategoryBar(
                     categories: _activeCats,
                     selectedId: _categoryFilter,

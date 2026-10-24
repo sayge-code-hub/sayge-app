@@ -7,11 +7,13 @@ import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_accent.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/usecases/sign_out_usecase.dart';
 import '../../../hrms/presentation/bloc/employees/employees_bloc.dart';
+import '../../../pos/presentation/widgets/cafe_pos_chrome.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
 
 /// Post-login shell: persistent sidebar + routed body from go_router.
@@ -281,13 +283,24 @@ class _HomeShellState extends State<HomeShell> {
     final location = widget.location;
     final path = Uri.tryParse(location)?.path ?? location;
 
+    VoidCallback confirming(VoidCallback leave) {
+      return () {
+        leaveFormIfConfirmed(context, leave);
+      };
+    }
+
     if (_isCafeRole) {
       final clientId = AppAccess.cafeIdOf(widget.user);
       if (clientId == null) return null;
       final cafeHome = AppRoutes.posCafe(clientId);
       if (path == cafeHome) return null;
       if (path.startsWith('${AppRoutes.pos}/$clientId/')) {
-        return () => _posBack(path, clientId);
+        void leave() => _posBack(path, clientId);
+        if (path.endsWith('/menu/add') ||
+            (path.contains('/menu/') && path.endsWith('/edit'))) {
+          return confirming(leave);
+        }
+        return leave;
       }
       return null;
     }
@@ -297,12 +310,6 @@ class _HomeShellState extends State<HomeShell> {
         return () => _goBack(AppRoutes.dashboard);
       }
       return null;
-    }
-
-    VoidCallback confirming(VoidCallback leave) {
-      return () {
-        leaveFormIfConfirmed(context, leave);
-      };
     }
 
     if (path.endsWith('/edit')) {
@@ -376,7 +383,12 @@ class _HomeShellState extends State<HomeShell> {
         if (segments.length == 2) {
           return () => _goBack(AppRoutes.pos);
         }
-        return () => _posBack(path, cafeId);
+        void leave() => _posBack(path, cafeId);
+        if (path.endsWith('/menu/add') ||
+            (path.contains('/menu/') && path.endsWith('/edit'))) {
+          return confirming(leave);
+        }
+        return leave;
       }
     }
     if (path == AppRoutes.pos) return null;
@@ -391,14 +403,18 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (path.endsWith('/settings/coupons') ||
         path.endsWith('/settings/tax') ||
+        path.endsWith('/settings/floor') ||
         path.endsWith('/settings/qr')) {
       context.go(AppRoutes.posSettings(cafeId));
       return;
     }
-    if (path.endsWith('/menu/categories') ||
-        path.endsWith('/menu/add') ||
+    if (path.endsWith('/menu/add') ||
         (path.contains('/menu/') && path.endsWith('/edit'))) {
       context.go(AppRoutes.posMenu(cafeId));
+      return;
+    }
+    if (path.endsWith('/menu/categories')) {
+      context.go(AppRoutes.posCafe(cafeId));
       return;
     }
     context.go(AppRoutes.posCafe(cafeId));
@@ -436,6 +452,24 @@ class _HomeShellState extends State<HomeShell> {
     context.go(AppRoutes.login);
   }
 
+  List<Widget>? get _shellActions {
+    final path = Uri.tryParse(widget.location)?.path ?? widget.location;
+    if (!path.contains('/terminal')) return null;
+    return [
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: TextButton.icon(
+          onPressed: CafePosTerminalChrome.requestNewTable,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('New table'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.text,
+          ),
+        ),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = AppAccent.of(context);
@@ -452,6 +486,7 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: _selectDestination,
         onBack: _onBack,
         onLogout: _loggingOut ? null : _logout,
+        actions: _shellActions,
         body: KeyedSubtree(
           key: ValueKey<int>(accent.color.toARGB32()),
           child: widget.child,

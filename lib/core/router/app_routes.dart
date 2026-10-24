@@ -88,5 +88,7 @@ abstract final class AppRoutes {
 
   static String posTax(String cafeId) => '/pos/$cafeId/settings/tax';
 
+  static String posFloor(String cafeId) => '/pos/$cafeId/settings/floor';
+
   static String posQr(String cafeId) => '/pos/$cafeId/settings/qr';
 }

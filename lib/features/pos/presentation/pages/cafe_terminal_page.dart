@@ -99,6 +99,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
 
   @override
   void dispose() {
+    CafePosTerminalChrome.newTableTick.removeListener(_onChromeNewTable);
     _couponCode.dispose();
     super.dispose();
   }
@@ -106,8 +107,14 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   @override
   void initState() {
     super.initState();
+    CafePosTerminalChrome.newTableTick.addListener(_onChromeNewTable);
     _reload();
     _loadCafe();
+  }
+
+  void _onChromeNewTable() {
+    if (!mounted) return;
+    _pickTable();
   }
 
   Future<void> _persistSessions() async {
@@ -1166,11 +1173,11 @@ class _CatalogPane extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _OpenTabsBar(
+        _OpenTabsDropdown(
           tabs: openTabs,
           activeKey: activeKey,
           onSelect: onSelectTab,
-          onNewTable: onNewTable,
+          onPickTable: onNewTable,
         ),
         const SizedBox(height: 12),
         CafePosCategoryBar(
@@ -1206,111 +1213,55 @@ class _CatalogPane extends StatelessWidget {
   }
 }
 
-class _OpenTabsBar extends StatelessWidget {
-  const _OpenTabsBar({
+class _OpenTabsDropdown extends StatelessWidget {
+  const _OpenTabsDropdown({
     required this.tabs,
     required this.activeKey,
     required this.onSelect,
-    required this.onNewTable,
+    required this.onPickTable,
   });
 
   final List<CafeTerminalSession> tabs;
   final String? activeKey;
   final ValueChanged<CafeTerminalSession> onSelect;
-  final Future<void> Function() onNewTable;
+  final Future<void> Function() onPickTable;
+
+  static const _allKey = '__all__';
+  static const _pickKey = '__pick__';
 
   @override
   Widget build(BuildContext context) {
+    final options = <AppFilterOption<String>>[
+      const AppFilterOption(value: _allKey, label: 'All tables'),
+      for (final tab in tabs)
+        AppFilterOption(
+          value: tab.storageKey,
+          label: tab.itemCount > 0
+              ? '${tab.label} (${tab.itemCount})'
+              : tab.label,
+        ),
+      const AppFilterOption(value: _pickKey, label: 'Choose table…'),
+    ];
+    final hasActive = tabs.any((t) => t.storageKey == activeKey);
+    final value = hasActive ? activeKey! : _allKey;
+
     return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (final tab in tabs) ...[
-            _TabChip(
-              label: tab.label,
-              count: tab.itemCount,
-              selected: tab.storageKey == activeKey,
-              onTap: () => onSelect(tab),
-            ),
-            const SizedBox(width: 8),
-          ],
-          _TabChip(
-            label: 'New table',
-            count: null,
-            selected: false,
-            icon: Icons.add_rounded,
-            onTap: () => onNewTable(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final int? count;
-  final bool selected;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? AppColors.highlight.withValues(alpha: 0.14)
-          : AppColors.background,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
-        side: BorderSide(
-          color: selected ? AppColors.highlight : AppColors.border,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: AppColors.text),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontSize: 12,
-                      height: 1,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: AppColors.text,
-                    ),
-              ),
-              if (count != null && count! > 0) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '$count',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 11,
-                        height: 1,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.highlight,
-                      ),
-                ),
-              ],
-            ],
-          ),
-        ),
+      width: double.infinity,
+      child: AppFilterDropdown<String>(
+        value: value,
+        options: options,
+        onChanged: (key) async {
+          if (key == _allKey || key == _pickKey) {
+            await onPickTable();
+            return;
+          }
+          for (final tab in tabs) {
+            if (tab.storageKey == key) {
+              onSelect(tab);
+              return;
+            }
+          }
+        },
       ),
     );
   }
