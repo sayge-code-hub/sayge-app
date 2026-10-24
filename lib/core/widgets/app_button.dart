@@ -65,7 +65,13 @@ class AppButton extends StatelessWidget {
                     ),
                   ),
                 )
-              : Text(label, key: const ValueKey('label')),
+              : Text(
+                  label,
+                  key: const ValueKey('label'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
         ),
       ),
     );
@@ -113,7 +119,12 @@ class AppOutlinedButton extends StatelessWidget {
             letterSpacing: 0.1,
           ),
         ),
-        child: Text(label),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }

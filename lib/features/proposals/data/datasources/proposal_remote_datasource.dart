@@ -142,8 +142,13 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
           .from(_table)
           .update({'status': status.storageValue})
           .eq('id', id);
-      return getProposal(id);
+      return await getProposal(id);
     } on PostgrestException catch (e) {
+      if (e.code == '23514') {
+        throw const ServerException(
+          'Could not save that proposal status. Run supabase/proposals_status_lifecycle.sql in the Supabase SQL editor, then try again.',
+        );
+      }
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;

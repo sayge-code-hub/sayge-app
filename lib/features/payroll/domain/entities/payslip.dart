@@ -76,11 +76,5 @@ class Payslip extends Equatable {
   }
 
   @override
-  List<Object?> get props => [
-        month,
-        year,
-        employeeId,
-        employeeName,
-        netPay,
-      ];
+  List<Object?> get props => [month, year, employeeId, employeeName, netPay];
 }

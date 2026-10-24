@@ -7,6 +7,7 @@ import 'core/auth/auth_session.dart';
 import 'core/auth/password_setup.dart';
 import 'core/router/app_router.dart';
 import 'core/router/url_strategy.dart';
+import 'core/theme/app_accent.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'injection_container.dart';
@@ -56,6 +57,8 @@ class _SaygeAppState extends State<SaygeApp> {
     // Invite links hydrate the session after startup — keep password gate on.
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.session == null) return;
+      // Don't re-lock after the user cleared must_set_password (URL may still
+      // contain type=invite until navigation replaces the hash).
       if (PasswordSetup.currentUserRequiresSetup()) {
         widget.authSession.requirePasswordSetup();
       }
@@ -64,11 +67,14 @@ class _SaygeAppState extends State<SaygeApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Sayge',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: _router,
+    return AccentScope(
+      accent: sl<AppAccent>(),
+      child: MaterialApp.router(
+        title: 'Sayge',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: _router,
+      ),
     );
   }
 }

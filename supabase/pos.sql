@@ -161,7 +161,7 @@ drop policy if exists "pos_product_images_storage_update" on storage.objects;
 drop policy if exists "pos_product_images_storage_delete" on storage.objects;
 
 create policy "pos_product_images_storage_select"
-  on storage.objects for select to authenticated, anon
+  on storage.objects for select to public
   using (bucket_id = 'pos-product-images');
 
 create policy "pos_product_images_storage_insert"

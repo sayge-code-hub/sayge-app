@@ -60,7 +60,10 @@ abstract final class PayslipPeriod {
 
   /// Month choices for employee self-service (join month → last completed month,
   /// capped at exit month when set).
-  static List<DateTime> optionsForEmployee(DateTime dateOfJoining, {DateTime? dateOfExit}) {
+  static List<DateTime> optionsForEmployee(
+    DateTime dateOfJoining, {
+    DateTime? dateOfExit,
+  }) {
     final start = earliestForEmployee(dateOfJoining);
     var end = latestAvailable();
     if (dateOfExit != null) {

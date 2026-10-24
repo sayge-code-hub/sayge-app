@@ -41,6 +41,8 @@ import '../../features/settings/presentation/pages/manage_clients_page.dart';
 import '../../features/settings/presentation/pages/manage_invites_page.dart';
 import '../../features/settings/presentation/pages/roles_page.dart';
 import '../../features/settings/presentation/pages/settings_hub_page.dart';
+import '../../features/settings/presentation/pages/expense_categories_page.dart';
+import '../../features/settings/presentation/pages/theme_page.dart';
 import '../auth/app_access.dart';
 import '../auth/auth_session.dart';
 import '../theme/app_colors.dart';
@@ -56,10 +58,7 @@ void _goBack(BuildContext context, String fallback) {
 
 /// Instant route swap — no fade/slide (avoids perceived navigation lag).
 Page<void> _page(GoRouterState state, Widget child) {
-  return NoTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-  );
+  return NoTransitionPage<void>(key: state.pageKey, child: child);
 }
 
 /// True when hash-based routing (or a mangled invite URL) turned a Supabase
@@ -135,8 +134,7 @@ GoRouter createAppRouter(AuthSession authSession) {
       ),
       GoRoute(
         path: AppRoutes.setPassword,
-        pageBuilder: (context, state) =>
-            _page(state, const SetPasswordPage()),
+        pageBuilder: (context, state) => _page(state, const SetPasswordPage()),
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -145,14 +143,8 @@ GoRouter createAppRouter(AuthSession authSession) {
             return const SizedBox.shrink();
           }
           final uri = state.uri;
-          final location = uri.hasQuery
-              ? '${uri.path}?${uri.query}'
-              : uri.path;
-          return HomeShell(
-            user: user,
-            location: location,
-            child: child,
-          );
+          final location = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+          return HomeShell(user: user, location: location, child: child);
         },
         routes: [
           GoRoute(
@@ -245,9 +237,9 @@ GoRouter createAppRouter(AuthSession authSession) {
                         embedded: true,
                         employee: employee,
                         onCompleted: () {
-                          context
-                              .read<EmployeesBloc>()
-                              .add(const EmployeesRequested());
+                          context.read<EmployeesBloc>().add(
+                            const EmployeesRequested(),
+                          );
                           context.go(AppRoutes.employeeDetail(id));
                         },
                         onCancel: () =>
@@ -321,8 +313,9 @@ GoRouter createAppRouter(AuthSession authSession) {
           GoRoute(
             path: AppRoutes.invoices,
             pageBuilder: (context, state) {
-              final fromProposal =
-                  state.extra is Proposal ? state.extra as Proposal : null;
+              final fromProposal = state.extra is Proposal
+                  ? state.extra as Proposal
+                  : null;
               return _page(
                 state,
                 InvoicesPage(
@@ -338,8 +331,7 @@ GoRouter createAppRouter(AuthSession authSession) {
           ),
           GoRoute(
             path: AppRoutes.expenses,
-            pageBuilder: (context, state) =>
-                _page(state, const ExpensesPage()),
+            pageBuilder: (context, state) => _page(state, const ExpensesPage()),
           ),
           // Flat POS routes so each screen remounts (no stale parent hub).
           GoRoute(
@@ -361,18 +353,14 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: '/pos/brands/:brandId/edit',
             pageBuilder: (context, state) => _page(
               state,
-              PosBrandFormPage(
-                brandId: state.pathParameters['brandId'],
-              ),
+              PosBrandFormPage(brandId: state.pathParameters['brandId']),
             ),
           ),
           GoRoute(
             path: '/pos/:brandId/products/add',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductFormPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosProductFormPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
@@ -399,45 +387,35 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: '/pos/:brandId/products',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductsPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosProductsPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
             path: '/pos/:brandId/inventory',
             pageBuilder: (context, state) => _page(
               state,
-              PosInventoryPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosInventoryPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
             path: '/pos/:brandId/terminal',
             pageBuilder: (context, state) => _page(
               state,
-              PosTerminalPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosTerminalPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
             path: '/pos/:brandId/analytics',
             pageBuilder: (context, state) => _page(
               state,
-              PosAnalyticsPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosAnalyticsPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
             path: '/pos/:brandId',
             pageBuilder: (context, state) => _page(
               state,
-              PosBrandDashboardPage(
-                brandId: state.pathParameters['brandId']!,
-              ),
+              PosBrandDashboardPage(brandId: state.pathParameters['brandId']!),
             ),
           ),
           GoRoute(
@@ -472,16 +450,14 @@ GoRouter createAppRouter(AuthSession authSession) {
                   GoRoute(
                     path: ':clientId',
                     pageBuilder: (context, state) {
-                      final clientId =
-                          state.pathParameters['clientId'] ?? '';
+                      final clientId = state.pathParameters['clientId'] ?? '';
                       return _page(
                         state,
                         ClientDetailPage(
                           clientId: clientId,
                           embedded: true,
                           onBack: () => _goBack(context, AppRoutes.clients),
-                          onEdit: () =>
-                              context.go(AppRoutes.clientEdit(clientId)),
+                          onEdit: (id) => context.go(AppRoutes.clientEdit(id)),
                         ),
                       );
                     },
@@ -498,8 +474,10 @@ GoRouter createAppRouter(AuthSession authSession) {
                               clientId: clientId,
                               onCompleted: () =>
                                   context.go(AppRoutes.clientDetail(clientId)),
-                              onCancel: () =>
-                                  _goBack(context, AppRoutes.clientDetail(clientId)),
+                              onCancel: () => _goBack(
+                                context,
+                                AppRoutes.clientDetail(clientId),
+                              ),
                             ),
                           );
                         },
@@ -521,9 +499,7 @@ GoRouter createAppRouter(AuthSession authSession) {
                 path: 'roles',
                 pageBuilder: (context, state) => _page(
                   state,
-                  RolesPage(
-                    onBack: () => _goBack(context, AppRoutes.settings),
-                  ),
+                  RolesPage(onBack: () => _goBack(context, AppRoutes.settings)),
                 ),
               ),
               GoRoute(
@@ -534,6 +510,16 @@ GoRouter createAppRouter(AuthSession authSession) {
                     onBack: () => _goBack(context, AppRoutes.settings),
                   ),
                 ),
+              ),
+              GoRoute(
+                path: 'theme',
+                pageBuilder: (context, state) =>
+                    _page(state, const ThemePage()),
+              ),
+              GoRoute(
+                path: 'categories',
+                pageBuilder: (context, state) =>
+                    _page(state, const ExpenseCategoriesPage()),
               ),
               GoRoute(
                 path: 'invite',
@@ -562,10 +548,7 @@ GoRouter createAppRouter(AuthSession authSession) {
 }
 
 class _EmployeeRoutePage extends StatelessWidget {
-  const _EmployeeRoutePage({
-    required this.employeeId,
-    required this.builder,
-  });
+  const _EmployeeRoutePage({required this.employeeId, required this.builder});
 
   final String employeeId;
   final Widget Function(Employee employee) builder;

@@ -121,7 +121,7 @@ Future<void> showProposalPreview({
                           );
                         }
                       },
-                      icon: const Icon(Icons.download_outlined),
+                      icon: const Icon(Icons.download),
                     ),
                     IconButton(
                       tooltip: 'Email PDF',

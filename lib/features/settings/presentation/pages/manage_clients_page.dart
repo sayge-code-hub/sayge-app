@@ -48,10 +48,7 @@ class ManageClientsPage extends StatelessWidget {
         ),
         leading: onBack == null
             ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: onBack,
-              ),
+            : IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack),
       ),
       body: content,
     );
@@ -78,38 +75,11 @@ class _ManageClientsBody extends StatefulWidget {
 class _ManageClientsBodyState extends State<_ManageClientsBody> {
   String _query = '';
 
-  Future<void> _confirmDelete(Client client) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.background,
-          surfaceTintColor: AppColors.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppColors.border),
-          ),
-          title: const Text('Delete client'),
-          content: Text(
-            'Delete ${client.displayLabel}? Linked employees will keep their '
-            'records but lose this client link.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-    if (ok != true || !mounted) return;
-    context.read<ClientsBloc>().add(ClientDeleted(client.id));
+  Client _representative(List<Client> group) {
+    for (final client in group) {
+      if ((client.logoUrl ?? '').trim().isNotEmpty) return client;
+    }
+    return Client.uniqueByCompany(group).first;
   }
 
   @override
@@ -124,11 +94,7 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
       listener: (context, state) {
         final message = state.errorMessage;
         if (message == null) return;
-        showAppMessageDialog(
-          context,
-          title: 'Clients',
-          message: message,
-        );
+        showAppMessageDialog(context, title: 'Clients', message: message);
       },
       child: Column(
         children: [
@@ -147,8 +113,9 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                   return Center(
                     child: Text(
                       state.errorMessage ?? 'Failed to load clients',
-                      style: textTheme.bodyMedium
-                          ?.copyWith(color: AppColors.error),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.error,
+                      ),
                     ),
                   );
                 }
@@ -163,13 +130,24 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                 }
 
                 final q = _query.trim().toLowerCase();
-                final clients = q.isEmpty
-                    ? state.clients
-                    : state.clients.where((c) {
-                        return c.displayLabel.toLowerCase().contains(q) ||
-                            c.gstin.toLowerCase().contains(q) ||
-                            c.name.toLowerCase().contains(q);
-                      }).toList();
+                final grouped = <String, List<Client>>{};
+                for (final client in state.clients) {
+                  final key = client.companyKey;
+                  if (key.isEmpty) continue;
+                  final matches =
+                      q.isEmpty ||
+                      client.name.toLowerCase().contains(q) ||
+                      client.contactName.toLowerCase().contains(q) ||
+                      client.gstin.toLowerCase().contains(q);
+                  if (!matches) continue;
+                  grouped.putIfAbsent(key, () => []).add(client);
+                }
+                final companies = grouped.values.toList()
+                  ..sort(
+                    (a, b) => a.first.name.toLowerCase().compareTo(
+                      b.first.name.toLowerCase(),
+                    ),
+                  );
 
                 final busy = state.status == ClientsStatus.saving;
 
@@ -189,7 +167,7 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                       ),
                     ),
                     Expanded(
-                      child: clients.isEmpty
+                      child: companies.isEmpty
                           ? Center(
                               child: Text(
                                 'No matching clients.',
@@ -205,24 +183,35 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                                 horizontal,
                                 24,
                               ),
-                              itemCount: clients.length,
+                              itemCount: companies.length,
                               separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, index) {
-                                final client = clients[index];
+                                final group = companies[index];
+                                final client = _representative(group);
+                                final gstin = group
+                                    .map((item) => item.gstin.trim())
+                                    .firstWhere(
+                                      (value) => value.isNotEmpty,
+                                      orElse: () => '',
+                                    );
+                                final active = group.any(
+                                  (item) => item.isActive,
+                                );
                                 return AppListCard(
                                   borderRadius: 12,
                                   padding: AppListCard.sectionPadding,
-                                  color: client.isActive
+                                  color: active
                                       ? AppColors.background
                                       : AppColors.surfaceMuted,
                                   onTap: busy
                                       ? null
-                                      : () => widget.onOpenClient
-                                          ?.call(client.id),
+                                      : () => widget.onOpenClient?.call(
+                                          client.id,
+                                        ),
                                   child: Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
                                       EmployeeAvatar(
                                         name: client.name,
@@ -242,104 +231,58 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                                                     client.name,
                                                     style: textTheme.titleMedium
                                                         ?.copyWith(
-                                                      fontSize: 14,
-                                                    ),
+                                                          fontSize: 14,
+                                                        ),
                                                   ),
                                                 ),
-                                                if (!client.isActive) ...[
+                                                if (!active) ...[
                                                   const SizedBox(width: 8),
                                                   Container(
                                                     padding:
-                                                        const EdgeInsets
-                                                            .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 3,
-                                                    ),
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 3,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: AppColors.error
                                                           .withValues(
-                                                        alpha: 0.12,
-                                                      ),
+                                                            alpha: 0.12,
+                                                          ),
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                        6,
-                                                      ),
+                                                            6,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       'Inactive',
                                                       style: textTheme
                                                           .labelLarge
                                                           ?.copyWith(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: AppColors.error,
-                                                      ),
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                AppColors.error,
+                                                          ),
                                                     ),
                                                   ),
                                                 ],
                                               ],
                                             ),
-                                            if (client
-                                                .contactName
-                                                .trim()
-                                                .isNotEmpty) ...[
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                client.contactName,
-                                                style: textTheme.bodyMedium
-                                                    ?.copyWith(
-                                                  fontSize: 13,
-                                                  color: AppColors.text,
-                                                ),
-                                              ),
-                                            ],
-                                            if (client.gstin
-                                                .trim()
-                                                .isNotEmpty) ...[
+                                            if (gstin.isNotEmpty) ...[
                                               const SizedBox(height: 6),
                                               Text(
-                                                'GSTIN ${client.gstin}',
+                                                'GSTIN $gstin',
                                                 style: textTheme.bodyMedium
                                                     ?.copyWith(
-                                                  fontSize: 12,
-                                                  color: AppColors.textLight,
-                                                ),
+                                                      fontSize: 12,
+                                                      color:
+                                                          AppColors.textLight,
+                                                    ),
                                               ),
                                             ],
                                           ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      AppListIconButton(
-                                        tooltip: client.isActive
-                                            ? 'Deactivate'
-                                            : 'Activate',
-                                        iconSize: 15,
-                                        buttonSize: 28,
-                                        icon: client.isActive
-                                            ? Icons.pause_circle_outline
-                                            : Icons.play_circle_outline,
-                                        onPressed: busy
-                                            ? null
-                                            : () => context
-                                                .read<ClientsBloc>()
-                                                .add(
-                                                  ClientActiveToggled(
-                                                    clientId: client.id,
-                                                    isActive: !client.isActive,
-                                                  ),
-                                                ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      AppListIconButton(
-                                        tooltip: 'Delete',
-                                        iconSize: 15,
-                                        buttonSize: 28,
-                                        icon: Icons.delete_outline,
-                                        onPressed: busy
-                                            ? null
-                                            : () => _confirmDelete(client),
                                       ),
                                     ],
                                   ),
@@ -358,10 +301,7 @@ class _ManageClientsBodyState extends State<_ManageClientsBody> {
                 onPressed: widget.onBack,
                 child: const Text('Back'),
               ),
-              AppButton(
-                label: 'Add client',
-                onPressed: widget.onAddClient,
-              ),
+              AppButton(label: 'Add client', onPressed: widget.onAddClient),
             ],
           ),
         ],

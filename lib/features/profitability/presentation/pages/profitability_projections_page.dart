@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/app_dropdown.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../injection_container.dart';
 import '../../../settings/presentation/widgets/client_name_label.dart';
@@ -14,18 +14,14 @@ import '../bloc/profitability_bloc.dart';
 import '../widgets/profitability_charts.dart';
 
 class ProfitabilityProjectionsPage extends StatelessWidget {
-  const ProfitabilityProjectionsPage({
-    super.key,
-    required this.clientId,
-  });
+  const ProfitabilityProjectionsPage({super.key, required this.clientId});
 
   final String clientId;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          sl<ProfitabilityBloc>()..add(const ProfitabilityStarted()),
+      create: (_) => sl<ProfitabilityBloc>()..add(const ProfitabilityStarted()),
       child: _ProjectionsBody(clientId: clientId),
     );
   }
@@ -84,10 +80,12 @@ class _ProjectionsBodyState extends State<_ProjectionsBody> {
           invoices: state.invoices,
           registry: state.registry,
         );
-        final totalBilling =
-            months.fold<double>(0, (s, m) => s + m.billing).roundToDouble();
-        final totalProfit =
-            months.fold<double>(0, (s, m) => s + m.profit).roundToDouble();
+        final totalBilling = months
+            .fold<double>(0, (s, m) => s + m.billing)
+            .roundToDouble();
+        final totalProfit = months
+            .fold<double>(0, (s, m) => s + m.profit)
+            .roundToDouble();
         final totalMargin = totalBilling > 0
             ? ((totalProfit / totalBilling) * 1000).roundToDouble() / 10
             : 0.0;
@@ -106,17 +104,24 @@ class _ProjectionsBodyState extends State<_ProjectionsBody> {
                     logoRadius: 12,
                   ),
                   const SizedBox(height: 14),
-                  AppDropdown<int>(
-                    label: 'Financial year',
-                    value: fyOptions.contains(_fyStartYear)
-                        ? _fyStartYear
-                        : fyOptions.first,
-                    items: fyOptions,
-                    itemLabel: ProfitabilityCalculator.financialYearLabel,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _fyStartYear = value);
-                    },
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: AppFilterDropdown<int>(
+                      value: fyOptions.contains(_fyStartYear)
+                          ? _fyStartYear
+                          : fyOptions.first,
+                      options: [
+                        for (final year in fyOptions)
+                          AppFilterOption(
+                            value: year,
+                            label: ProfitabilityCalculator.financialYearLabel(
+                              year,
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _fyStartYear = value),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   LayoutBuilder(
@@ -243,7 +248,9 @@ class _ProjectionsBodyState extends State<_ProjectionsBody> {
                         Expanded(
                           child: Text(
                             'FY total',
-                            style: textTheme.titleMedium?.copyWith(fontSize: 13),
+                            style: textTheme.titleMedium?.copyWith(
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                         Text(
@@ -279,4 +286,3 @@ class _ProjectionsBodyState extends State<_ProjectionsBody> {
     );
   }
 }
-

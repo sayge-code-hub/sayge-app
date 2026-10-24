@@ -120,13 +120,14 @@ class _HubView extends StatelessWidget {
     return Align(
       alignment: Alignment.topLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880),
+        constraints: const BoxConstraints(maxWidth: 1180),
         child: GridView.builder(
           shrinkWrap: true,
           itemCount: tiles.length,
           gridDelegate: AppHubGrid.delegate(
             isDesktop: isDesktop,
             hasSubtitle: false,
+            columns: 4,
           ),
           itemBuilder: (context, index) {
             final type = tiles[index];

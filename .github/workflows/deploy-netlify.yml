@@ -25,6 +25,22 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Gate production: never bump/deploy if analyze or tests fail.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
       - name: Bump patch version (x.y.Z)
         id: bump
         run: |
@@ -50,15 +66,6 @@ jobs:
           git add pubspec.yaml
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]"
           git push origin HEAD:main
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
 
       - name: Build web (CanvasKit from CDN)
         run: |

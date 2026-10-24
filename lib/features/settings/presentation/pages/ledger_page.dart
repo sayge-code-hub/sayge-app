@@ -136,17 +136,26 @@ class _LedgerBodyState extends State<_LedgerBody> {
                                           child: Text(
                                             entry.tableName
                                                 .replaceAll('_', ' '),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: textTheme.titleMedium
                                                 ?.copyWith(fontSize: 13),
                                           ),
                                         ),
-                                        Text(
-                                          stamp.format(
-                                            entry.occurredAt.toLocal(),
-                                          ),
-                                          style: textTheme.bodyMedium?.copyWith(
-                                            fontSize: 11,
-                                            color: AppColors.textLight,
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            stamp.format(
+                                              entry.occurredAt.toLocal(),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.right,
+                                            style: textTheme.bodyMedium
+                                                ?.copyWith(
+                                              fontSize: 11,
+                                              color: AppColors.textLight,
+                                            ),
                                           ),
                                         ),
                                       ],

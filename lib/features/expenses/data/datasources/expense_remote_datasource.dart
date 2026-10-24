@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../../domain/entities/expense.dart';
 import '../models/expense_model.dart';
 
@@ -25,18 +26,30 @@ abstract class ExpenseRemoteDataSource {
     required Uint8List fileBytes,
     String mimeType = 'application/octet-stream',
   });
+
+  Future<String> receiptDownloadUrl(String receiptPath);
 }
 
 class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
-  ExpenseRemoteDataSourceImpl({
-    SupabaseClient? client,
-    this._authSession,
-  }) : _client = client ?? Supabase.instance.client;
+  ExpenseRemoteDataSourceImpl({SupabaseClient? client, this._authSession})
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
   final AuthSession? _authSession;
 
   static const _table = 'expenses';
+
+  void _throwCategoryConstraint(PostgrestException e) {
+    final code = e.code ?? '';
+    final message = e.message.toLowerCase();
+    if (code == '23514' && message.contains('category')) {
+      throw const ServerException(
+        'That category is not allowed yet. Run supabase/expense_categories.sql '
+        'in the Supabase SQL editor, then try again.',
+      );
+    }
+  }
+
   static const _selectWithClient = '*, clients(id, name)';
   static const _bucket = 'documents';
 
@@ -56,28 +69,13 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
           .toList();
     } on PostgrestException catch (e) {
-      if (e.message.contains('created_by') &&
-          AppAccess.isEmployeeOnly(_authSession?.user)) {
-        return const [];
-      }
-      if (e.message.contains('created_by') &&
-          AppAccess.isStaff(_authSession?.user)) {
-        final rows = await _client
-            .from(_table)
-            .select(_selectWithClient)
-            .order('created_at', ascending: false);
-        return (rows as List<dynamic>)
-            .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
-            .toList();
-      }
-      if (e.message.contains('client_id') || e.message.contains('clients')) {
-        final rows = await _client
-            .from(_table)
-            .select()
-            .order('created_at', ascending: false);
-        return (rows as List<dynamic>)
-            .map((row) => ExpenseModel.fromJson(row as Map<String, dynamic>))
-            .toList();
+      if (e.message.contains('created_by') ||
+          e.message.contains('client_id') ||
+          e.message.contains('clients')) {
+        throw const ServerException(
+          'Expense schema is incomplete. Run supabase/ops_completeness_pack.sql '
+          'and supabase/security_hardening.sql in the Supabase SQL editor.',
+        );
       }
       throw ServerException(e.message);
     } catch (e) {
@@ -100,15 +98,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     if (paidFrom.isEmpty) {
       throw const ServerException('Paid from is required.');
     }
-    if (!Expense.categories.contains(category)) {
-      throw const ServerException('Select a valid category.');
+    if (category.isEmpty) {
+      throw const ServerException('Select a category.');
     }
 
     final id = expense.id.trim().isEmpty
         ? 'exp_${DateTime.now().millisecondsSinceEpoch}'
         : expense.id.trim();
-    final uid =
-        _client.auth.currentUser?.id ?? _authSession?.user?.id;
+    final uid = _client.auth.currentUser?.id ?? _authSession?.user?.id;
 
     final clientId = expense.isCompanyExpense ? null : expense.clientId?.trim();
     final expenseDate = expense.expenseDate ?? DateTime.now();
@@ -135,63 +132,15 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .single();
       return ExpenseModel.fromJson(row);
     } on PostgrestException catch (e) {
-      if (e.message.contains('expense_date')) {
-        final payload = ExpenseModel(
-          id: id,
-          madeFor: madeFor,
-          amount: expense.amount,
-          paidFrom: paidFrom,
-          category: category,
-          clientId: clientId,
-          clientName: expense.clientName,
-          createdBy: uid,
-        ).toJson()
-          ..remove('expense_date')
-          ..remove('receipt_path')
-          ..remove('receipt_name');
-        final row = await _client
-            .from(_table)
-            .insert(payload)
-            .select(_selectWithClient)
-            .single();
-        return ExpenseModel.fromJson(row);
-      }
-      if (e.message.contains('created_by')) {
-        final row = await _client
-            .from(_table)
-            .insert(
-              ExpenseModel(
-                id: id,
-                madeFor: madeFor,
-                amount: expense.amount,
-                paidFrom: paidFrom,
-                category: category,
-                clientId: clientId,
-                expenseDate: expenseDate,
-              ).toJson(),
-            )
-            .select(_selectWithClient)
-            .single();
-        return ExpenseModel.fromJson(row);
-      }
-      if (e.message.contains('client_id')) {
-        final row = await _client
-            .from(_table)
-            .insert(
-              ExpenseModel(
-                id: id,
-                madeFor: madeFor,
-                amount: expense.amount,
-                paidFrom: paidFrom,
-                category: category,
-                expenseDate: expenseDate,
-                createdBy: uid,
-              ).toJson()
-                ..remove('client_id'),
-            )
-            .select()
-            .single();
-        return ExpenseModel.fromJson(row);
+      _throwCategoryConstraint(e);
+      if (e.message.contains('expense_date') ||
+          e.message.contains('receipt_') ||
+          e.message.contains('created_by') ||
+          e.message.contains('client_id')) {
+        throw const ServerException(
+          'Expense schema is incomplete. Run supabase/ops_completeness_pack.sql '
+          'and supabase/security_hardening.sql in the Supabase SQL editor.',
+        );
       }
       throw ServerException(e.message);
     } catch (e) {
@@ -243,8 +192,8 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     if (paidFrom.isEmpty) {
       throw const ServerException('Paid from is required.');
     }
-    if (!Expense.categories.contains(category)) {
-      throw const ServerException('Select a valid category.');
+    if (category.isEmpty) {
+      throw const ServerException('Select a category.');
     }
 
     final clientId = expense.isCompanyExpense ? null : expense.clientId?.trim();
@@ -277,18 +226,13 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
           .single();
       return ExpenseModel.fromJson(row);
     } on PostgrestException catch (e) {
+      _throwCategoryConstraint(e);
       if (e.message.contains('expense_date') ||
           e.message.contains('receipt_')) {
-        payload.remove('expense_date');
-        payload.remove('receipt_path');
-        payload.remove('receipt_name');
-        final row = await _client
-            .from(_table)
-            .update(payload)
-            .eq('id', id)
-            .select(_selectWithClient)
-            .single();
-        return ExpenseModel.fromJson(row);
+        throw const ServerException(
+          'Expense receipt/date columns are missing. Run '
+          'supabase/ops_completeness_pack.sql in the Supabase SQL editor.',
+        );
       }
       throw ServerException(e.message);
     } catch (e) {
@@ -315,28 +259,32 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
 
     final path =
         'expenses/$id/${DateTime.now().microsecondsSinceEpoch}_$safeName';
-    final resolvedMime =
-        mimeType.trim().isEmpty ? 'application/octet-stream' : mimeType.trim();
+    final resolvedMime = mimeType.trim().isEmpty
+        ? 'application/octet-stream'
+        : mimeType.trim();
 
     try {
-      await _client.storage.from(_bucket).uploadBinary(
+      await _client.storage
+          .from(_bucket)
+          .uploadBinary(
             path,
             fileBytes,
-            fileOptions: FileOptions(
-              contentType: resolvedMime,
-              upsert: true,
-            ),
+            fileOptions: FileOptions(contentType: resolvedMime, upsert: true),
           );
-      final row = await _client
-          .from(_table)
-          .update({
-            'receipt_path': path,
-            'receipt_name': safeName,
-          })
-          .eq('id', id)
-          .select(_selectWithClient)
-          .single();
-      return ExpenseModel.fromJson(row);
+      try {
+        final row = await _client
+            .from(_table)
+            .update({'receipt_path': path, 'receipt_name': safeName})
+            .eq('id', id)
+            .select(_selectWithClient)
+            .single();
+        return ExpenseModel.fromJson(row);
+      } on PostgrestException catch (e) {
+        try {
+          await _client.storage.from(_bucket).remove([path]);
+        } catch (_) {}
+        throw ServerException(e.message);
+      }
     } on StorageException catch (e) {
       throw ServerException(e.message);
     } on PostgrestException catch (e) {
@@ -345,6 +293,23 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to upload receipt.');
     }
+  }
+
+  @override
+  Future<String> receiptDownloadUrl(String receiptPath) async {
+    final path = receiptPath.trim();
+    if (path.isEmpty) {
+      throw const ServerException('No receipt is attached.');
+    }
+    final url = await AppStorageUrls.resolveUrl(
+      _client,
+      bucket: _bucket,
+      path: path,
+    );
+    if (url == null || url.isEmpty) {
+      throw const ServerException('Could not open receipt.');
+    }
+    return url;
   }
 
   @override

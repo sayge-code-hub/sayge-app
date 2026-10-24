@@ -1,3 +1,5 @@
+-- SUPERSEDED by supabase/security_hardening.sql, which is the authoritative
+-- source for grants and RLS policies. Kept for history / targeted re-runs.
 -- Role-based access: staff (owner/admin) vs employee.
 -- Run in Supabase SQL Editor (or via SUPABASE_DB_URL / psql).
 
@@ -43,9 +45,12 @@ as $$
   select employee_id from public.users where id = auth.uid() limit 1;
 $$;
 
-grant execute on function public.app_role_code() to anon, authenticated;
-grant execute on function public.app_is_staff() to anon, authenticated;
-grant execute on function public.app_employee_id() to anon, authenticated;
+revoke all on function public.app_role_code() from public, anon;
+revoke all on function public.app_is_staff() from public, anon;
+revoke all on function public.app_employee_id() from public, anon;
+grant execute on function public.app_role_code() to authenticated;
+grant execute on function public.app_is_staff() to authenticated;
+grant execute on function public.app_employee_id() to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Expenses: ownership column

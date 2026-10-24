@@ -42,6 +42,16 @@ class SettingsHubPage extends StatelessWidget {
         icon: Icons.history_outlined,
         path: AppRoutes.ledger,
       ),
+      _SettingsTileData(
+        title: 'Categories',
+        icon: Icons.category_outlined,
+        path: AppRoutes.categories,
+      ),
+      _SettingsTileData(
+        title: 'Theme',
+        icon: Icons.palette_outlined,
+        path: AppRoutes.theme,
+      ),
     ];
 
     return Padding(
@@ -54,13 +64,14 @@ class SettingsHubPage extends StatelessWidget {
       child: Align(
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 880),
+          constraints: const BoxConstraints(maxWidth: 1180),
           child: GridView.builder(
             shrinkWrap: true,
             itemCount: tiles.length,
             gridDelegate: AppHubGrid.delegate(
               isDesktop: isDesktop,
               hasSubtitle: false,
+              columns: 4,
             ),
             itemBuilder: (context, index) {
               final tile = tiles[index];

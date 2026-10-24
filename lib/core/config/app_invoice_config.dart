@@ -24,10 +24,11 @@ abstract final class AppInvoiceConfig {
   /// When true, apply CGST+SGST; when false, apply IGST.
   static const bool defaultIntraState = true;
 
-  static const String bankName = 'The Maharashtra State Co. Op. Bank Ltd.';
-  static const String bankAccountNo = '0056107040000517';
-  static const String bankBranch = 'Deonagar Branch';
-  static const String bankIfsc = 'MSCI0082051';
+  /// Offline fallback only — live bank details come from `company_details`.
+  static const String bankName = '';
+  static const String bankAccountNo = '';
+  static const String bankBranch = '';
+  static const String bankIfsc = '';
 
   static const String declaration =
       'We declare that this invoice shows the actual price of the services '

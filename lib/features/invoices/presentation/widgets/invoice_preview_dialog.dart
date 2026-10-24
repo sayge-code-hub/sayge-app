@@ -5,12 +5,15 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/config/app_invoice_config.dart';
 import '../../../../core/layout/breakpoints.dart';
+import '../../../../core/pdf/pdf_company_profile.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/document_email.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/pdf_saver.dart';
+import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
+import '../../../settings/domain/entities/settings_entities.dart';
 import '../../../settings/domain/usecases/settings_usecases.dart';
 import '../../../settings/presentation/widgets/client_name_label.dart';
 import '../../data/invoice_pdf_builder.dart';
@@ -58,24 +61,24 @@ Future<void> showInvoicePreview({
                       ),
                     ),
                     if (onEdit != null)
-                      IconButton(
+                      AppListIconButton(
                         tooltip: 'Edit',
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
                           onEdit();
                         },
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: Icons.edit_outlined,
                       ),
                     if (onClone != null)
-                      IconButton(
+                      AppListIconButton(
                         tooltip: 'Clone',
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
                           onClone();
                         },
-                        icon: const Icon(Icons.copy_outlined),
+                        icon: Icons.copy_outlined,
                       ),
-                    IconButton(
+                    AppListIconButton(
                       tooltip: 'Download PDF',
                       onPressed: () async {
                         try {
@@ -102,9 +105,9 @@ Future<void> showInvoicePreview({
                           );
                         }
                       },
-                      icon: const Icon(Icons.download_outlined),
+                      icon: Icons.download,
                     ),
-                    IconButton(
+                    AppListIconButton(
                       tooltip: 'Email PDF',
                       onPressed: () async {
                         await showEmailRecipientDialog(
@@ -133,12 +136,12 @@ Future<void> showInvoicePreview({
                           },
                         );
                       },
-                      icon: const Icon(Icons.email_outlined),
+                      icon: Icons.email_outlined,
                     ),
-                    IconButton(
+                    AppListIconButton(
                       tooltip: 'Close',
                       onPressed: () => Navigator.of(dialogContext).pop(),
-                      icon: const Icon(Icons.close),
+                      icon: Icons.close,
                     ),
                   ],
                 ),
@@ -147,14 +150,24 @@ Future<void> showInvoicePreview({
               Expanded(
                 child: ColoredBox(
                   color: AppColors.surface,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 760),
-                        child: _InvoicePreviewCard(invoice: invoice),
-                      ),
+                  child: FutureBuilder<CompanyDetails?>(
+                    future: sl<GetCompanyDetailsUseCase>()().then(
+                      (r) => r.fold((_) => null, (d) => d),
                     ),
+                    builder: (context, snapshot) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 760),
+                            child: _InvoicePreviewCard(
+                              invoice: invoice,
+                              company: snapshot.data,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -167,18 +180,29 @@ Future<void> showInvoicePreview({
 }
 
 class _InvoicePreviewCard extends StatelessWidget {
-  const _InvoicePreviewCard({required this.invoice});
+  const _InvoicePreviewCard({
+    required this.invoice,
+    this.company,
+  });
 
   final Invoice invoice;
+  final CompanyDetails? company;
 
   static final _date = DateFormat('d-MMM-yy');
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final profile = PdfCompanyProfile.resolveSync(company);
     final buyer = invoice.buyerCompany.isNotEmpty
         ? invoice.buyerCompany
         : invoice.buyerName;
+    final bankName = profile.bankName.trim().isEmpty ? '—' : profile.bankName;
+    final bankAccount =
+        profile.bankAccountNo.trim().isEmpty ? '—' : profile.bankAccountNo;
+    final bankBranch =
+        profile.bankBranch.trim().isEmpty ? '—' : profile.bankBranch;
+    final bankIfsc = profile.bankIfsc.trim().isEmpty ? '—' : profile.bankIfsc;
 
     return Container(
       width: double.infinity,
@@ -210,16 +234,16 @@ class _InvoicePreviewCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppInvoiceConfig.companyName,
+                        profile.displayName,
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Text(AppInvoiceConfig.companyAddress,
+                      Text(profile.address,
                           style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                      Text('GSTIN: ${AppInvoiceConfig.companyGstin}',
+                      Text('GSTIN: ${profile.gstin}',
                           style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                      Text('PAN: ${AppInvoiceConfig.companyPan}',
+                      Text('PAN: ${profile.pan}',
                           style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
                     ],
                   ),
@@ -235,67 +259,78 @@ class _InvoicePreviewCard extends StatelessWidget {
           const SizedBox(height: 12),
           Container(height: 3, color: const Color(0xFF1E3A5F)),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 520;
+              final buyerBlock = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Buyer: ',
+                        style: textTheme.bodyMedium?.copyWith(fontSize: 12),
+                      ),
+                      Expanded(
+                        child: buyer.isNotEmpty
+                            ? ClientNameLabel(
+                                name: buyer,
+                                contactName: invoice.buyerName,
+                                style: textTheme.bodyMedium
+                                    ?.copyWith(fontSize: 12),
+                                logoRadius: 7,
+                              )
+                            : Text(
+                                '—',
+                                style: textTheme.bodyMedium
+                                    ?.copyWith(fontSize: 12),
+                              ),
+                      ),
+                    ],
+                  ),
+                  if (invoice.buyerAddress.isNotEmpty)
+                    Text(invoice.buyerAddress,
+                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                  Text('Place of Supply: ${invoice.placeOfSupply}',
+                      style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                  Text('GSTIN: ${invoice.buyerGstin}',
+                      style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                  Text('Contact: ${invoice.buyerContact}',
+                      style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                ],
+              );
+              final metaBlock = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Invoice No.: ${invoice.invoiceNo}',
+                      style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                  Text('Date: ${_date.format(invoice.invoiceDate)}',
+                      style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                  Text(
+                    'P.O.Number: ${invoice.poNumber.isEmpty ? '-' : invoice.poNumber}',
+                    style: textTheme.bodyMedium?.copyWith(fontSize: 12),
+                  ),
+                ],
+              );
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Buyer: ',
-                          style: textTheme.bodyMedium?.copyWith(fontSize: 12),
-                        ),
-                        Expanded(
-                          child: buyer.isNotEmpty
-                              ? ClientNameLabel(
-                                  name: buyer,
-                                  contactName: invoice.buyerName,
-                                  style: textTheme.bodyMedium
-                                      ?.copyWith(fontSize: 12),
-                                  logoRadius: 7,
-                                )
-                              : Text(
-                                  '—',
-                                  style: textTheme.bodyMedium
-                                      ?.copyWith(fontSize: 12),
-                                ),
-                        ),
-                      ],
-                    ),
-                    if (invoice.buyerAddress.isNotEmpty)
-                      Text(invoice.buyerAddress,
-                          style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                    Text('Place of Supply: ${invoice.placeOfSupply}',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                    Text('GSTIN: ${invoice.buyerGstin}',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                    Text('Contact: ${invoice.buyerContact}',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                    buyerBlock,
+                    const SizedBox(height: 12),
+                    metaBlock,
                   ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Invoice No.: ${invoice.invoiceNo}',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                    Text('Date: ${_date.format(invoice.invoiceDate)}',
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-                    Text(
-                      'P.O.Number: ${invoice.poNumber.isEmpty ? '-' : invoice.poNumber}',
-                      style: textTheme.bodyMedium?.copyWith(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: buyerBlock),
+                  Expanded(flex: 2, child: metaBlock),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           for (var i = 0; i < invoice.lineItems.length; i++)
@@ -366,13 +401,13 @@ class _InvoicePreviewCard extends StatelessWidget {
             "Company's Bank Details",
             style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
-          Text('Bank Name: ${AppInvoiceConfig.bankName}',
+          Text('Bank Name: $bankName',
               style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-          Text('A/c No.: ${AppInvoiceConfig.bankAccountNo}',
+          Text('A/c No.: $bankAccount',
               style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-          Text('Branch: ${AppInvoiceConfig.bankBranch}',
+          Text('Branch: $bankBranch',
               style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
-          Text('IFSC Code: ${AppInvoiceConfig.bankIfsc}',
+          Text('IFSC Code: $bankIfsc',
               style: textTheme.bodyMedium?.copyWith(fontSize: 12)),
           const SizedBox(height: 20),
           Align(

@@ -13,6 +13,7 @@ class PayrollState extends Equatable {
   });
 
   final PayrollStatus status;
+
   /// All active employees (unfiltered). Use [employeesForPeriod] in the UI.
   final List<Employee> employees;
   final Set<String> selectedIds;
@@ -57,11 +58,11 @@ class PayrollState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        employees,
-        selectedIds,
-        month,
-        year,
-        errorMessage,
-      ];
+    status,
+    employees,
+    selectedIds,
+    month,
+    year,
+    errorMessage,
+  ];
 }

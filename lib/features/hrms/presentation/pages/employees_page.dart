@@ -5,6 +5,7 @@ import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/csv_export.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../injection_container.dart';
@@ -101,8 +102,8 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
         final clients = EmployeeListFilters.distinctClients(state.employees);
         final clientFilter =
             (_clientFilter != null && clients.contains(_clientFilter))
-                ? _clientFilter
-                : null;
+            ? _clientFilter
+            : null;
 
         final filtered = EmployeeListFilters.apply(
           employees: state.employees,
@@ -167,7 +168,7 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
                       IconButton(
                         tooltip: 'Export CSV',
                         onPressed: state.employees.isEmpty ? null : exportCsv,
-                        icon: const Icon(Icons.download_outlined),
+                        icon: const Icon(Icons.download),
                         color: AppColors.text,
                       ),
                     ],
@@ -185,39 +186,44 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
                           onSelected: (_) =>
                               setState(() => _statusFilter = filter),
                           showCheckmark: false,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppFilterDropdown.radius,
+                            ),
+                          ),
                           selectedColor: AppColors.highlight,
                           backgroundColor: AppColors.background,
                           side: const BorderSide(color: AppColors.border),
-                          labelStyle:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontSize: 12,
-                                    color: _statusFilter == filter
-                                        ? AppColors.background
-                                        : AppColors.text,
-                                  ),
+                          labelStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontSize: 12,
+                                height: 1,
+                                color: _statusFilter == filter
+                                    ? AppColors.background
+                                    : AppColors.text,
+                              ),
                         ),
                       if (clients.isNotEmpty)
                         SizedBox(
                           width: isDesktop ? 220 : double.infinity,
-                          child: DropdownButtonFormField<String?>(
-                            // ignore: deprecated_member_use
+                          child: AppFilterDropdown<String?>(
                             value: clientFilter,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Client',
-                              isDense: true,
-                              filled: true,
-                              fillColor: AppColors.background,
-                            ),
-                            items: [
-                              const DropdownMenuItem<String?>(
+                            options: [
+                              const AppFilterOption<String?>(
                                 value: null,
-                                child: Text('All clients'),
+                                label: 'All clients',
                               ),
                               for (final client in clients)
-                                DropdownMenuItem<String?>(
+                                AppFilterOption<String?>(
                                   value: client,
-                                  child: Text(client),
+                                  label: client,
                                 ),
                             ],
                             onChanged: (value) =>
@@ -235,19 +241,19 @@ class _EmployeesBodyState extends State<_EmployeesBody> {
                       child: Text(
                         'No matching employees.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textLight,
-                            ),
+                          color: AppColors.textLight,
+                        ),
                       ),
                     )
                   : isDesktop
-                      ? EmployeesTable(
-                          employees: filtered,
-                          onEmployeeSelected: widget.onEmployeeSelected,
-                        )
-                      : _EmployeesMobileList(
-                          employees: filtered,
-                          onEmployeeSelected: widget.onEmployeeSelected,
-                        ),
+                  ? EmployeesTable(
+                      employees: filtered,
+                      onEmployeeSelected: widget.onEmployeeSelected,
+                    )
+                  : _EmployeesMobileList(
+                      employees: filtered,
+                      onEmployeeSelected: widget.onEmployeeSelected,
+                    ),
             ),
           ],
         );
@@ -355,9 +361,7 @@ class _EmployeesTableState extends State<EmployeesTable> {
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.border,
-                ),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 children: [
@@ -422,8 +426,7 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                   ),
                                   DataCell(
                                     Text(
-                                      dateFormat
-                                          .format(employee.dateOfJoining),
+                                      dateFormat.format(employee.dateOfJoining),
                                     ),
                                   ),
                                   DataCell(
@@ -431,30 +434,27 @@ class _EmployeesTableState extends State<EmployeesTable> {
                                       EmployeeListFilters.statusLabel(employee),
                                       style: textTheme.labelLarge?.copyWith(
                                         fontSize: 13,
-                                        color: EmployeeListFilters
-                                                    .statusLabel(employee) ==
+                                        color:
+                                            EmployeeListFilters.statusLabel(
+                                                  employee,
+                                                ) ==
                                                 'Active'
                                             ? AppColors.success
                                             : AppColors.textLight,
                                       ),
                                     ),
                                   ),
-                                  DataCell(
-                                    Text(employee.designation),
-                                  ),
-                                  DataCell(
-                                    Text(employee.client),
-                                  ),
+                                  DataCell(Text(employee.designation)),
+                                  DataCell(Text(employee.client)),
                                   DataCell(
                                     Text(
                                       MoneyFormat.format(employee.annualCtc),
-                                      style: textTheme.titleMedium
-                                          ?.copyWith(fontSize: 13),
+                                      style: textTheme.titleMedium?.copyWith(
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
-                                  DataCell(
-                                    Text(employee.location),
-                                  ),
+                                  DataCell(Text(employee.location)),
                                 ],
                               );
                             }).toList(),
@@ -500,8 +500,8 @@ class _EmployeesTableState extends State<EmployeesTable> {
             Icon(
               active
                   ? (_sortAscending
-                      ? Icons.arrow_upward_rounded
-                      : Icons.arrow_downward_rounded)
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded)
                   : Icons.unfold_more_rounded,
               size: 14,
               color: active ? AppColors.highlight : AppColors.textLight,
@@ -545,10 +545,9 @@ class _Pagination extends StatelessWidget {
               child: Text(
                 '${i + 1}',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontSize: 13,
-                      color:
-                          i == page ? AppColors.background : AppColors.text,
-                    ),
+                  fontSize: 13,
+                  color: i == page ? AppColors.background : AppColors.text,
+                ),
               ),
             ),
           ),
@@ -606,8 +605,8 @@ class _EmployeesMobileList extends StatelessWidget {
                       fontSize: 12,
                       color:
                           EmployeeListFilters.statusLabel(employee) == 'Active'
-                              ? AppColors.success
-                              : AppColors.textLight,
+                          ? AppColors.success
+                          : AppColors.textLight,
                     ),
                   ),
                 ],
@@ -616,9 +615,9 @@ class _EmployeesMobileList extends StatelessWidget {
               Text(
                 employee.designation,
                 style: textTheme.bodyMedium?.copyWith(
-                      fontSize: 13,
-                      color: AppColors.text,
-                    ),
+                  fontSize: 13,
+                  color: AppColors.text,
+                ),
               ),
               const SizedBox(height: 4),
               Text(

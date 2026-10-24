@@ -23,6 +23,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
     required this.getInvoicesUseCase,
     required this.createInvoiceUseCase,
     required this.updateInvoiceUseCase,
+    required this.updateInvoicePaymentUseCase,
     required this.getAllPosUseCase,
     required this.getCompanyDetailsUseCase,
   }) : super(InvoicesState.initial()) {
@@ -40,6 +41,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
   final GetInvoicesUseCase getInvoicesUseCase;
   final CreateInvoiceUseCase createInvoiceUseCase;
   final UpdateInvoiceUseCase updateInvoiceUseCase;
+  final UpdateInvoicePaymentUseCase updateInvoicePaymentUseCase;
   final GetAllEmployeePurchaseOrdersUseCase getAllPosUseCase;
   final GetCompanyDetailsUseCase getCompanyDetailsUseCase;
 
@@ -486,7 +488,7 @@ class InvoicesBloc extends Bloc<InvoicesEvent, InvoicesState> {
       clearPaidAt: event.clearPaidAt,
     );
     emit(state.copyWith(status: InvoicesStatus.saving, clearError: true));
-    final result = await updateInvoiceUseCase(updated);
+    final result = await updateInvoicePaymentUseCase(updated);
     result.fold(
       (failure) {
         emit(

@@ -65,17 +65,13 @@ Future<void> showPayslipPreview({
                         children: [
                           Text(
                             employee.employeeName,
-                            style: Theme.of(dialogContext)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(dialogContext).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Payslip · ${slip.periodLabel}',
-                            style: Theme.of(dialogContext)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(dialogContext).textTheme.bodyMedium
                                 ?.copyWith(
                                   fontSize: 12,
                                   color: AppColors.textLight,
@@ -102,7 +98,7 @@ Future<void> showPayslipPreview({
                           );
                         }
                       },
-                      icon: const Icon(Icons.download_outlined),
+                      icon: const Icon(Icons.download),
                     ),
                     IconButton(
                       tooltip: 'Email PDF',
@@ -114,14 +110,14 @@ Future<void> showPayslipPreview({
                             final filename =
                                 'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
                             final company =
-                                (await sl<GetCompanyDetailsUseCase>()())
-                                    .fold((_) => null, (d) => d);
-                            final doc = await PayslipPdfBuilder.build(
-                              [slip],
-                              company: company,
-                            );
-                            final bytes =
-                                Uint8List.fromList(await doc.save());
+                                (await sl<GetCompanyDetailsUseCase>()()).fold(
+                                  (_) => null,
+                                  (d) => d,
+                                );
+                            final doc = await PayslipPdfBuilder.build([
+                              slip,
+                            ], company: company);
+                            final bytes = Uint8List.fromList(await doc.save());
                             await emailPdfDocument(
                               bytes: bytes,
                               filename: filename,
@@ -173,8 +169,10 @@ Future<void> downloadPayslipPdf({
   required List<Payslip> slips,
   required String filename,
 }) async {
-  final company =
-      (await sl<GetCompanyDetailsUseCase>()()).fold((_) => null, (d) => d);
+  final company = (await sl<GetCompanyDetailsUseCase>()()).fold(
+    (_) => null,
+    (d) => d,
+  );
   final doc = await PayslipPdfBuilder.build(slips, company: company);
   final bytes = await doc.save();
   await savePdfBytes(bytes: Uint8List.fromList(bytes), filename: filename);
@@ -262,11 +260,7 @@ class _PayslipPreviewCard extends StatelessWidget {
               );
               if (stacked) {
                 return Column(
-                  children: [
-                    earnings,
-                    const SizedBox(height: 12),
-                    deductions,
-                  ],
+                  children: [earnings, const SizedBox(height: 12), deductions],
                 );
               }
               return Row(
@@ -308,65 +302,87 @@ class _PayslipPreviewCard extends StatelessWidget {
   }
 
   Widget _infoGrid(TextTheme textTheme) {
-    final rows = <List<String>>[
-      ['Employee Code', slip.employeeId, 'Location', slip.location],
-      [
-        'Employee Name',
-        slip.employeeName,
-        'IFSC Code',
-        slip.ifsc.isEmpty ? '-' : slip.ifsc,
-      ],
-      [
-        'Department',
-        slip.department,
-        'Bank A/c No.',
-        slip.bankAccount.isEmpty ? '-' : slip.bankAccount,
-      ],
-      ['Grade', slip.grade, 'PAN', slip.pan.isEmpty ? '-' : slip.pan],
-      [
-        'DOJ',
-        _date.format(slip.dateOfJoining),
-        'UAN',
-        slip.uan.isEmpty ? '-' : slip.uan,
-      ],
-      [
-        'Designation',
-        slip.designation,
-        'Payable Days',
-        '${slip.payableDays}',
-      ],
-      ['LOP Days', '${slip.lopDays}', '', ''],
+    final pairs = <(String, String)>[
+      ('Employee Code', slip.employeeId),
+      ('Location', slip.location),
+      ('Employee Name', slip.employeeName),
+      ('IFSC Code', slip.ifsc.isEmpty ? '-' : slip.ifsc),
+      ('Department', slip.department),
+      ('Bank A/c No.', slip.bankAccount.isEmpty ? '-' : slip.bankAccount),
+      ('Grade', slip.grade),
+      ('PAN', slip.pan.isEmpty ? '-' : slip.pan),
+      ('DOJ', _date.format(slip.dateOfJoining)),
+      ('UAN', slip.uan.isEmpty ? '-' : slip.uan),
+      ('Designation', slip.designation),
+      ('Payable Days', '${slip.payableDays}'),
+      ('LOP Days', '${slip.lopDays}'),
     ];
 
-    return Table(
-      border: TableBorder.all(color: AppColors.border, width: 1),
-      columnWidths: const {
-        0: FlexColumnWidth(1.3),
-        1: FlexColumnWidth(1.7),
-        2: FlexColumnWidth(1.3),
-        3: FlexColumnWidth(1.7),
-      },
-      children: [
-        for (final row in rows)
-          TableRow(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 520;
+        if (stacked) {
+          return Table(
+            border: TableBorder.all(color: AppColors.border, width: 1),
+            columnWidths: const {
+              0: FlexColumnWidth(1.2),
+              1: FlexColumnWidth(1.8),
+            },
             children: [
-              for (var i = 0; i < 4; i++)
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                  child: Text(
-                    row[i],
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontSize: 11,
-                      fontWeight: i.isEven && row[i].isNotEmpty
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
+              for (final pair in pairs)
+                TableRow(
+                  children: [
+                    _infoCell(textTheme, pair.$1, bold: true),
+                    _infoCell(textTheme, pair.$2),
+                  ],
                 ),
             ],
-          ),
-      ],
+          );
+        }
+
+        final rows = <List<String>>[];
+        for (var i = 0; i < pairs.length; i += 2) {
+          final a = pairs[i];
+          final b = i + 1 < pairs.length ? pairs[i + 1] : ('', '');
+          rows.add([a.$1, a.$2, b.$1, b.$2]);
+        }
+
+        return Table(
+          border: TableBorder.all(color: AppColors.border, width: 1),
+          columnWidths: const {
+            0: FlexColumnWidth(1.3),
+            1: FlexColumnWidth(1.7),
+            2: FlexColumnWidth(1.3),
+            3: FlexColumnWidth(1.7),
+          },
+          children: [
+            for (final row in rows)
+              TableRow(
+                children: [
+                  for (var i = 0; i < 4; i++)
+                    _infoCell(
+                      textTheme,
+                      row[i],
+                      bold: i.isEven && row[i].isNotEmpty,
+                    ),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _infoCell(TextTheme textTheme, String text, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      child: Text(
+        text,
+        style: textTheme.bodyMedium?.copyWith(
+          fontSize: 11,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
     );
   }
 
@@ -379,10 +395,7 @@ class _PayslipPreviewCard extends StatelessWidget {
   }) {
     return Table(
       border: TableBorder.all(color: AppColors.border, width: 1),
-      columnWidths: const {
-        0: FlexColumnWidth(2.2),
-        1: FlexColumnWidth(1),
-      },
+      columnWidths: const {0: FlexColumnWidth(2.2), 1: FlexColumnWidth(1)},
       children: [
         TableRow(
           decoration: const BoxDecoration(color: AppColors.surfaceMuted),
@@ -424,10 +437,7 @@ class _PayslipPreviewCard extends StatelessWidget {
   }) {
     return Table(
       border: TableBorder.all(color: AppColors.border, width: 1),
-      columnWidths: const {
-        0: FlexColumnWidth(3),
-        1: FlexColumnWidth(1),
-      },
+      columnWidths: const {0: FlexColumnWidth(3), 1: FlexColumnWidth(1)},
       children: [
         TableRow(
           decoration: const BoxDecoration(color: AppColors.surfaceMuted),
@@ -454,8 +464,8 @@ class _PayslipPreviewCard extends StatelessWidget {
         textAlign: center
             ? TextAlign.center
             : right
-                ? TextAlign.right
-                : TextAlign.left,
+            ? TextAlign.right
+            : TextAlign.left,
         style: textTheme.bodyMedium?.copyWith(
           fontSize: 11,
           fontWeight: bold ? FontWeight.w600 : FontWeight.w400,

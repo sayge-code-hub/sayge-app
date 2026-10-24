@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../../domain/entities/settings_entities.dart';
 
 abstract class SettingsRemoteDataSource {
@@ -33,19 +34,20 @@ class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
   final AuthSession? _authSession;
 
   static const _brandLogosBucket = 'brand-logos';
-  static const _documentsBucket = 'documents';
   static const _companyTable = 'company_details';
 
   String? logoPublicUrl(String? path) {
     final trimmed = path?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    final bucket =
-        trimmed.startsWith('documents/') ? _documentsBucket : _brandLogosBucket;
-    try {
-      return _client.storage.from(bucket).getPublicUrl(trimmed);
-    } catch (_) {
-      return null;
-    }
+    final bucket = AppStorageUrls.bucketForPath(
+      trimmed,
+      publicDefault: _brandLogosBucket,
+    );
+    return AppStorageUrls.publicUrl(
+      _client,
+      bucket: bucket,
+      path: trimmed,
+    );
   }
 
   CompanyDetails _withLogoUrl(CompanyDetails details) {

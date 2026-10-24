@@ -22,9 +22,9 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     required this.getCompanyDetailsUseCase,
     required this.payrollRunRemoteDataSource,
   }) : super(() {
-          final latest = PayslipPeriod.latestAvailable();
-          return PayrollState(month: latest.month, year: latest.year);
-        }()) {
+         final latest = PayslipPeriod.latestAvailable();
+         return PayrollState(month: latest.month, year: latest.year);
+       }()) {
     on<PayrollStarted>(_onStarted);
     on<PayrollMonthChanged>(_onMonthChanged);
     on<PayrollEmployeeToggled>(_onToggled);
@@ -73,24 +73,15 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     );
   }
 
-  void _onMonthChanged(
-    PayrollMonthChanged event,
-    Emitter<PayrollState> emit,
-  ) {
+  void _onMonthChanged(PayrollMonthChanged event, Emitter<PayrollState> emit) {
     final next = state.copyWith(month: event.month, year: event.year);
-    final visibleIds =
-        next.employeesForPeriod.map((e) => e.employeeId).toSet();
+    final visibleIds = next.employeesForPeriod.map((e) => e.employeeId).toSet();
     emit(
-      next.copyWith(
-        selectedIds: state.selectedIds.intersection(visibleIds),
-      ),
+      next.copyWith(selectedIds: state.selectedIds.intersection(visibleIds)),
     );
   }
 
-  void _onToggled(
-    PayrollEmployeeToggled event,
-    Emitter<PayrollState> emit,
-  ) {
+  void _onToggled(PayrollEmployeeToggled event, Emitter<PayrollState> emit) {
     final next = Set<String>.from(state.selectedIds);
     if (next.contains(event.employeeId)) {
       next.remove(event.employeeId);
@@ -100,17 +91,15 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
     emit(state.copyWith(selectedIds: next));
   }
 
-  void _onSelectAll(
-    PayrollSelectAllToggled event,
-    Emitter<PayrollState> emit,
-  ) {
+  void _onSelectAll(PayrollSelectAllToggled event, Emitter<PayrollState> emit) {
     if (state.allSelected) {
       emit(state.copyWith(selectedIds: {}));
     } else {
       emit(
         state.copyWith(
-          selectedIds:
-              state.employeesForPeriod.map((e) => e.employeeId).toSet(),
+          selectedIds: state.employeesForPeriod
+              .map((e) => e.employeeId)
+              .toSet(),
         ),
       );
     }
@@ -160,11 +149,8 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
   ) async {
     final eligible = employees
         .where(
-          (e) => PayslipPeriod.isEligible(
-            e,
-            month: state.month,
-            year: state.year,
-          ),
+          (e) =>
+              PayslipPeriod.isEligible(e, month: state.month, year: state.year),
         )
         .toList(growable: false);
 
@@ -193,10 +179,7 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
           year: state.year,
         );
         slips.add(slip);
-        final doc = await PayslipPdfBuilder.build(
-          [slip],
-          company: company,
-        );
+        final doc = await PayslipPdfBuilder.build([slip], company: company);
         final bytes = await doc.save();
         final filename =
             'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
@@ -213,7 +196,18 @@ class PayrollBloc extends Bloc<PayrollEvent, PayrollState> {
           slips: slips,
         );
       } catch (e, st) {
-        debugPrint('Payroll run persist soft-failed: $e\n$st');
+        // Downloads already succeeded; surface persistence failures clearly.
+        debugPrint('Payroll run persist failed: $e\n$st');
+        emit(
+          state.copyWith(
+            status: PayrollStatus.failure,
+            errorMessage:
+                'Payslips downloaded, but the payroll run could not be saved. '
+                '${e is Exception ? e.toString() : 'Try again.'}',
+          ),
+        );
+        emit(state.copyWith(status: PayrollStatus.ready, clearError: true));
+        return;
       }
       emit(state.copyWith(status: PayrollStatus.ready));
     } catch (e, st) {

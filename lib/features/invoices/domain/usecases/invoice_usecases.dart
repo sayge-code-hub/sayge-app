@@ -31,3 +31,13 @@ class UpdateInvoiceUseCase {
     return _repository.updateInvoice(invoice);
   }
 }
+
+class UpdateInvoicePaymentUseCase {
+  const UpdateInvoicePaymentUseCase(this._repository);
+
+  final InvoiceRepository _repository;
+
+  Future<Either<Failure, Invoice>> call(Invoice invoice) {
+    return _repository.updatePaymentFields(invoice);
+  }
+}

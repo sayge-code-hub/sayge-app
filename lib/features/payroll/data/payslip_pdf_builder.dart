@@ -54,11 +54,7 @@ abstract final class PayslipPdfBuilder {
 }
 
 class _PayslipPage extends pw.StatelessWidget {
-  _PayslipPage({
-    required this.slip,
-    this.logo,
-    this.companyName = '',
-  });
+  _PayslipPage({required this.slip, this.logo, this.companyName = ''});
 
   final Payslip slip;
   final pw.MemoryImage? logo;
@@ -165,24 +161,14 @@ class _PayslipPage extends pw.StatelessWidget {
         'Bank A/c No.',
         slip.bankAccount.isEmpty ? '-' : slip.bankAccount,
       ],
-      [
-        'Grade',
-        slip.grade,
-        'PAN',
-        slip.pan.isEmpty ? '-' : slip.pan,
-      ],
+      ['Grade', slip.grade, 'PAN', slip.pan.isEmpty ? '-' : slip.pan],
       [
         'DOJ',
         PayslipPdfBuilder._date.format(slip.dateOfJoining),
         'UAN',
         slip.uan.isEmpty ? '-' : slip.uan,
       ],
-      [
-        'Designation',
-        slip.designation,
-        'Payable Days',
-        '${slip.payableDays}',
-      ],
+      ['Designation', slip.designation, 'Payable Days', '${slip.payableDays}'],
       ['LOP Days', '${slip.lopDays}', '', ''],
     ];
 
@@ -199,10 +185,7 @@ class _PayslipPage extends pw.StatelessWidget {
           pw.TableRow(
             children: [
               for (var i = 0; i < 4; i++)
-                _pad(
-                  row[i],
-                  bold: i.isEven && row[i].isNotEmpty,
-                ),
+                _pad(row[i], bold: i.isEven && row[i].isNotEmpty),
             ],
           ),
       ],
@@ -257,20 +240,13 @@ class _PayslipPage extends pw.StatelessWidget {
   pw.Widget _netRow() {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.6),
-      columnWidths: const {
-        0: pw.FlexColumnWidth(3),
-        1: pw.FlexColumnWidth(1),
-      },
+      columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FlexColumnWidth(1)},
       children: [
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
           children: [
             _pad('Net In Hand/ Salary to Credit', bold: true),
-            _pad(
-              PayslipPdfBuilder.money(slip.netPay),
-              bold: true,
-              right: true,
-            ),
+            _pad(PayslipPdfBuilder.money(slip.netPay), bold: true, right: true),
           ],
         ),
       ],
@@ -290,8 +266,8 @@ class _PayslipPage extends pw.StatelessWidget {
         textAlign: center
             ? pw.TextAlign.center
             : right
-                ? pw.TextAlign.right
-                : pw.TextAlign.left,
+            ? pw.TextAlign.right
+            : pw.TextAlign.left,
         style: pw.TextStyle(
           fontSize: 9,
           fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,

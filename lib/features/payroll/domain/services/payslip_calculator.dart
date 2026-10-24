@@ -14,15 +14,16 @@ abstract final class PayslipCalculator {
     final retention = AppPayrollConfig.monthlyCtcIncludesRetention
         ? employee.retentionAmount
         : 0.0;
-    final remaining =
-        (employee.monthlyCtc - retention).clamp(0.0, double.infinity).toDouble();
+    final remaining = (employee.monthlyCtc - retention)
+        .clamp(0.0, double.infinity)
+        .toDouble();
 
     if (employee.pfApplicable &&
         AppPayrollConfig.monthlyCtcIncludesEmployerPf) {
       // remaining = basic/share + basic*pfRate = basic * (1/share + pfRate)
       final basicFactor =
           (1 / AppPayrollConfig.basicShareOfGross) +
-              AppPayrollConfig.pfRateOnBasic;
+          AppPayrollConfig.pfRateOnBasic;
       final basic = _round(remaining / basicFactor);
       final employerPf = _round(basic * AppPayrollConfig.pfRateOnBasic);
       final gross = _round(remaining - employerPf);

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
+import '../../../../core/auth/password_setup.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_version_label.dart';
 import '../../../../injection_container.dart';
@@ -31,12 +33,17 @@ class LoginView extends StatelessWidget {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) async {
         if (state.status == LoginStatus.success && state.user != null) {
+          final needsSetup = PasswordSetup.currentUserRequiresSetup();
           await sl<AuthSession>().setUser(
             state.user!,
-            needsPasswordSetup: false,
+            needsPasswordSetup: needsSetup,
           );
           if (!context.mounted) return;
-          context.go(AppAccess.homeRoute(state.user!));
+          context.go(
+            needsSetup
+                ? AppRoutes.setPassword
+                : AppAccess.homeRoute(state.user!),
+          );
         }
       },
       child: Scaffold(

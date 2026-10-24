@@ -289,7 +289,13 @@ class EmployeePurchaseOrderRemoteDataSourceImpl
       throw const ServerException('No file attached to this purchase order.');
     }
     try {
-      return _client.storage.from(_bucket).getPublicUrl(path);
+      // Bucket is private; the signed URL carries the caller's authorisation.
+      return await _client.storage.from(_bucket).createSignedUrl(path, 3600);
+    } on StorageException catch (e) {
+      final message = e.message.trim();
+      throw ServerException(
+        message.isEmpty ? 'Purchase order file is not available.' : message,
+      );
     } catch (_) {
       throw const NetworkException('Failed to get download link.');
     }

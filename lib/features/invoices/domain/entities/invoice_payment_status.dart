@@ -1,12 +1,17 @@
 /// Invoice payment lifecycle.
 enum InvoicePaymentStatus {
   unpaid,
+  sent,
   partial,
   paid,
   overdue;
 
   static InvoicePaymentStatus fromDb(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
+      case 'sent':
+      case 'awaiting':
+      case 'awaiting_payment':
+        return InvoicePaymentStatus.sent;
       case 'partial':
         return InvoicePaymentStatus.partial;
       case 'paid':
@@ -25,6 +30,8 @@ enum InvoicePaymentStatus {
     switch (this) {
       case InvoicePaymentStatus.unpaid:
         return 'Unpaid';
+      case InvoicePaymentStatus.sent:
+        return 'Awaiting payment';
       case InvoicePaymentStatus.partial:
         return 'Partial';
       case InvoicePaymentStatus.paid:
@@ -51,7 +58,7 @@ enum InvoicePaymentStatus {
         : stored;
   }
 
-  /// True when status is unpaid/partial (or stored overdue) and due before today.
+  /// True when status is still open and due before today.
   static bool isOverdue({
     required InvoicePaymentStatus stored,
     required DateTime? dueDate,
@@ -62,7 +69,9 @@ enum InvoicePaymentStatus {
     final now = today ?? DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
     final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
-    final open = stored == InvoicePaymentStatus.unpaid ||
+    final open =
+        stored == InvoicePaymentStatus.unpaid ||
+        stored == InvoicePaymentStatus.sent ||
         stored == InvoicePaymentStatus.partial ||
         stored == InvoicePaymentStatus.overdue;
     return open && due.isBefore(todayDate);

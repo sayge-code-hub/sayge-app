@@ -32,29 +32,7 @@ drop policy if exists "company_details_select_anon" on public.company_details;
 drop policy if exists "company_details_insert_anon" on public.company_details;
 drop policy if exists "company_details_update_anon" on public.company_details;
 drop policy if exists "company_details_delete_anon" on public.company_details;
-
-create policy "company_details_select_anon"
-  on public.company_details for select
-  to anon, authenticated
-  using (true);
-
-create policy "company_details_insert_anon"
-  on public.company_details for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "company_details_update_anon"
-  on public.company_details for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "company_details_delete_anon"
-  on public.company_details for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.company_details to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 insert into public.company_details (
   id,
@@ -86,19 +64,7 @@ values (
   'Deonagar Branch',
   'MSCI0082051'
 )
-on conflict (name) do update set
-  display_name = excluded.display_name,
-  address = excluded.address,
-  gstin = excluded.gstin,
-  pan = excluded.pan,
-  sac_code = excluded.sac_code,
-  telephone = excluded.telephone,
-  email = excluded.email,
-  bank_name = excluded.bank_name,
-  bank_account_no = excluded.bank_account_no,
-  bank_branch = excluded.bank_branch,
-  bank_ifsc = excluded.bank_ifsc,
-  updated_at = now();
+on conflict (name) do nothing;
 
 do $$
 begin

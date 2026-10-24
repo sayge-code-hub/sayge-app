@@ -6,6 +6,7 @@ import '../../../../core/auth/app_access.dart';
 import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/theme/app_accent.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/domain/entities/user.dart';
@@ -31,8 +32,8 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late final EmployeesBloc _employeesBloc =
-      sl<EmployeesBloc>()..add(const EmployeesRequested());
+  late final EmployeesBloc _employeesBloc = sl<EmployeesBloc>()
+    ..add(const EmployeesRequested());
   ClientsBloc? _clientsBloc;
   bool _loggingOut = false;
 
@@ -66,10 +67,7 @@ class _HomeShellState extends State<HomeShell> {
           icon: Icons.groups_outlined,
           selectable: true,
           items: [
-            AppNavItem(
-              label: 'All Employees',
-              icon: Icons.people_outline,
-            ),
+            AppNavItem(label: 'All Employees', icon: Icons.people_outline),
             AppNavItem(
               label: 'Add Employee',
               icon: Icons.person_add_alt_1_outlined,
@@ -87,22 +85,13 @@ class _HomeShellState extends State<HomeShell> {
           icon: Icons.account_balance_wallet_outlined,
           selectable: false,
           items: [
-            AppNavItem(
-              label: 'Payroll',
-              icon: Icons.payments_outlined,
-            ),
+            AppNavItem(label: 'Payroll', icon: Icons.payments_outlined),
             AppNavItem(
               label: 'Profitability',
               icon: Icons.trending_up_outlined,
             ),
-            AppNavItem(
-              label: 'Proposals',
-              icon: Icons.request_quote_outlined,
-            ),
-            AppNavItem(
-              label: 'Invoices',
-              icon: Icons.receipt_long_outlined,
-            ),
+            AppNavItem(label: 'Proposals', icon: Icons.request_quote_outlined),
+            AppNavItem(label: 'Invoices', icon: Icons.receipt_long_outlined),
             AppNavItem(
               label: 'Expense',
               icon: Icons.account_balance_outlined,
@@ -246,6 +235,8 @@ class _HomeShellState extends State<HomeShell> {
     if (path == AppRoutes.companyDetails) return 'Company Details';
     if (path == AppRoutes.roles) return 'Roles';
     if (path == AppRoutes.ledger) return 'Activity ledger';
+    if (path == AppRoutes.theme) return 'Theme';
+    if (path == AppRoutes.categories) return 'Categories';
     if (path == AppRoutes.settings) return 'Settings';
     if (path.startsWith(AppRoutes.pos)) {
       if (path.endsWith('/edit') && path.contains('/brands/')) {
@@ -343,6 +334,8 @@ class _HomeShellState extends State<HomeShell> {
         path == AppRoutes.companyDetails ||
         path == AppRoutes.roles ||
         path == AppRoutes.ledger ||
+        path == AppRoutes.theme ||
+        path == AppRoutes.categories ||
         path == AppRoutes.manageInvites) {
       return () => _goBack(AppRoutes.settings);
     }
@@ -370,15 +363,11 @@ class _HomeShellState extends State<HomeShell> {
             path.endsWith('/add') || path.contains('/products/add');
         if (isProductEdit) {
           return confirming(
-            () => _goBack(
-              AppRoutes.posProductDetail(segments[1], segments[3]),
-            ),
+            () => _goBack(AppRoutes.posProductDetail(segments[1], segments[3])),
           );
         }
         if (isProductAdd) {
-          return confirming(
-            () => _goBack(AppRoutes.posProducts(segments[1])),
-          );
+          return confirming(() => _goBack(AppRoutes.posProducts(segments[1])));
         }
         // Product detail (view) — leave without confirm.
         return () => _goBack(AppRoutes.posProducts(segments[1]));
@@ -427,6 +416,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AppAccent.of(context);
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: _employeesBloc),
@@ -440,7 +430,10 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: _selectDestination,
         onBack: _onBack,
         onLogout: _loggingOut ? null : _logout,
-        body: widget.child,
+        body: KeyedSubtree(
+          key: ValueKey<int>(accent.color.toARGB32()),
+          child: widget.child,
+        ),
       ),
     );
   }

@@ -6,7 +6,7 @@ import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/app_dropdown.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../injection_container.dart';
@@ -22,8 +22,7 @@ class ProfitabilityPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          sl<ProfitabilityBloc>()..add(const ProfitabilityStarted()),
+      create: (_) => sl<ProfitabilityBloc>()..add(const ProfitabilityStarted()),
       child: const _ProfitabilityBody(),
     );
   }
@@ -53,9 +52,9 @@ class _ProfitabilityBody extends StatelessWidget {
               padding: EdgeInsets.all(horizontal),
               child: Text(
                 state.errorMessage ?? 'Could not load profitability.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.error,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
               ),
             ),
           );
@@ -77,19 +76,18 @@ class _ProfitabilityBody extends StatelessWidget {
                   Expanded(
                     child: AppListSearchField(
                       hintText: 'Search clients or employees…',
-                      onChanged: (value) =>
-                          context.read<ProfitabilityBloc>().add(
-                                ProfitabilitySearchChanged(value),
-                              ),
+                      onChanged: (value) => context
+                          .read<ProfitabilityBloc>()
+                          .add(ProfitabilitySearchChanged(value)),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
                     tooltip: 'Export CSV',
                     onPressed: () => context.read<ProfitabilityBloc>().add(
-                          const ProfitabilityExportRequested(),
-                        ),
-                    icon: const Icon(Icons.download_outlined),
+                      const ProfitabilityExportRequested(),
+                    ),
+                    icon: const Icon(Icons.download),
                     color: AppColors.text,
                   ),
                 ],
@@ -97,17 +95,23 @@ class _ProfitabilityBody extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 12),
-              child: AppDropdown<int>(
-                label: 'Financial year',
-                value: fyStart,
-                items: fyOptions,
-                itemLabel: ProfitabilityCalculator.financialYearLabel,
-                onChanged: (value) {
-                  if (value == null) return;
-                  context
-                      .read<ProfitabilityBloc>()
-                      .add(ProfitabilityFyChanged(value));
-                },
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppFilterDropdown<int>(
+                  value: fyStart,
+                  options: [
+                    for (final year in fyOptions)
+                      AppFilterOption(
+                        value: year,
+                        label: ProfitabilityCalculator.financialYearLabel(year),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    context.read<ProfitabilityBloc>().add(
+                      ProfitabilityFyChanged(value),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -126,7 +130,8 @@ class _ProfitabilityBody extends StatelessWidget {
                       builder: (context, constraints) {
                         const gap = 12.0;
                         final cols = constraints.maxWidth >= 900 ? 3 : 2;
-                        final tileW = (constraints.maxWidth -
+                        final tileW =
+                            (constraints.maxWidth -
                                 horizontal * 2 -
                                 gap * (cols - 1)) /
                             cols;
@@ -164,10 +169,7 @@ class _ProfitabilityBody extends StatelessWidget {
 }
 
 class _ClientProfitCard extends StatelessWidget {
-  const _ClientProfitCard({
-    required this.client,
-    required this.fyStartYear,
-  });
+  const _ClientProfitCard({required this.client, required this.fyStartYear});
 
   final ClientProfitability client;
   final int fyStartYear;
@@ -185,10 +187,12 @@ class _ClientProfitCard extends StatelessWidget {
       registry: blocState.registry,
       fyStartYear: fyStartYear,
     );
-    final profitTillDate =
-        months.fold<double>(0, (s, m) => s + m.profit).roundToDouble();
-    final billingTillDate =
-        months.fold<double>(0, (s, m) => s + m.billing).roundToDouble();
+    final profitTillDate = months
+        .fold<double>(0, (s, m) => s + m.profit)
+        .roundToDouble();
+    final billingTillDate = months
+        .fold<double>(0, (s, m) => s + m.billing)
+        .roundToDouble();
     final marginTillDate = billingTillDate > 0
         ? ((profitTillDate / billingTillDate) * 1000).roundToDouble() / 10
         : client.marginPercent;
@@ -272,7 +276,9 @@ class _ClientProfitCard extends StatelessWidget {
           _MetricRow(
             label: 'Monthly profit',
             value: MoneyFormat.format(client.grossProfit),
-            color: client.grossProfit >= 0 ? AppColors.success : AppColors.error,
+            color: client.grossProfit >= 0
+                ? AppColors.success
+                : AppColors.error,
           ),
           const SizedBox(height: 8),
           ProfitabilityMarginBar(marginPercent: marginTillDate),
@@ -326,11 +332,7 @@ class _EmployeeCountChip extends StatelessWidget {
 }
 
 class _MetricRow extends StatelessWidget {
-  const _MetricRow({
-    required this.label,
-    required this.value,
-    this.color,
-  });
+  const _MetricRow({required this.label, required this.value, this.color});
 
   final String label;
   final String value;

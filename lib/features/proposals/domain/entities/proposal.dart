@@ -3,16 +3,22 @@ import 'package:equatable/equatable.dart';
 /// Lifecycle of a proposal / PO in the list.
 enum ProposalPoStatus {
   active,
+  sent,
+  accepted,
   archived;
 
   bool get isMuted => this == ProposalPoStatus.archived;
 
-  bool get includeInBulkDownload => this == ProposalPoStatus.active;
+  bool get includeInBulkDownload => this != ProposalPoStatus.archived;
 
   String get label {
     switch (this) {
       case ProposalPoStatus.active:
         return 'Active';
+      case ProposalPoStatus.sent:
+        return 'Sent';
+      case ProposalPoStatus.accepted:
+        return 'Accepted';
       case ProposalPoStatus.archived:
         return 'Archived';
     }
@@ -22,6 +28,10 @@ enum ProposalPoStatus {
     switch (this) {
       case ProposalPoStatus.active:
         return 'active';
+      case ProposalPoStatus.sent:
+        return 'sent';
+      case ProposalPoStatus.accepted:
+        return 'accepted';
       case ProposalPoStatus.archived:
         return 'archived';
     }
@@ -29,6 +39,10 @@ enum ProposalPoStatus {
 
   static ProposalPoStatus fromStorage(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
+      case 'sent':
+        return ProposalPoStatus.sent;
+      case 'accepted':
+        return ProposalPoStatus.accepted;
       case 'archived':
       case 'voided':
       case 'null':

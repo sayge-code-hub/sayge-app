@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/error/exceptions.dart' as core;
+import '../../../../core/storage/app_storage_urls.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -222,10 +223,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               .maybeSingle();
           final photoPath = (employee?['photo_path'] ?? '').toString().trim();
           if (photoPath.isNotEmpty) {
-            final bucket = photoPath.startsWith('documents/')
-                ? 'documents'
-                : 'employee-avatars';
-            avatarUrl = _client.storage.from(bucket).getPublicUrl(photoPath);
+            final bucket = AppStorageUrls.bucketForPath(
+              photoPath,
+              publicDefault: 'employee-avatars',
+            );
+            avatarUrl = await AppStorageUrls.resolveUrl(
+              _client,
+              bucket: bucket,
+              path: photoPath,
+            );
           }
         } catch (_) {}
       }

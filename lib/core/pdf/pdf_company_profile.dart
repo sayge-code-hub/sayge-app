@@ -54,29 +54,10 @@ class PdfCompanyProfile {
     );
   }
 
-  static Future<PdfCompanyProfile> resolve(CompanyDetails? details) async {
+  /// Text fields only — no logo download. Prefer for on-screen previews.
+  static PdfCompanyProfile resolveSync(CompanyDetails? details) {
     final base = fromConfig();
-    if (details == null) {
-      final bytes = await _assetBytes(AppInvoiceConfig.logoAsset);
-      return PdfCompanyProfile(
-        displayName: base.displayName,
-        address: base.address,
-        gstin: base.gstin,
-        pan: base.pan,
-        sacCode: base.sacCode,
-        telephone: base.telephone,
-        email: base.email,
-        bankName: base.bankName,
-        bankAccountNo: base.bankAccountNo,
-        bankBranch: base.bankBranch,
-        bankIfsc: base.bankIfsc,
-        logoBytes: bytes,
-        regionLabel: base.regionLabel,
-      );
-    }
-
-    Uint8List? logo = await _networkBytes(details.logoUrl);
-    logo ??= await _assetBytes(AppInvoiceConfig.logoAsset);
+    if (details == null) return base;
 
     String pick(String live, String fallback) {
       final t = live.trim();
@@ -95,8 +76,48 @@ class PdfCompanyProfile {
       bankAccountNo: pick(details.bankAccountNo, base.bankAccountNo),
       bankBranch: pick(details.bankBranch, base.bankBranch),
       bankIfsc: pick(details.bankIfsc, base.bankIfsc),
-      logoBytes: logo,
       regionLabel: base.regionLabel,
+    );
+  }
+
+  static Future<PdfCompanyProfile> resolve(CompanyDetails? details) async {
+    final text = resolveSync(details);
+    if (details == null) {
+      final bytes = await _assetBytes(AppInvoiceConfig.logoAsset);
+      return PdfCompanyProfile(
+        displayName: text.displayName,
+        address: text.address,
+        gstin: text.gstin,
+        pan: text.pan,
+        sacCode: text.sacCode,
+        telephone: text.telephone,
+        email: text.email,
+        bankName: text.bankName,
+        bankAccountNo: text.bankAccountNo,
+        bankBranch: text.bankBranch,
+        bankIfsc: text.bankIfsc,
+        logoBytes: bytes,
+        regionLabel: text.regionLabel,
+      );
+    }
+
+    Uint8List? logo = await _networkBytes(details.logoUrl);
+    logo ??= await _assetBytes(AppInvoiceConfig.logoAsset);
+
+    return PdfCompanyProfile(
+      displayName: text.displayName,
+      address: text.address,
+      gstin: text.gstin,
+      pan: text.pan,
+      sacCode: text.sacCode,
+      telephone: text.telephone,
+      email: text.email,
+      bankName: text.bankName,
+      bankAccountNo: text.bankAccountNo,
+      bankBranch: text.bankBranch,
+      bankIfsc: text.bankIfsc,
+      logoBytes: logo,
+      regionLabel: text.regionLabel,
     );
   }
 

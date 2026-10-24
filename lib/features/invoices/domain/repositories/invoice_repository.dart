@@ -9,4 +9,6 @@ abstract class InvoiceRepository {
   Future<Either<Failure, Invoice>> createInvoice(Invoice invoice);
 
   Future<Either<Failure, Invoice>> updateInvoice(Invoice invoice);
+
+  Future<Either<Failure, Invoice>> updatePaymentFields(Invoice invoice);
 }

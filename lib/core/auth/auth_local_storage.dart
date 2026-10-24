@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../theme/app_accent.dart';
+
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/auth/domain/entities/user.dart';
 
@@ -35,8 +37,12 @@ class AuthLocalStorage {
     await _prefs.remove(_userKey);
   }
 
-  /// Wipes all SharedPreferences keys so no login/profile residue remains.
+  /// Wipes login and profile keys. The theme accent is kept.
   Future<void> clearAll() async {
+    final accent = _prefs.getInt(AppAccent.storageKey);
     await _prefs.clear();
+    if (accent != null) {
+      await _prefs.setInt(AppAccent.storageKey, accent);
+    }
   }
 }
