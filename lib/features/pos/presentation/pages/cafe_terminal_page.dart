@@ -100,6 +100,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   @override
   void dispose() {
     CafePosTerminalChrome.newTableTick.removeListener(_onChromeNewTable);
+    CafePosTerminalChrome.clearTablesTick.removeListener(_onChromeClearTables);
     _couponCode.dispose();
     super.dispose();
   }
@@ -108,6 +109,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   void initState() {
     super.initState();
     CafePosTerminalChrome.newTableTick.addListener(_onChromeNewTable);
+    CafePosTerminalChrome.clearTablesTick.addListener(_onChromeClearTables);
     _reload();
     _loadCafe();
   }
@@ -115,6 +117,38 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   void _onChromeNewTable() {
     if (!mounted) return;
     _pickTable();
+  }
+
+  void _onChromeClearTables() {
+    if (!mounted) return;
+    _clearAllTables();
+  }
+
+  Future<void> _clearAllTables() async {
+    if (_sessions.isEmpty) {
+      await showAppMessageDialog(
+        context,
+        title: 'Tables',
+        message: 'No open tables to clear.',
+      );
+      return;
+    }
+    final ok = await confirmLeaveForm(
+      context,
+      title: 'Clear all tables?',
+      message:
+          'This closes every open table tab and clears their carts. '
+          'This cannot be undone.',
+      stayLabel: 'Keep',
+      leaveLabel: 'Clear all',
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      _sessions.clear();
+      _activeKey = null;
+      _couponCode.clear();
+    });
+    await sl<CafeTerminalSessionCache>().clear(widget.cafeId);
   }
 
   Future<void> _persistSessions() async {
@@ -986,6 +1020,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
       activeKey: _activeKey,
       onSelectTab: _selectOpenTab,
       onNewTable: _pickTable,
+      onClearTables: _clearAllTables,
       onCategory: (id) => setState(() => _categoryFilter = id),
       onQuery: (q) => setState(() => _query = q),
       onAdd: _addItem,
@@ -1148,6 +1183,7 @@ class _CatalogPane extends StatelessWidget {
     required this.activeKey,
     required this.onSelectTab,
     required this.onNewTable,
+    required this.onClearTables,
     required this.onCategory,
     required this.onQuery,
     required this.onAdd,
@@ -1163,6 +1199,7 @@ class _CatalogPane extends StatelessWidget {
   final String? activeKey;
   final ValueChanged<CafeTerminalSession> onSelectTab;
   final Future<void> Function() onNewTable;
+  final Future<void> Function() onClearTables;
   final ValueChanged<String?> onCategory;
   final ValueChanged<String> onQuery;
   final ValueChanged<CafeMenuItem> onAdd;
@@ -1178,6 +1215,7 @@ class _CatalogPane extends StatelessWidget {
           activeKey: activeKey,
           onSelect: onSelectTab,
           onPickTable: onNewTable,
+          onClearTables: onClearTables,
         ),
         const SizedBox(height: 12),
         CafePosCategoryBar(
@@ -1219,20 +1257,21 @@ class _OpenTabsDropdown extends StatelessWidget {
     required this.activeKey,
     required this.onSelect,
     required this.onPickTable,
+    required this.onClearTables,
   });
 
   final List<CafeTerminalSession> tabs;
   final String? activeKey;
   final ValueChanged<CafeTerminalSession> onSelect;
   final Future<void> Function() onPickTable;
+  final Future<void> Function() onClearTables;
 
-  static const _allKey = '__all__';
   static const _pickKey = '__pick__';
+  static const _clearKey = '__clear__';
 
   @override
   Widget build(BuildContext context) {
     final options = <AppFilterOption<String>>[
-      const AppFilterOption(value: _allKey, label: 'All tables'),
       for (final tab in tabs)
         AppFilterOption(
           value: tab.storageKey,
@@ -1241,9 +1280,11 @@ class _OpenTabsDropdown extends StatelessWidget {
               : tab.label,
         ),
       const AppFilterOption(value: _pickKey, label: 'Choose table…'),
+      if (tabs.isNotEmpty)
+        const AppFilterOption(value: _clearKey, label: 'Clear all tables…'),
     ];
     final hasActive = tabs.any((t) => t.storageKey == activeKey);
-    final value = hasActive ? activeKey! : _allKey;
+    final value = hasActive ? activeKey! : _pickKey;
 
     return SizedBox(
       width: double.infinity,
@@ -1251,8 +1292,12 @@ class _OpenTabsDropdown extends StatelessWidget {
         value: value,
         options: options,
         onChanged: (key) async {
-          if (key == _allKey || key == _pickKey) {
+          if (key == _pickKey) {
             await onPickTable();
+            return;
+          }
+          if (key == _clearKey) {
+            await onClearTables();
             return;
           }
           for (final tab in tabs) {

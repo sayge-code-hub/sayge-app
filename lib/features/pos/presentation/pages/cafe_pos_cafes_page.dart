@@ -197,18 +197,18 @@ class _CafePosCafesPageState extends State<CafePosCafesPage> {
                     builder: (context, constraints) {
                       final w = constraints.crossAxisExtent;
                       final cross = w >= 900
-                          ? 4
+                          ? 5
                           : w >= 600
-                              ? 3
+                              ? 4
                               : Breakpoints.isDesktop(context)
-                                  ? 3
-                                  : 2;
+                                  ? 4
+                                  : 3;
                       return SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: cross,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 1.05,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 1.45,
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
@@ -247,18 +247,18 @@ class _CafeTile extends StatelessWidget {
     return Material(
       color: AppColors.background,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(CafePosSpace.radius),
+        borderRadius: BorderRadius.circular(10),
         side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CafePosMonogram(label: cafe.name, size: 48),
+              CafePosMonogram(label: cafe.name, size: 36),
               const Spacer(),
               Text(
                 cafe.name,
@@ -266,7 +266,7 @@ class _CafeTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                      fontSize: 12,
                       height: 1.2,
                     ),
               ),

@@ -374,6 +374,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => UpdateCafePrepStatus(sl()));
   sl.registerLazySingleton(() => RecordCafePayment(sl()));
   sl.registerLazySingleton(() => CancelCafeOrder(sl()));
+  sl.registerLazySingleton(() => ClearCafeOrders(sl()));
   sl.registerLazySingleton(() => GetCafeDailyReport(sl()));
   sl.registerLazySingleton(() => GetCafeCoupons(sl()));
   sl.registerLazySingleton(() => LookupCafeCoupon(sl()));

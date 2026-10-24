@@ -69,6 +69,9 @@ abstract class CafePosRemoteDataSource {
     required String reason,
   });
 
+  /// Hard-delete all orders (and cascaded items/payments) for a cafe.
+  Future<void> clearCafeOrders(String cafeId);
+
   Future<CafeDailyReport> getDailyReport({
     required String cafeId,
     required DateTime day,
@@ -725,6 +728,24 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to cancel order.');
+    }
+  }
+
+  @override
+  Future<void> clearCafeOrders(String cafeId) async {
+    final id = cafeId.trim();
+    if (id.isEmpty) {
+      throw const ServerException('Cafe id is required.');
+    }
+    try {
+      // Payments / items cascade from cafe_orders when FKs are set.
+      await _client.from('cafe_payments').delete().eq('cafe_id', id);
+      await _client.from('cafe_orders').delete().eq('cafe_id', id);
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to clear orders.');
     }
   }
 

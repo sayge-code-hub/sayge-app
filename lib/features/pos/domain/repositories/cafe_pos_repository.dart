@@ -68,6 +68,8 @@ abstract class CafePosRepository {
     required String reason,
   });
 
+  Future<Either<Failure, void>> clearCafeOrders(String cafeId);
+
   Future<Either<Failure, CafeDailyReport>> getDailyReport({
     required String cafeId,
     required DateTime day,

@@ -75,19 +75,19 @@ class CafePosHubPage extends StatelessWidget {
             builder: (context, constraints) {
               final w = constraints.maxWidth;
               final cross = w >= 1100
-                  ? 5
+                  ? 6
                   : w >= 820
-                      ? 4
+                      ? 5
                       : w >= 560
-                          ? 3
-                          : 2;
+                          ? 4
+                          : 3;
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: cross,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.15,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.55,
                 children: tiles,
               );
             },

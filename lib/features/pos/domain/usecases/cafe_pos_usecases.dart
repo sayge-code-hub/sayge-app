@@ -154,6 +154,13 @@ class CancelCafeOrder {
       _repo.cancelOrder(orderId: orderId, reason: reason);
 }
 
+class ClearCafeOrders {
+  const ClearCafeOrders(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, void>> call(String cafeId) =>
+      _repo.clearCafeOrders(cafeId);
+}
+
 class GetCafeDailyReport {
   const GetCafeDailyReport(this._repo);
   final CafePosRepository _repo;

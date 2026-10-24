@@ -13,6 +13,21 @@ import '../../data/cafe_guest_menu_api.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../guest/guest_menu_theme.dart';
 
+String _guestItemInitials(String name) {
+  final words = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .map((w) => w.replaceAll(RegExp(r'[^A-Za-z0-9]'), ''))
+      .where((w) => w.isNotEmpty && !RegExp(r'^\d+$').hasMatch(w))
+      .toList();
+  if (words.isEmpty) return '?';
+  if (words.length == 1) {
+    final s = words.first;
+    return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
+  }
+  return '${words[0][0]}${words[1][0]}'.toUpperCase();
+}
+
 /// Public customer menu — mobile-first QR experience (`/m/:cafeId`).
 class CafeGuestMenuPage extends StatefulWidget {
   const CafeGuestMenuPage({
@@ -136,14 +151,20 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     final menu = _menu;
     if (menu == null) return const [];
     var list = menu.items;
-    if (_categoryId != null) {
-      list = list.where((i) => i.categoryId == _categoryId).toList();
+    final catId = _categoryId?.trim();
+    if (catId != null && catId.isNotEmpty) {
+      list = list.where((i) => i.categoryId.trim() == catId).toList();
     }
     final q = _search.trim().toLowerCase();
     if (q.isNotEmpty) {
       list = list.where((i) => i.name.toLowerCase().contains(q)).toList();
     }
     return list;
+  }
+
+  void _selectCategory(String? id) {
+    HapticFeedback.selectionClick();
+    setState(() => _categoryId = id);
   }
 
   GuestMenuTheme get _theme =>
@@ -364,7 +385,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                   delegate: _CategoryHeaderDelegate(
                     categories: menu.categories,
                     selectedId: _categoryId,
-                    onSelected: (id) => setState(() => _categoryId = id),
+                    onSelected: _selectCategory,
                     accent: accent,
                     background: bg,
                     chipStyle: theme.layout == GuestMenuLayout.fresh
@@ -373,9 +394,10 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                   ),
                 ),
               if (_visible.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
+                  key: ValueKey('empty-${_categoryId ?? 'all'}-$_search'),
                   hasScrollBody: false,
-                  child: Center(
+                  child: const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
@@ -391,6 +413,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                 )
               else if (theme.layout == GuestMenuLayout.gallery)
                 SliverPadding(
+                  key: ValueKey('grid-${_categoryId ?? 'all'}-$_search'),
                   padding: EdgeInsets.fromLTRB(
                     14,
                     10,
@@ -422,6 +445,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                 )
               else
                 SliverPadding(
+                  key: ValueKey('list-${_categoryId ?? 'all'}-$_search'),
                   padding: EdgeInsets.fromLTRB(
                     16,
                     8,
@@ -751,32 +775,40 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(
+    // Row + horizontal SingleChildScrollView (not ListView) so chip taps
+    // win over the outer CustomScrollView on Flutter web.
+    return Material(
       color: background,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _CatChip(
-            label: 'All',
-            selected: selectedId == null,
-            accent: accent,
-            style: chipStyle,
-            onTap: () => onSelected(null),
+      elevation: overlapsContent ? 1.5 : 0,
+      shadowColor: const Color(0xFF141210).withValues(alpha: 0.12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _CatChip(
+                label: 'All',
+                selected: selectedId == null,
+                accent: accent,
+                style: chipStyle,
+                onTap: () => onSelected(null),
+              ),
+              const SizedBox(width: 8),
+              for (final c in categories) ...[
+                _CatChip(
+                  label: c.name,
+                  selected: selectedId == c.id,
+                  accent: accent,
+                  style: chipStyle,
+                  onTap: () => onSelected(c.id),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
           ),
-          const SizedBox(width: 8),
-          for (final c in categories) ...[
-            _CatChip(
-              label: c.name,
-              selected: selectedId == c.id,
-              accent: accent,
-              style: chipStyle,
-              onTap: () => onSelected(c.id),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -818,24 +850,24 @@ class _CatChip extends StatelessWidget {
         : style == GuestChipStyle.accent
             ? accent
             : const Color(0xFF141210);
-    return Material(
-      color: fill,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
-        side: BorderSide(color: border),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : const Color(0xFF2A221C),
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : const Color(0xFF2A221C),
           ),
         ),
       ),
@@ -858,15 +890,7 @@ class _MenuRow extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
 
-  String get _initials {
-    final parts = item.name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) {
-      final s = parts.first;
-      return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
-    }
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
+  String get _initials => _guestItemInitials(item.name);
 
   @override
   Widget build(BuildContext context) {
@@ -1529,15 +1553,7 @@ class _FreshMenuRow extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
 
-  String get _initials {
-    final parts = item.name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) {
-      final s = parts.first;
-      return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
-    }
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
+  String get _initials => _guestItemInitials(item.name);
 
   @override
   Widget build(BuildContext context) {
@@ -1714,15 +1730,7 @@ class _GalleryCard extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
 
-  String get _initials {
-    final parts = item.name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) {
-      final s = parts.first;
-      return s.substring(0, s.length >= 2 ? 2 : 1).toUpperCase();
-    }
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
+  String get _initials => _guestItemInitials(item.name);
 
   @override
   Widget build(BuildContext context) {

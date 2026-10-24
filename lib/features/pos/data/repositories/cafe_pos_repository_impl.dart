@@ -161,6 +161,10 @@ class CafePosRepositoryImpl implements CafePosRepository {
       );
 
   @override
+  Future<Either<Failure, void>> clearCafeOrders(String cafeId) =>
+      _guard(() => remoteDataSource.clearCafeOrders(cafeId));
+
+  @override
   Future<Either<Failure, CafeDailyReport>> getDailyReport({
     required String cafeId,
     required DateTime day,

@@ -456,6 +456,11 @@ class _HomeShellState extends State<HomeShell> {
     final path = Uri.tryParse(widget.location)?.path ?? widget.location;
     if (!path.contains('/terminal')) return null;
     return [
+      IconButton(
+        tooltip: 'Clear all tables',
+        onPressed: CafePosTerminalChrome.requestClearTables,
+        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+      ),
       Padding(
         padding: const EdgeInsets.only(right: 8),
         child: TextButton.icon(

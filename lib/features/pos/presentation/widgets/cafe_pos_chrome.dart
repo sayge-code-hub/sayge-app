@@ -63,11 +63,14 @@ class CafePosPageHeader extends StatelessWidget {
   }
 }
 
-/// Bumps when shell "New table" is tapped on the terminal route.
+/// Bumps when shell terminal actions are tapped.
 abstract final class CafePosTerminalChrome {
   static final ValueNotifier<int> newTableTick = ValueNotifier<int>(0);
+  static final ValueNotifier<int> clearTablesTick = ValueNotifier<int>(0);
 
   static void requestNewTable() => newTableTick.value++;
+
+  static void requestClearTables() => clearTablesTick.value++;
 }
 
 class CafePosEmptyState extends StatelessWidget {
@@ -192,7 +195,7 @@ class CafePosMonogram extends StatelessWidget {
   }
 }
 
-/// Large tappable nav tile for Cafe POS hub (works in 2-col mobile grids).
+/// Compact tappable nav tile for Cafe POS hub.
 class CafePosNavTile extends StatelessWidget {
   const CafePosNavTile({
     super.key,
@@ -214,26 +217,26 @@ class CafePosNavTile extends StatelessWidget {
       color: AppColors.background,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(CafePosSpace.radius),
+        borderRadius: BorderRadius.circular(10),
         side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: AppColors.highlight.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(7),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 18, color: AppColors.highlight),
+                child: Icon(icon, size: 15, color: AppColors.highlight),
               ),
               const Spacer(),
               Text(
@@ -242,7 +245,7 @@ class CafePosNavTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: AppColors.text,
                 ),
               ),
@@ -250,11 +253,11 @@ class CafePosNavTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
-                    fontSize: 11,
-                    height: 1.25,
+                    fontSize: 10,
+                    height: 1.2,
                     color: AppColors.textLight,
                   ),
                 ),
@@ -265,6 +268,31 @@ class CafePosNavTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Shared compact app-bar controls for Orders / Reports date + actions.
+abstract final class CafePosHeaderActions {
+  static const double controlRadius = 6;
+
+  static ButtonStyle dateButtonStyle() => TextButton.styleFrom(
+        foregroundColor: AppColors.text,
+        backgroundColor: AppColors.background,
+        side: const BorderSide(color: AppColors.border),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(controlRadius),
+        ),
+        visualDensity: VisualDensity.compact,
+      );
+
+  static ButtonStyle iconButtonStyle() => IconButton.styleFrom(
+        backgroundColor: AppColors.background,
+        side: const BorderSide(color: AppColors.border),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(controlRadius),
+        ),
+        visualDensity: VisualDensity.compact,
+      );
 }
 
 class CafePosStatusChip extends StatelessWidget {
