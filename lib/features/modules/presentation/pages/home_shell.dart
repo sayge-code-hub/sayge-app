@@ -259,15 +259,8 @@ class _HomeShellState extends State<HomeShell> {
     if (path == AppRoutes.theme) return 'Theme';
     if (path == AppRoutes.categories) return 'Categories';
     if (path == AppRoutes.settings) return 'Settings';
-    if (path.startsWith(AppRoutes.pos)) {
-      if (path.endsWith('/menu')) return 'Menu';
-      if (path.endsWith('/terminal')) return 'Terminal';
-      if (path.endsWith('/kitchen')) return 'Kitchen';
-      if (path.endsWith('/orders')) return 'Orders';
-      if (path.endsWith('/reports')) return 'Reports';
-      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Cafe POS';
-      return 'POS';
-    }
+    // Cafe POS: no chrome title — page headers live in the body; brand is the tab title.
+    if (path.startsWith(AppRoutes.pos)) return '';
     if (path.startsWith(AppRoutes.expenses)) return 'Expense';
     if (path.startsWith(AppRoutes.invoices)) return 'Invoices';
     if (path.startsWith(AppRoutes.proposals)) return 'Proposals';
@@ -290,10 +283,11 @@ class _HomeShellState extends State<HomeShell> {
 
     if (_isCafeRole) {
       final clientId = AppAccess.cafeIdOf(widget.user);
-      if (clientId != null &&
-          path.startsWith('${AppRoutes.pos}/$clientId/') &&
-          path != AppRoutes.posCafe(clientId)) {
-        return () => _goBack(AppRoutes.posCafe(clientId));
+      if (clientId == null) return null;
+      final cafeHome = AppRoutes.posCafe(clientId);
+      if (path == cafeHome) return null;
+      if (path.startsWith('${AppRoutes.pos}/$clientId/')) {
+        return () => _posBack(path, clientId);
       }
       return null;
     }
@@ -374,21 +368,40 @@ class _HomeShellState extends State<HomeShell> {
     if (RegExp(r'^/profitability/[^/]+$').hasMatch(path)) {
       return () => _goBack(AppRoutes.profitability);
     }
-    if (path.contains('/pos/') &&
-        (path.endsWith('/menu') ||
-            path.endsWith('/terminal') ||
-            path.endsWith('/kitchen') ||
-            path.endsWith('/orders') ||
-            path.endsWith('/reports'))) {
+    if (path.startsWith('${AppRoutes.pos}/')) {
       final segments = Uri.parse(path).pathSegments;
+      // pathSegments: ['pos', cafeId, ...]
       if (segments.length >= 2) {
-        return () => _goBack(AppRoutes.posCafe(segments[1]));
+        final cafeId = segments[1];
+        if (segments.length == 2) {
+          return () => _goBack(AppRoutes.pos);
+        }
+        return () => _posBack(path, cafeId);
       }
     }
-    if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) {
-      return () => _goBack(AppRoutes.pos);
-    }
+    if (path == AppRoutes.pos) return null;
     return null;
+  }
+
+  /// Nested POS screens: pop when possible, else go to the logical parent.
+  void _posBack(String path, String cafeId) {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    if (path.endsWith('/settings/coupons') ||
+        path.endsWith('/settings/tax') ||
+        path.endsWith('/settings/qr')) {
+      context.go(AppRoutes.posSettings(cafeId));
+      return;
+    }
+    if (path.endsWith('/menu/categories') ||
+        path.endsWith('/menu/add') ||
+        (path.contains('/menu/') && path.endsWith('/edit'))) {
+      context.go(AppRoutes.posMenu(cafeId));
+      return;
+    }
+    context.go(AppRoutes.posCafe(cafeId));
   }
 
   void _goBack(String fallback) {

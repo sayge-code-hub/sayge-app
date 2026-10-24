@@ -70,7 +70,7 @@ class _SaygeAppState extends State<SaygeApp> {
     return AccentScope(
       accent: sl<AppAccent>(),
       child: MaterialApp.router(
-        title: 'Sayge',
+        title: 'Saasify',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: _router,

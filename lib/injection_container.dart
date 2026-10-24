@@ -63,6 +63,8 @@ import 'features/invoices/presentation/bloc/invoices_bloc.dart';
 import 'features/payroll/data/datasources/payroll_run_remote_datasource.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
 import 'features/profitability/presentation/bloc/profitability_bloc.dart';
+import 'features/pos/data/cafe_guest_menu_api.dart';
+import 'features/pos/data/cafe_terminal_session_cache.dart';
 import 'features/pos/data/datasources/cafe_pos_remote_datasource.dart';
 import 'features/pos/data/repositories/cafe_pos_repository_impl.dart';
 import 'features/pos/domain/repositories/cafe_pos_repository.dart';
@@ -349,6 +351,8 @@ Future<void> initDependencies() async {
     () => DocumentRepositoryImpl(remoteDataSource: sl()),
   );
 
+  sl.registerLazySingleton(() => CafeTerminalSessionCache(prefs));
+  sl.registerLazySingleton(() => CafeGuestMenuApi());
   sl.registerLazySingleton<CafePosRemoteDataSource>(
     () => CafePosRemoteDataSourceImpl(),
   );
@@ -369,6 +373,10 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => RecordCafePayment(sl()));
   sl.registerLazySingleton(() => CancelCafeOrder(sl()));
   sl.registerLazySingleton(() => GetCafeDailyReport(sl()));
+  sl.registerLazySingleton(() => GetCafeCoupons(sl()));
+  sl.registerLazySingleton(() => LookupCafeCoupon(sl()));
+  sl.registerLazySingleton(() => UpsertCafeCoupon(sl()));
+  sl.registerLazySingleton(() => DeleteCafeCoupon(sl()));
 }
 
 /// Restores app user when Supabase still has a valid session.

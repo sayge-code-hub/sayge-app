@@ -36,6 +36,9 @@ abstract class CafePosRepository {
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
+    String? couponId,
+    String couponCode = '',
+    String tableNo = '',
   });
 
   Future<Either<Failure, CafeOrder>> updatePrepStatus({
@@ -58,4 +61,15 @@ abstract class CafePosRepository {
     required String cafeId,
     required DateTime day,
   });
+
+  Future<Either<Failure, List<CafeCoupon>>> getCoupons(String cafeId);
+
+  Future<Either<Failure, CafeCoupon?>> lookupCoupon({
+    required String cafeId,
+    required String code,
+  });
+
+  Future<Either<Failure, CafeCoupon>> upsertCoupon(CafeCoupon coupon);
+
+  Future<Either<Failure, void>> deleteCoupon(String id);
 }

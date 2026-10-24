@@ -3,12 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
-import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/app_hub_tile.dart';
 import '../../../../injection_container.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
+import '../widgets/cafe_pos_chrome.dart';
 
 class CafePosHubPage extends StatefulWidget {
   const CafePosHubPage({super.key, required this.cafeId});
@@ -20,7 +19,7 @@ class CafePosHubPage extends StatefulWidget {
 }
 
 class _CafePosHubPageState extends State<CafePosHubPage> {
-  String _title = 'Cafe POS';
+  String _title = 'Cafe';
 
   @override
   void initState() {
@@ -45,27 +44,28 @@ class _CafePosHubPageState extends State<CafePosHubPage> {
     final user = sl<AuthSession>().user;
     final cafeId = widget.cafeId;
     if (!AppAccess.canAccessCafe(user, cafeId)) {
-      return const Center(child: Text('You cannot access this cafe.'));
+      return const CafePosBackdrop(
+        child: Center(child: Text('You cannot access this cafe.')),
+      );
     }
 
-    final isDesktop = Breakpoints.isDesktop(context);
-    final tiles = <AppHubTile>[
+    final tiles = <CafePosNavTile>[
       if (AppAccess.canManageCafeMenu(user, cafeId))
-        AppHubTile(
+        CafePosNavTile(
           icon: Icons.restaurant_menu_outlined,
           title: 'Menu',
-          subtitle: 'Categories and items',
+          subtitle: 'Categories & prices',
           onTap: () => context.go(AppRoutes.posMenu(cafeId)),
         ),
       if (AppAccess.canRunCafeTerminal(user, cafeId))
-        AppHubTile(
+        CafePosNavTile(
           icon: Icons.point_of_sale_outlined,
           title: 'Terminal',
-          subtitle: 'Take orders and payments',
+          subtitle: 'Orders & payments',
           onTap: () => context.go(AppRoutes.posTerminal(cafeId)),
         ),
       if (AppAccess.canRunCafeKitchen(user, cafeId))
-        AppHubTile(
+        CafePosNavTile(
           icon: Icons.soup_kitchen_outlined,
           title: 'Kitchen',
           subtitle: 'Prep status board',
@@ -73,62 +73,78 @@ class _CafePosHubPageState extends State<CafePosHubPage> {
         ),
       if (AppAccess.canRunCafeTerminal(user, cafeId) ||
           AppAccess.canRunCafeKitchen(user, cafeId))
-        AppHubTile(
+        CafePosNavTile(
           icon: Icons.receipt_long_outlined,
           title: 'Orders',
-          subtitle: 'History and cancellations',
+          subtitle: 'History & cancel',
           onTap: () => context.go(AppRoutes.posOrders(cafeId)),
         ),
       if (AppAccess.canViewCafeReports(user, cafeId))
-        AppHubTile(
+        CafePosNavTile(
           icon: Icons.bar_chart_outlined,
           title: 'Reports',
-          subtitle: 'Daily sales summary',
+          subtitle: 'Daily sales',
           onTap: () => context.go(AppRoutes.posReports(cafeId)),
+        ),
+      if (AppAccess.canManageCafeMenu(user, cafeId))
+        CafePosNavTile(
+          icon: Icons.settings_outlined,
+          title: 'Settings',
+          subtitle: 'Coupons, tax & QR menu',
+          onTap: () => context.go(AppRoutes.posSettings(cafeId)),
         ),
     ];
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-        isDesktop ? 32 : 16,
-        16,
-        isDesktop ? 32 : 16,
-        24,
+    return CafePosBackdrop(
+      child: ListView(
+        padding: CafePosSpace.page(context),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CafePosMonogram(label: _title, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CafePosPageHeader(
+                  title: _title,
+                  subtitle: 'Choose a station to continue',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final cross = w >= 1100
+                  ? 5
+                  : w >= 820
+                      ? 4
+                      : w >= 560
+                          ? 3
+                          : 2;
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: cross,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: cross >= 4 ? 1.45 : (cross >= 3 ? 1.35 : 1.25),
+                children: tiles,
+              );
+            },
+          ),
+          if (tiles.isEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'No POS actions available for your role.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textLight,
+                  ),
+            ),
+          ],
+        ],
       ),
-      children: [
-        Text(
-          _title,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Cafe point of sale',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textLight,
-              ),
-        ),
-        const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final cross = constraints.maxWidth >= 900
-                ? 4
-                : constraints.maxWidth >= 600
-                    ? 2
-                    : 1;
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: cross,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: cross == 1 ? 3.2 : 1.35,
-              children: tiles,
-            );
-          },
-        ),
-      ],
     );
   }
 }

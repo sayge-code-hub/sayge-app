@@ -111,14 +111,58 @@ class Cafe extends Equatable {
     required this.id,
     required this.name,
     this.isActive = true,
+    this.showGstOnBill = true,
+    this.gstLabel = 'GST',
+    this.gstSplitHalves = false,
+    this.tableCount = 16,
   });
 
   final String id;
   final String name;
   final bool isActive;
 
+  /// Show tax / GST lines on the terminal bill.
+  final bool showGstOnBill;
+
+  /// Bill label for tax (e.g. GST).
+  final String gstLabel;
+
+  /// Split tax into CGST + SGST (half each) on the bill.
+  final bool gstSplitHalves;
+
+  /// Numbered dine-in tables available on the terminal (1…[tableCount]).
+  final int tableCount;
+
+  Cafe copyWith({
+    String? id,
+    String? name,
+    bool? isActive,
+    bool? showGstOnBill,
+    String? gstLabel,
+    bool? gstSplitHalves,
+    int? tableCount,
+  }) {
+    return Cafe(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      isActive: isActive ?? this.isActive,
+      showGstOnBill: showGstOnBill ?? this.showGstOnBill,
+      gstLabel: gstLabel ?? this.gstLabel,
+      gstSplitHalves: gstSplitHalves ?? this.gstSplitHalves,
+      tableCount: tableCount ?? this.tableCount,
+    );
+  }
+
   @override
-  List<Object?> get props => [id, name, isActive];
+  List<Object?> get props => [
+        id,
+        name,
+        isActive,
+        showGstOnBill,
+        gstLabel,
+        gstSplitHalves,
+        tableCount,
+      ];
 }
 
 class CafeCategory extends Equatable {
@@ -233,6 +277,9 @@ class CafeOrder extends Equatable {
     this.items = const [],
     this.cancelReason = '',
     this.cancelledAt,
+    this.couponId,
+    this.couponCode = '',
+    this.tableNo = '',
   });
 
   final String id;
@@ -249,6 +296,11 @@ class CafeOrder extends Equatable {
   final List<CafeOrderItem> items;
   final String cancelReason;
   final DateTime? cancelledAt;
+  final String? couponId;
+  final String couponCode;
+
+  /// Dine-in table number; empty for takeaway.
+  final String tableNo;
 
   @override
   List<Object?> get props => [
@@ -266,6 +318,9 @@ class CafeOrder extends Equatable {
         items,
         cancelReason,
         cancelledAt,
+        couponId,
+        couponCode,
+        tableNo,
       ];
 }
 
@@ -338,4 +393,109 @@ class CafeCartLine {
   String notes;
 
   double get lineTotal => menuItem.price * quantity;
+}
+
+enum CafeDiscountType { percent, fixed }
+
+extension CafeDiscountTypeX on CafeDiscountType {
+  String get dbValue => name;
+
+  String get label => switch (this) {
+        CafeDiscountType.percent => 'Percent %',
+        CafeDiscountType.fixed => 'Fixed amount',
+      };
+
+  static CafeDiscountType fromDb(String? raw) {
+    switch ((raw ?? '').trim().toLowerCase()) {
+      case 'fixed':
+        return CafeDiscountType.fixed;
+      default:
+        return CafeDiscountType.percent;
+    }
+  }
+}
+
+class CafeCoupon extends Equatable {
+  const CafeCoupon({
+    required this.id,
+    required this.cafeId,
+    required this.code,
+    required this.discountType,
+    required this.discountValue,
+    this.name = '',
+    this.minOrderAmount = 0,
+    this.maxDiscountAmount,
+    this.isActive = true,
+    this.startsAt,
+    this.endsAt,
+    this.maxUses,
+    this.usageCount = 0,
+  });
+
+  final String id;
+  final String cafeId;
+  final String code;
+  final String name;
+  final CafeDiscountType discountType;
+  final double discountValue;
+  final double minOrderAmount;
+  final double? maxDiscountAmount;
+  final bool isActive;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final int? maxUses;
+  final int usageCount;
+
+  /// Discount amount for a cart subtotal (before tax). Never exceeds [subtotal]+[tax].
+  double discountFor({required double subtotal, required double tax}) {
+    if (subtotal <= 0) return 0;
+    if (minOrderAmount > 0 && subtotal < minOrderAmount) return 0;
+    double amount;
+    if (discountType == CafeDiscountType.percent) {
+      amount = subtotal * (discountValue / 100);
+      final cap = maxDiscountAmount;
+      if (cap != null && cap > 0 && amount > cap) amount = cap;
+    } else {
+      amount = discountValue;
+    }
+    final maxAllowed = subtotal + tax;
+    if (amount > maxAllowed) amount = maxAllowed;
+    if (amount < 0) return 0;
+    return double.parse(amount.toStringAsFixed(2));
+  }
+
+  String? validationError({required double subtotal}) {
+    if (!isActive) return 'This coupon is inactive.';
+    final now = DateTime.now();
+    if (startsAt != null && now.isBefore(startsAt!)) {
+      return 'This coupon is not active yet.';
+    }
+    if (endsAt != null && now.isAfter(endsAt!)) {
+      return 'This coupon has expired.';
+    }
+    if (maxUses != null && usageCount >= maxUses!) {
+      return 'This coupon has reached its usage limit.';
+    }
+    if (minOrderAmount > 0 && subtotal < minOrderAmount) {
+      return 'Minimum order is required for this coupon.';
+    }
+    return null;
+  }
+
+  @override
+  List<Object?> get props => [
+        id,
+        cafeId,
+        code,
+        name,
+        discountType,
+        discountValue,
+        minOrderAmount,
+        maxDiscountAmount,
+        isActive,
+        startsAt,
+        endsAt,
+        maxUses,
+        usageCount,
+      ];
 }

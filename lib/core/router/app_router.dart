@@ -21,12 +21,19 @@ import '../../features/payroll/presentation/pages/payroll_page.dart';
 import '../../features/profitability/presentation/pages/profitability_client_page.dart';
 import '../../features/profitability/presentation/pages/profitability_page.dart';
 import '../../features/profitability/presentation/pages/profitability_projections_page.dart';
+import '../../features/pos/presentation/pages/cafe_categories_page.dart';
+import '../../features/pos/presentation/pages/cafe_coupons_page.dart';
 import '../../features/pos/presentation/pages/cafe_kitchen_page.dart';
+import '../../features/pos/presentation/pages/cafe_menu_item_page.dart';
 import '../../features/pos/presentation/pages/cafe_menu_page.dart';
 import '../../features/pos/presentation/pages/cafe_orders_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_cafes_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_hub_page.dart';
+import '../../features/pos/presentation/pages/cafe_guest_menu_page.dart';
+import '../../features/pos/presentation/pages/cafe_pos_settings_page.dart';
+import '../../features/pos/presentation/pages/cafe_qr_print_page.dart';
 import '../../features/pos/presentation/pages/cafe_reports_page.dart';
+import '../../features/pos/presentation/pages/cafe_tax_settings_page.dart';
 import '../../features/pos/presentation/pages/cafe_terminal_page.dart';
 import '../../features/proposals/domain/entities/proposal.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
@@ -61,28 +68,40 @@ Page<void> _page(GoRouterState state, Widget child) {
 
 /// True when hash-based routing (or a mangled invite URL) turned a Supabase
 /// auth fragment into a bogus path like `/sb`.
+///
+/// Only short opaque segments are treated as debris — unknown real paths
+/// (e.g. a not-yet-deployed `/m/...`) must not redirect to set-password.
 bool _isAuthHashDebris(String location) {
-  final path = Uri.tryParse(location)?.path ?? location;
+  final path = (Uri.tryParse(location)?.path ?? location).trim();
   if (path.isEmpty || path == AppRoutes.root) return false;
-  const knownPrefixes = <String>[
-    AppRoutes.login,
-    AppRoutes.setPassword,
-    AppRoutes.dashboard,
-    AppRoutes.hrms,
-    AppRoutes.myDetails,
-    AppRoutes.dms,
-    AppRoutes.payroll,
-    AppRoutes.profitability,
-    AppRoutes.proposals,
-    AppRoutes.invoices,
-    AppRoutes.expenses,
-    AppRoutes.settings,
-    AppRoutes.pos,
-  ];
-  for (final prefix in knownPrefixes) {
-    if (path == prefix || path.startsWith('$prefix/')) return false;
+  final segment = path.startsWith('/') ? path.substring(1) : path;
+  if (segment.contains('/')) return false;
+  // Invite debris: /sb, /error, single opaque tokens — not real app modules.
+  if (segment == 'sb' || segment == 'error') return true;
+  if (segment.length <= 8 && RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(segment)) {
+    const known = {
+      'login',
+      'dashboard',
+      'hrms',
+      'dms',
+      'payroll',
+      'profitability',
+      'proposals',
+      'invoices',
+      'expenses',
+      'settings',
+      'pos',
+      'm',
+    };
+    return !known.contains(segment.toLowerCase());
   }
-  return true;
+  return false;
+}
+
+bool _isGuestMenuPath(String location) {
+  final path = (Uri.tryParse(location)?.path ?? location).trim();
+  return path == AppRoutes.guestMenu ||
+      path.startsWith('${AppRoutes.guestMenu}/');
 }
 
 GoRouter createAppRouter(AuthSession authSession) {
@@ -91,6 +110,11 @@ GoRouter createAppRouter(AuthSession authSession) {
     refreshListenable: authSession,
     onException: (_, GoRouterState state, GoRouter router) {
       // Invite links: …/set-password#sb… must never surface as /sb 404.
+      if (_isGuestMenuPath(state.uri.path) ||
+          _isGuestMenuPath(state.matchedLocation)) {
+        // Keep guest URLs on failure instead of bouncing to login/set-password.
+        return;
+      }
       if (_isAuthHashDebris(state.uri.path) ||
           _isAuthHashDebris(state.matchedLocation)) {
         router.go(AppRoutes.setPassword);
@@ -100,7 +124,14 @@ GoRouter createAppRouter(AuthSession authSession) {
     },
     redirect: (context, state) {
       final location = state.matchedLocation;
-      if (_isAuthHashDebris(location) || _isAuthHashDebris(state.uri.path)) {
+      final uriPath = state.uri.path;
+
+      // Public QR guest menu — no auth shell (check URI path too).
+      if (_isGuestMenuPath(location) || _isGuestMenuPath(uriPath)) {
+        return null;
+      }
+
+      if (_isAuthHashDebris(location) || _isAuthHashDebris(uriPath)) {
         return AppRoutes.setPassword;
       }
 
@@ -133,6 +164,17 @@ GoRouter createAppRouter(AuthSession authSession) {
       GoRoute(
         path: AppRoutes.setPassword,
         pageBuilder: (context, state) => _page(state, const SetPasswordPage()),
+      ),
+      GoRoute(
+        path: '/m/:cafeId',
+        pageBuilder: (context, state) {
+          final cafeId = state.pathParameters['cafeId'] ?? '';
+          final table = state.uri.queryParameters['t'] ?? '';
+          return _page(
+            state,
+            CafeGuestMenuPage(cafeId: cafeId, tableNo: table),
+          );
+        },
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -340,6 +382,30 @@ GoRouter createAppRouter(AuthSession authSession) {
             ),
           ),
           GoRoute(
+            path: '/pos/:cafeId/menu/add',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeMenuItemPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/menu/categories',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeCategoriesPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/menu/:itemId/edit',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeMenuItemPage(
+                cafeId: state.pathParameters['cafeId']!,
+                itemId: state.pathParameters['itemId'],
+              ),
+            ),
+          ),
+          GoRoute(
             path: '/pos/:cafeId/menu',
             pageBuilder: (context, state) => _page(
               state,
@@ -372,6 +438,34 @@ GoRouter createAppRouter(AuthSession authSession) {
             pageBuilder: (context, state) => _page(
               state,
               CafeReportsPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/settings/coupons',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeCouponsPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/settings/tax',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeTaxSettingsPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/settings/qr',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafeQrPrintPage(cafeId: state.pathParameters['cafeId']!),
+            ),
+          ),
+          GoRoute(
+            path: '/pos/:cafeId/settings',
+            pageBuilder: (context, state) => _page(
+              state,
+              CafePosSettingsPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(

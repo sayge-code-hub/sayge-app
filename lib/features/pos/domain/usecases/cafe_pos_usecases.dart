@@ -78,12 +78,18 @@ class CreateCafeOrder {
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
+    String? couponId,
+    String couponCode = '',
+    String tableNo = '',
   }) =>
       _repo.createOrder(
         cafeId: cafeId,
         orderType: orderType,
         lines: lines,
         discountAmount: discountAmount,
+        couponId: couponId,
+        couponCode: couponCode,
+        tableNo: tableNo,
       );
 }
 
@@ -130,4 +136,34 @@ class GetCafeDailyReport {
     required DateTime day,
   }) =>
       _repo.getDailyReport(cafeId: cafeId, day: day);
+}
+
+class GetCafeCoupons {
+  const GetCafeCoupons(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, List<CafeCoupon>>> call(String cafeId) =>
+      _repo.getCoupons(cafeId);
+}
+
+class LookupCafeCoupon {
+  const LookupCafeCoupon(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, CafeCoupon?>> call({
+    required String cafeId,
+    required String code,
+  }) =>
+      _repo.lookupCoupon(cafeId: cafeId, code: code);
+}
+
+class UpsertCafeCoupon {
+  const UpsertCafeCoupon(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, CafeCoupon>> call(CafeCoupon coupon) =>
+      _repo.upsertCoupon(coupon);
+}
+
+class DeleteCafeCoupon {
+  const DeleteCafeCoupon(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, void>> call(String id) => _repo.deleteCoupon(id);
 }
