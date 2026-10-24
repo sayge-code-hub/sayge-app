@@ -15,6 +15,7 @@ class InviteEmployeeRemoteDataSource {
     String fullName = '',
     String roleId = 'role_employee',
     String employeeId = '',
+    String clientId = '',
   }) async {
     await _invoke(
       body: {
@@ -23,6 +24,7 @@ class InviteEmployeeRemoteDataSource {
         'fullName': fullName.trim(),
         'roleId': roleId.trim(),
         if (employeeId.trim().isNotEmpty) 'employeeId': employeeId.trim(),
+        if (clientId.trim().isNotEmpty) 'clientId': clientId.trim(),
         if (AppConfig.inviteRedirectUrl.isNotEmpty)
           'redirectTo': AppConfig.inviteRedirectUrl,
       },

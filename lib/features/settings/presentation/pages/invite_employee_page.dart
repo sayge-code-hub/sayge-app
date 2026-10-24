@@ -14,7 +14,9 @@ import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/domain/usecases/get_employees.dart';
 import '../../data/datasources/invite_employee_remote_datasource.dart';
+import '../../domain/entities/client.dart';
 import '../../domain/entities/settings_entities.dart';
+import '../../domain/usecases/get_clients.dart';
 import '../bloc/roles/roles_bloc.dart';
 
 class InviteEmployeePage extends StatelessWidget {
@@ -45,8 +47,11 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   final _fullName = TextEditingController();
   String? _roleId = 'role_employee';
   String? _employeeId;
+  String? _clientId;
   List<Employee> _employees = const [];
+  List<Client> _clients = const [];
   bool _loadingEmployees = true;
+  bool _loadingClients = true;
   bool _sending = false;
   String? _error;
 
@@ -54,6 +59,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   void initState() {
     super.initState();
     _loadEmployees();
+    _loadClients();
   }
 
   Future<void> _loadEmployees() async {
@@ -71,6 +77,34 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     );
   }
 
+  Future<void> _loadClients() async {
+    final result = await sl<GetClientsUseCase>()();
+    if (!mounted) return;
+    result.fold(
+      (_) => setState(() {
+        _clients = const [];
+        _loadingClients = false;
+      }),
+      (list) => setState(() {
+        _clients = list.where((c) => c.isActive).toList();
+        _loadingClients = false;
+      }),
+    );
+  }
+
+  String? _roleCode(List<AppRole> roles, [String? roleId]) {
+    final id = (roleId ?? _roleId)?.trim() ?? '';
+    for (final role in roles) {
+      if (role.id == id) return role.code.trim().toLowerCase();
+    }
+    return null;
+  }
+
+  bool _roleNeedsClient(List<AppRole> roles, [String? roleId]) {
+    final code = _roleCode(roles, roleId);
+    return code != null && AppAccess.cafeRoleCodes.contains(code);
+  }
+
   @override
   void dispose() {
     _localPart.dispose();
@@ -84,7 +118,9 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     for (final role in roles) {
       if (role.id != id) continue;
       final code = role.code.trim().toLowerCase();
-      return !AppAccess.staffRoleCodes.contains(code);
+      if (AppAccess.staffRoleCodes.contains(code)) return false;
+      if (AppAccess.cafeRoleCodes.contains(code)) return false;
+      return true;
     }
     // Unknown id — treat as employee-style invite.
     return id == 'role_employee' || id.contains('employee');
@@ -114,9 +150,15 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     }
 
     final needsLink = _roleNeedsEmployeeLink(roles);
+    final needsClient = _roleNeedsClient(roles);
     if (needsLink &&
         (_employeeId == null || _employeeId!.trim().isEmpty)) {
       setState(() => _error = 'Select the HRMS employee to link');
+      return;
+    }
+    if (needsClient &&
+        (_clientId == null || _clientId!.trim().isEmpty)) {
+      setState(() => _error = 'Select the cafe client for this POS role');
       return;
     }
 
@@ -131,6 +173,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
         fullName: _fullName.text.trim(),
         roleId: _roleId ?? 'role_employee',
         employeeId: needsLink ? (_employeeId ?? '') : '',
+        clientId: needsClient ? (_clientId ?? '') : '',
       );
       if (!mounted) return;
       await showAppMessageDialog(
@@ -144,6 +187,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
       setState(() {
         _roleId = 'role_employee';
         _employeeId = null;
+        _clientId = null;
       });
     } catch (e) {
       final raw = e.toString();
@@ -172,6 +216,8 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
             ? _roleId!
             : roles.first.id;
         final needsLink = _roleNeedsEmployeeLink(roles, roleValue);
+        final needsClient = _roleNeedsClient(roles, roleValue);
+        final clientIds = _clients.map((c) => c.id).toList();
 
         return Column(
           children: [
@@ -180,13 +226,17 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
                 children: [
                   Text(
-                    needsLink
+                    needsClient
                         ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
-                            'Link an existing HRMS employee so their dashboard shows '
-                            'details and salary slips. They set their own password.'
-                        : 'Send an invite to a @${Validators.allowedEmailDomain} address. '
-                            'Owners and admins do not need an HRMS employee link. '
-                            'They set their own password from the email.',
+                            'Cafe POS roles must be bound to one Client. '
+                            'They set their own password from the email.'
+                        : needsLink
+                            ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
+                                'Link an existing HRMS employee so their dashboard shows '
+                                'details and salary slips. They set their own password.'
+                            : 'Send an invite to a @${Validators.allowedEmailDomain} address. '
+                                'Owners and admins do not need an HRMS employee link. '
+                                'They set their own password from the email.',
                     style: textTheme.bodyMedium?.copyWith(
                       fontSize: 13,
                       color: AppColors.textLight,
@@ -235,10 +285,44 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                         if (!_roleNeedsEmployeeLink(roles, id)) {
                           _employeeId = null;
                         }
+                        if (!_roleNeedsClient(roles, id)) {
+                          _clientId = null;
+                        }
                         _error = null;
                       });
                     },
                   ),
+                  if (needsClient) ...[
+                    const SizedBox(height: 12),
+                    if (_loadingClients)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.text,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      AppDropdown<String>(
+                        label: 'Cafe client',
+                        value: clientIds.contains(_clientId) ? _clientId : null,
+                        items: clientIds,
+                        itemLabel: (id) {
+                          final match = _clients.where((c) => c.id == id);
+                          return match.isEmpty ? id : match.first.name;
+                        },
+                        enabled: !_sending && clientIds.isNotEmpty,
+                        onChanged: (id) {
+                          setState(() => _clientId = id);
+                        },
+                      ),
+                  ],
                   if (needsLink) ...[
                     const SizedBox(height: 12),
                     if (_loadingEmployees)

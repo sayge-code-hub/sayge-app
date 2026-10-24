@@ -63,14 +63,10 @@ import 'features/invoices/presentation/bloc/invoices_bloc.dart';
 import 'features/payroll/data/datasources/payroll_run_remote_datasource.dart';
 import 'features/payroll/presentation/bloc/payroll_bloc.dart';
 import 'features/profitability/presentation/bloc/profitability_bloc.dart';
-import 'features/pos/data/datasources/pos_remote_datasource.dart';
-import 'features/pos/data/repositories/pos_repository_impl.dart';
-import 'features/pos/domain/repositories/pos_repository.dart';
-import 'features/pos/domain/usecases/pos_usecases.dart';
-import 'features/pos/presentation/bloc/pos_brands_bloc.dart';
-import 'features/pos/presentation/bloc/pos_product_detail_bloc.dart';
-import 'features/pos/presentation/bloc/pos_product_form_bloc.dart';
-import 'features/pos/presentation/bloc/pos_products_bloc.dart';
+import 'features/pos/data/datasources/cafe_pos_remote_datasource.dart';
+import 'features/pos/data/repositories/cafe_pos_repository_impl.dart';
+import 'features/pos/domain/repositories/cafe_pos_repository.dart';
+import 'features/pos/domain/usecases/cafe_pos_usecases.dart';
 import 'features/proposals/data/datasources/proposal_remote_datasource.dart';
 import 'features/proposals/data/repositories/proposal_repository_impl.dart';
 import 'features/proposals/domain/repositories/proposal_repository.dart';
@@ -353,58 +349,24 @@ Future<void> initDependencies() async {
     () => DocumentRepositoryImpl(remoteDataSource: sl()),
   );
 
-  sl.registerFactory(
-    () => PosBrandsBloc(
-      getBrandsUseCase: sl(),
-      upsertBrandUseCase: sl(),
-      deleteBrandUseCase: sl(),
-      publicImageUrlUseCase: sl(),
-    ),
+  sl.registerLazySingleton<CafePosRemoteDataSource>(
+    () => CafePosRemoteDataSourceImpl(),
   );
-  sl.registerFactory(
-    () => PosProductsBloc(
-      getBrandUseCase: sl(),
-      getProductsUseCase: sl(),
-      deleteProductUseCase: sl(),
-      publicImageUrlUseCase: sl(),
-    ),
+  sl.registerLazySingleton<CafePosRepository>(
+    () => CafePosRepositoryImpl(remoteDataSource: sl()),
   );
-  sl.registerFactory(
-    () => PosProductFormBloc(
-      getProductUseCase: sl(),
-      upsertProductUseCase: sl(),
-      deleteProductUseCase: sl(),
-      publicImageUrlUseCase: sl(),
-    ),
-  );
-  sl.registerFactory(
-    () => PosProductDetailBloc(
-      getProductDetailUseCase: sl(),
-      recordPurchaseUseCase: sl(),
-      upsertPriceRuleUseCase: sl(),
-      deletePriceRuleUseCase: sl(),
-      publicImageUrlUseCase: sl(),
-    ),
-  );
-  sl.registerLazySingleton(() => GetPosBrandsUseCase(sl()));
-  sl.registerLazySingleton(() => GetPosBrandUseCase(sl()));
-  sl.registerLazySingleton(() => UpsertPosBrandUseCase(sl()));
-  sl.registerLazySingleton(() => DeletePosBrandUseCase(sl()));
-  sl.registerLazySingleton(() => GetPosProductsUseCase(sl()));
-  sl.registerLazySingleton(() => GetPosProductUseCase(sl()));
-  sl.registerLazySingleton(() => GetPosProductDetailUseCase(sl()));
-  sl.registerLazySingleton(() => UpsertPosProductUseCase(sl()));
-  sl.registerLazySingleton(() => DeletePosProductUseCase(sl()));
-  sl.registerLazySingleton(() => RecordPosPurchaseUseCase(sl()));
-  sl.registerLazySingleton(() => UpsertPosPriceRuleUseCase(sl()));
-  sl.registerLazySingleton(() => DeletePosPriceRuleUseCase(sl()));
-  sl.registerLazySingleton(() => PosPublicImageUrlUseCase(sl()));
-  sl.registerLazySingleton<PosRemoteDataSource>(
-    () => PosRemoteDataSourceImpl(),
-  );
-  sl.registerLazySingleton<PosRepository>(
-    () => PosRepositoryImpl(remoteDataSource: sl()),
-  );
+  sl.registerLazySingleton(() => GetCafeCategories(sl()));
+  sl.registerLazySingleton(() => UpsertCafeCategory(sl()));
+  sl.registerLazySingleton(() => DeleteCafeCategory(sl()));
+  sl.registerLazySingleton(() => GetCafeMenuItems(sl()));
+  sl.registerLazySingleton(() => UpsertCafeMenuItem(sl()));
+  sl.registerLazySingleton(() => DeleteCafeMenuItem(sl()));
+  sl.registerLazySingleton(() => GetCafeOrders(sl()));
+  sl.registerLazySingleton(() => CreateCafeOrder(sl()));
+  sl.registerLazySingleton(() => UpdateCafePrepStatus(sl()));
+  sl.registerLazySingleton(() => RecordCafePayment(sl()));
+  sl.registerLazySingleton(() => CancelCafeOrder(sl()));
+  sl.registerLazySingleton(() => GetCafeDailyReport(sl()));
 }
 
 /// Restores app user when Supabase still has a valid session.

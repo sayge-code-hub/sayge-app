@@ -14,7 +14,8 @@ Always finish with `security_hardening.sql`, then run `security_verification.sql
    - `employees_date_of_birth.sql`
    - `dms_entities_subtitle.sql`
    - `lock_signup_provisioning.sql`
-   - `pos.sql`, then `pos_product_commerce.sql`
+   - `pos.sql`, then `pos_product_commerce.sql` (legacy retail catalog; optional)
+   - `cafe_pos.sql` (Client-scoped Cafe POS MVP — preferred)
 3. `security_hardening.sql` (**last**)
 4. `security_verification.sql` — checks 1–3, 7–9, 14 must be empty
 5. Deploy edge function: `supabase functions deploy invite-employee --no-verify-jwt`
@@ -32,6 +33,7 @@ expense_categories.sql
 proposals_status_lifecycle.sql
 invoices_payment_status_sent.sql
 lock_signup_provisioning.sql
+cafe_pos.sql
 security_hardening.sql
 security_verification.sql
 ```
