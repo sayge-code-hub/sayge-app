@@ -64,11 +64,7 @@ class _InvoicesBody extends StatelessWidget {
       listener: (context, state) {
         final message = state.errorMessage;
         if (message != null) {
-          showAppMessageDialog(
-            context,
-            title: 'Invoices',
-            message: message,
-          );
+          showAppMessageDialog(context, title: 'Invoices', message: message);
         }
       },
       builder: (context, state) {
@@ -82,7 +78,9 @@ class _InvoicesBody extends StatelessWidget {
         }
         if (state.view == InvoicesView.form) {
           return _InvoiceFormView(
-            key: ValueKey('invoice-form-${state.editingId ?? state.draftInvoiceNo}'),
+            key: ValueKey(
+              'invoice-form-${state.editingId ?? state.draftInvoiceNo}',
+            ),
             state: state,
           );
         }
@@ -157,7 +155,9 @@ class _InvoiceListState extends State<_InvoiceList> {
               invoice.totalAmount,
               invoice.displayPaymentStatus().label,
               invoice.amountPaid,
-              invoice.dueDate == null ? '' : dateFormat.format(invoice.dueDate!),
+              invoice.dueDate == null
+                  ? ''
+                  : dateFormat.format(invoice.dueDate!),
             ],
         ],
       );
@@ -185,8 +185,10 @@ class _InvoiceListState extends State<_InvoiceList> {
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: 'Export CSV',
-                      onPressed: widget.state.invoices.isEmpty ? null : exportCsv,
-                      icon: const Icon(Icons.download_outlined),
+                      onPressed: widget.state.invoices.isEmpty
+                          ? null
+                          : exportCsv,
+                      icon: const Icon(Icons.download),
                       color: AppColors.text,
                     ),
                     const SizedBox(width: 4),
@@ -203,8 +205,10 @@ class _InvoiceListState extends State<_InvoiceList> {
                     ),
                     IconButton(
                       tooltip: 'Export CSV',
-                      onPressed: widget.state.invoices.isEmpty ? null : exportCsv,
-                      icon: const Icon(Icons.download_outlined),
+                      onPressed: widget.state.invoices.isEmpty
+                          ? null
+                          : exportCsv,
+                      icon: const Icon(Icons.download),
                       color: AppColors.text,
                     ),
                   ],
@@ -217,202 +221,280 @@ class _InvoiceListState extends State<_InvoiceList> {
                   child: Text(
                     'No invoices yet.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textLight,
-                        ),
+                      color: AppColors.textLight,
+                    ),
                   ),
                 )
               : invoices.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No matching invoices.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textLight,
-                            ),
+              ? Center(
+                  child: Text(
+                    'No matching invoices.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.fromLTRB(
+                    isDesktop ? 32 : 16,
+                    16,
+                    isDesktop ? 32 : 16,
+                    24,
+                  ),
+                  itemCount: invoices.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final invoice = invoices[index];
+                    final party = invoice.buyerCompany.isNotEmpty
+                        ? invoice.buyerCompany
+                        : invoice.buyerName;
+                    return AppListCard(
+                      onTap: () => showInvoicePreview(
+                        context: context,
+                        invoice: invoice,
+                        onEdit: () => context.read<InvoicesBloc>().add(
+                          InvoiceEditOpened(invoice),
+                        ),
+                        onClone: () => context.read<InvoicesBloc>().add(
+                          InvoiceCloneOpened(invoice),
+                        ),
                       ),
-                    )
-                  : ListView.separated(
-                      padding: EdgeInsets.fromLTRB(
-                        isDesktop ? 32 : 16,
-                        16,
-                        isDesktop ? 32 : 16,
-                        24,
-                      ),
-                      itemCount: invoices.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final invoice = invoices[index];
-                        final party = invoice.buyerCompany.isNotEmpty
-                            ? invoice.buyerCompany
-                            : invoice.buyerName;
-                        return AppListCard(
-                          onTap: () => showInvoicePreview(
-                            context: context,
-                            invoice: invoice,
-                            onEdit: () => context.read<InvoicesBloc>().add(
-                                  InvoiceEditOpened(invoice),
-                                ),
-                            onClone: () => context.read<InvoicesBloc>().add(
-                                  InvoiceCloneOpened(invoice),
-                                ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            invoice.invoiceNo,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(fontSize: 14),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _PaymentStatusChip(
-                                          status:
-                                              invoice.displayPaymentStatus(),
-                                        ),
-                                      ],
+                                    Flexible(
+                                      child: Text(
+                                        invoice.invoiceNo,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(fontSize: 14),
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        if (party.isNotEmpty) ...[
-                                          Flexible(
-                                            child: ClientNameLabel(
-                                              name: party,
-                                              contactName: invoice.buyerName,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    fontSize: 12,
-                                                    color: AppColors.textLight,
-                                                  ),
-                                              logoRadius: 7,
-                                            ),
-                                          ),
-                                          Text(
-                                            ' · ',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  fontSize: 12,
-                                                  color: AppColors.textLight,
-                                                ),
-                                          ),
-                                        ],
-                                        Flexible(
-                                          child: Text(
-                                            [
-                                              dateFormat
-                                                  .format(invoice.invoiceDate),
-                                              if (invoice.poNumber.isNotEmpty)
-                                                'PO ${invoice.poNumber}',
-                                            ]
-                                                .where((e) => e.isNotEmpty)
-                                                .join(' · '),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  fontSize: 12,
-                                                  color: AppColors.textLight,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
+                                    const SizedBox(width: 8),
+                                    _PaymentStatusChip(
+                                      status: invoice.displayPaymentStatus(),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                MoneyFormat.format(invoice.totalAmount),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontSize: 13),
-                              ),
-                              const SizedBox(width: 4),
-                              if (invoice.displayPaymentStatus() !=
-                                  InvoicePaymentStatus.paid)
-                                AppListIconButton(
-                                  tooltip: 'Mark paid',
-                                  onPressed: () => context
-                                      .read<InvoicesBloc>()
-                                      .add(
-                                        InvoicePaymentUpdated(
-                                          invoice: invoice,
-                                          paymentStatus:
-                                              InvoicePaymentStatus.paid,
-                                          amountPaid: invoice.totalAmount,
-                                          dueDate: invoice.dueDate,
-                                          paidAt: DateTime.now(),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if (party.isNotEmpty) ...[
+                                      Flexible(
+                                        child: ClientNameLabel(
+                                          name: party,
+                                          contactName: invoice.buyerName,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontSize: 12,
+                                                color: AppColors.textLight,
+                                              ),
+                                          logoRadius: 7,
                                         ),
                                       ),
-                                  icon: Icons.check_circle_outline,
+                                      Text(
+                                        ' · ',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 12,
+                                              color: AppColors.textLight,
+                                            ),
+                                      ),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        [
+                                              dateFormat.format(
+                                                invoice.invoiceDate,
+                                              ),
+                                              if (invoice.poNumber.isNotEmpty)
+                                                'PO ${invoice.poNumber}',
+                                            ]
+                                            .where((e) => e.isNotEmpty)
+                                            .join(' · '),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 12,
+                                              color: AppColors.textLight,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              if (invoice.displayPaymentStatus() ==
-                                      InvoicePaymentStatus.unpaid ||
-                                  invoice.displayPaymentStatus() ==
-                                      InvoicePaymentStatus.overdue)
-                                AppListIconButton(
-                                  tooltip: 'Mark partial',
-                                  onPressed: () {
-                                    final half =
-                                        (invoice.totalAmount / 2).roundToDouble();
-                                    context.read<InvoicesBloc>().add(
-                                          InvoicePaymentUpdated(
-                                            invoice: invoice,
-                                            paymentStatus:
-                                                InvoicePaymentStatus.partial,
-                                            amountPaid: half > 0
-                                                ? half
-                                                : invoice.amountPaid,
-                                            dueDate: invoice.dueDate,
-                                            clearPaidAt: true,
-                                          ),
-                                        );
-                                  },
-                                  icon: Icons.payments_outlined,
-                                ),
-                              AppListIconButton(
-                                tooltip: 'Edit',
-                                onPressed: () => context
-                                    .read<InvoicesBloc>()
-                                    .add(InvoiceEditOpened(invoice)),
-                                icon: Icons.edit_outlined,
-                              ),
-                              AppListIconButton(
-                                tooltip: 'Clone',
-                                onPressed: () => context
-                                    .read<InvoicesBloc>()
-                                    .add(InvoiceCloneOpened(invoice)),
-                                icon: Icons.copy_outlined,
-                              ),
-                              AppListIconButton(
-                                tooltip: 'Download PDF',
-                                onPressed: () => context
-                                    .read<InvoicesBloc>()
-                                    .add(InvoiceDownloadRequested(invoice)),
-                                icon: Icons.download_outlined,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        );
-                      },
-                    ),
+                          const SizedBox(width: 12),
+                          Text(
+                            MoneyFormat.format(invoice.totalAmount),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(fontSize: 13),
+                          ),
+                          const SizedBox(width: 4),
+                          _InvoiceRowActions(
+                            invoice: invoice,
+                            compact: !isDesktop,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
         if (!isDesktop) AppStickyActions(children: [newInvoice]),
+      ],
+    );
+  }
+}
+
+class _InvoiceRowActions extends StatelessWidget {
+  const _InvoiceRowActions({
+    required this.invoice,
+    required this.compact,
+  });
+
+  final Invoice invoice;
+  final bool compact;
+
+  void _markSent(BuildContext context) {
+    context.read<InvoicesBloc>().add(
+      InvoicePaymentUpdated(
+        invoice: invoice,
+        paymentStatus: InvoicePaymentStatus.sent,
+        amountPaid: invoice.amountPaid,
+        dueDate: invoice.dueDate,
+        clearPaidAt: true,
+      ),
+    );
+  }
+
+  void _markPaid(BuildContext context) {
+    context.read<InvoicesBloc>().add(
+      InvoicePaymentUpdated(
+        invoice: invoice,
+        paymentStatus: InvoicePaymentStatus.paid,
+        amountPaid: invoice.totalAmount,
+        dueDate: invoice.dueDate,
+        paidAt: DateTime.now(),
+      ),
+    );
+  }
+
+  void _markPartial(BuildContext context) {
+    final half = (invoice.totalAmount / 2).roundToDouble();
+    context.read<InvoicesBloc>().add(
+      InvoicePaymentUpdated(
+        invoice: invoice,
+        paymentStatus: InvoicePaymentStatus.partial,
+        amountPaid: half > 0 ? half : invoice.amountPaid,
+        dueDate: invoice.dueDate,
+        clearPaidAt: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Use stored status so overdue display still allows Mark sent.
+    final stored = invoice.paymentStatus;
+    final canSend = stored == InvoicePaymentStatus.unpaid;
+    final canPay = stored != InvoicePaymentStatus.paid;
+    final canPartial =
+        stored == InvoicePaymentStatus.unpaid ||
+        stored == InvoicePaymentStatus.sent ||
+        stored == InvoicePaymentStatus.overdue;
+
+    if (compact) {
+      return PopupMenuButton<String>(
+        tooltip: 'Actions',
+        icon: const Icon(Icons.more_vert, color: AppColors.text),
+        onSelected: (value) {
+          switch (value) {
+            case 'sent':
+              _markSent(context);
+            case 'paid':
+              _markPaid(context);
+            case 'partial':
+              _markPartial(context);
+            case 'edit':
+              context.read<InvoicesBloc>().add(InvoiceEditOpened(invoice));
+            case 'clone':
+              context.read<InvoicesBloc>().add(InvoiceCloneOpened(invoice));
+            case 'download':
+              context.read<InvoicesBloc>().add(
+                InvoiceDownloadRequested(invoice),
+              );
+          }
+        },
+        itemBuilder: (context) => [
+          if (canSend)
+            const PopupMenuItem(value: 'sent', child: Text('Mark sent')),
+          if (canPay)
+            const PopupMenuItem(value: 'paid', child: Text('Mark paid')),
+          if (canPartial)
+            const PopupMenuItem(value: 'partial', child: Text('Mark partial')),
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          const PopupMenuItem(value: 'clone', child: Text('Clone')),
+          const PopupMenuItem(value: 'download', child: Text('Download PDF')),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (canSend)
+          AppListIconButton(
+            tooltip: 'Mark sent, awaiting payment',
+            onPressed: () => _markSent(context),
+            icon: Icons.send_outlined,
+          ),
+        if (canPay)
+          AppListIconButton(
+            tooltip: 'Mark paid',
+            onPressed: () => _markPaid(context),
+            icon: Icons.check_circle_outline,
+          ),
+        if (canPartial)
+          AppListIconButton(
+            tooltip: 'Mark partial',
+            onPressed: () => _markPartial(context),
+            icon: Icons.payments_outlined,
+          ),
+        AppListIconButton(
+          tooltip: 'Edit',
+          onPressed: () =>
+              context.read<InvoicesBloc>().add(InvoiceEditOpened(invoice)),
+          icon: Icons.edit_outlined,
+        ),
+        AppListIconButton(
+          tooltip: 'Clone',
+          onPressed: () =>
+              context.read<InvoicesBloc>().add(InvoiceCloneOpened(invoice)),
+          icon: Icons.copy_outlined,
+        ),
+        AppListIconButton(
+          tooltip: 'Download PDF',
+          onPressed: () => context.read<InvoicesBloc>().add(
+            InvoiceDownloadRequested(invoice),
+          ),
+          icon: Icons.download,
+        ),
       ],
     );
   }
@@ -433,6 +515,8 @@ class _PaymentStatusChip extends StatelessWidget {
         color = AppColors.highlight;
       case InvoicePaymentStatus.overdue:
         color = AppColors.error;
+      case InvoicePaymentStatus.sent:
+        color = AppColors.text;
       case InvoicePaymentStatus.unpaid:
         color = AppColors.textLight;
     }
@@ -445,10 +529,10 @@ class _PaymentStatusChip extends StatelessWidget {
       child: Text(
         status.label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -505,8 +589,8 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
       text: s.draftAmountPaid == 0
           ? ''
           : (s.draftAmountPaid == s.draftAmountPaid.roundToDouble()
-              ? '${s.draftAmountPaid.round()}'
-              : s.draftAmountPaid.toStringAsFixed(2)),
+                ? '${s.draftAmountPaid.round()}'
+                : s.draftAmountPaid.toStringAsFixed(2)),
     );
     _dueDate = s.draftDueDate;
     _paidAt = s.draftPaidAt;
@@ -590,32 +674,32 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
   void _submit() {
     final paid = double.tryParse(_amountPaid.text.trim()) ?? 0;
     context.read<InvoicesBloc>().add(
-          InvoiceSubmitted(
-            invoiceNo: _invoiceNo.text,
-            invoiceDate: _invoiceDate,
-            poNumber: _poNumber.text,
-            placeOfSupply: _place.text,
-            buyerName: _buyerName.text,
-            buyerCompany: _buyerCompany.text,
-            buyerAddress: _buyerAddress.text,
-            buyerGstin: _buyerGstin.text,
-            buyerContact: _buyerContact.text,
-            intraState: _intraState,
-            paymentStatus: _paymentStatus,
-            amountPaid: paid,
-            dueDate: _dueDate,
-            paidAt: _paymentStatus == InvoicePaymentStatus.paid
-                ? (_paidAt ?? DateTime.now())
-                : null,
-            lines: [
-              for (final line in _lines)
-                InvoiceDraftLine(
-                  particulars: line.particulars.text,
-                  amount: line.amount.text,
-                ),
-            ],
-          ),
-        );
+      InvoiceSubmitted(
+        invoiceNo: _invoiceNo.text,
+        invoiceDate: _invoiceDate,
+        poNumber: _poNumber.text,
+        placeOfSupply: _place.text,
+        buyerName: _buyerName.text,
+        buyerCompany: _buyerCompany.text,
+        buyerAddress: _buyerAddress.text,
+        buyerGstin: _buyerGstin.text,
+        buyerContact: _buyerContact.text,
+        intraState: _intraState,
+        paymentStatus: _paymentStatus,
+        amountPaid: paid,
+        dueDate: _dueDate,
+        paidAt: _paymentStatus == InvoicePaymentStatus.paid
+            ? (_paidAt ?? DateTime.now())
+            : null,
+        lines: [
+          for (final line in _lines)
+            InvoiceDraftLine(
+              particulars: line.particulars.text,
+              amount: line.amount.text,
+            ),
+        ],
+      ),
+    );
   }
 
   void _applyClient(Client? client) {
@@ -655,15 +739,11 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
       return employees.where((e) => e.isActive).toList()
         ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
     }
-    return employees
-        .where((e) {
-          if (!e.isActive) return false;
-          if (e.clientId.isNotEmpty && e.clientId == client.id) return true;
-          return e.client.trim().toLowerCase() ==
-              client.name.trim().toLowerCase();
-        })
-        .toList()
-      ..sort((a, b) => a.employeeName.compareTo(b.employeeName));
+    return employees.where((e) {
+      if (!e.isActive) return false;
+      if (e.clientId.isNotEmpty && e.clientId == client.id) return true;
+      return e.client.trim().toLowerCase() == client.name.trim().toLowerCase();
+    }).toList()..sort((a, b) => a.employeeName.compareTo(b.employeeName));
   }
 
   @override
@@ -683,424 +763,419 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
         if (didPop || saving) return;
         leaveFormIfConfirmed(
           context,
-          () => context
-              .read<InvoicesBloc>()
-              .add(const InvoiceListRequested()),
+          () => context.read<InvoicesBloc>().add(const InvoiceListRequested()),
         );
       },
       child: Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: saving
-                  ? null
-                  : () => leaveFormIfConfirmed(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: saving
+                    ? null
+                    : () => leaveFormIfConfirmed(
                         context,
-                        () => context
-                            .read<InvoicesBloc>()
-                            .add(const InvoiceListRequested()),
+                        () => context.read<InvoicesBloc>().add(
+                          const InvoiceListRequested(),
+                        ),
                       ),
-              icon: const Icon(Icons.arrow_back, size: 18),
-              label: const Text('Back to list'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.textLight),
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Back to list'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textLight,
+                ),
+              ),
             ),
           ),
-        ),
-        const Divider(height: 1, color: AppColors.border),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 32),
-            children: [
-              if ((widget.state.sourceProposalRef ?? '').isNotEmpty) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.request_quote_outlined,
-                        size: 18,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Draft from proposal ${widget.state.sourceProposalRef}. '
-                          'Review tax and PO, then save.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontSize: 13,
-                                color: AppColors.text,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              _card(
-                context,
-                title: 'Invoice details',
-                child: _grid(isDesktop, [
-                  AppTextField(
-                    label: 'Invoice No.',
-                    controller: _invoiceNo,
-                    enabled: !saving,
-                  ),
-                  AppTextField(
-                    label: 'Date',
-                    controller: _dateCtrl,
-                    readOnly: true,
-                    enabled: !saving,
-                    onTap: saving
-                        ? null
-                        : () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _invoiceDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked == null) return;
-                            setState(() {
-                              _invoiceDate = picked;
-                              _dateCtrl.text = _dateFormat.format(picked);
-                            });
-                            final poNo = _poNumber.text.trim();
-                            if (poNo.isEmpty || !mounted) return;
-                            EmployeePurchaseOrder? match;
-                            for (final po in pos) {
-                              if (po.poNumber.trim().toLowerCase() ==
-                                  poNo.toLowerCase()) {
-                                match = po;
-                                break;
-                              }
-                            }
-                            if (match == null || match.coversDate(picked)) {
-                              return;
-                            }
-                            if (!context.mounted) return;
-                            final end = AppDates.compact.format(match.endDate);
-                            await showAppMessageDialog(
-                              context,
-                              title: 'Purchase order expired',
-                              message:
-                                  'P.O. $poNo ended on $end and is not valid '
-                                  'for this invoice date. Clear or change the P.O.',
-                            );
-                          },
-                  ),
-                  AppTextField(
-                    label: 'P.O. Number',
-                    controller: _poNumber,
-                    enabled: !saving,
-                    hintText: 'Type or pick from list',
-                    suffixIcon: pos.isEmpty
-                        ? null
-                        : PopupMenuButton<EmployeePurchaseOrder>(
-                            tooltip: 'Select PO',
-                            icon: const Icon(
-                              Icons.arrow_drop_down_rounded,
-                              color: AppColors.textLight,
-                            ),
-                            onSelected: _applyPo,
-                            itemBuilder: (context) => [
-                              for (final po in pos)
-                                PopupMenuItem(
-                                  value: po,
-                                  enabled: po.coversDate(_invoiceDate),
-                                  child: Text(
-                                    po.coversDate(_invoiceDate)
-                                        ? '${po.poNumber} (${po.employeeId})'
-                                        : '${po.poNumber} · expired '
-                                            '${AppDates.compact.format(po.endDate)}',
-                                  ),
-                                ),
-                            ],
-                          ),
-                  ),
-                  AppTextField(
-                    label: 'Place of Supply',
-                    controller: _place,
-                    enabled: !saving,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
+          const Divider(height: 1, color: AppColors.border),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 32),
+              children: [
+                if ((widget.state.sourceProposalRef ?? '').isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: Row(
                       children: [
+                        const Icon(
+                          Icons.request_quote_outlined,
+                          size: 18,
+                          color: AppColors.textLight,
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _intraState
-                                ? 'Intra-state (CGST + SGST)'
-                                : 'Inter-state (IGST)',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  fontSize: 13,
-                                  color: AppColors.text,
-                                ),
+                            'Draft from proposal ${widget.state.sourceProposalRef}. '
+                            'Review tax and PO, then save.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontSize: 13, color: AppColors.text),
                           ),
                         ),
-                        Switch(
-                          value: _intraState,
-                          activeThumbColor: AppColors.background,
-                          activeTrackColor: AppColors.highlight,
-                          inactiveThumbColor: AppColors.textLight,
-                          inactiveTrackColor: AppColors.border,
-                          trackOutlineColor: WidgetStateProperty.resolveWith(
-                            (states) {
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _card(
+                  context,
+                  title: 'Invoice details',
+                  child: _grid(isDesktop, [
+                    AppTextField(
+                      label: 'Invoice No.',
+                      controller: _invoiceNo,
+                      enabled: !saving,
+                    ),
+                    AppTextField(
+                      label: 'Date',
+                      controller: _dateCtrl,
+                      readOnly: true,
+                      enabled: !saving,
+                      onTap: saving
+                          ? null
+                          : () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _invoiceDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2035),
+                              );
+                              if (picked == null) return;
+                              setState(() {
+                                _invoiceDate = picked;
+                                _dateCtrl.text = _dateFormat.format(picked);
+                              });
+                              final poNo = _poNumber.text.trim();
+                              if (poNo.isEmpty || !mounted) return;
+                              EmployeePurchaseOrder? match;
+                              for (final po in pos) {
+                                if (po.poNumber.trim().toLowerCase() ==
+                                    poNo.toLowerCase()) {
+                                  match = po;
+                                  break;
+                                }
+                              }
+                              if (match == null || match.coversDate(picked)) {
+                                return;
+                              }
+                              if (!context.mounted) return;
+                              final end = AppDates.compact.format(
+                                match.endDate,
+                              );
+                              await showAppMessageDialog(
+                                context,
+                                title: 'Purchase order expired',
+                                message:
+                                    'P.O. $poNo ended on $end and is not valid '
+                                    'for this invoice date. Clear or change the P.O.',
+                              );
+                            },
+                    ),
+                    AppTextField(
+                      label: 'P.O. Number',
+                      controller: _poNumber,
+                      enabled: !saving,
+                      hintText: 'Type or pick from list',
+                      suffixIcon: pos.isEmpty
+                          ? null
+                          : PopupMenuButton<EmployeePurchaseOrder>(
+                              tooltip: 'Select PO',
+                              icon: const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: AppColors.textLight,
+                              ),
+                              onSelected: _applyPo,
+                              itemBuilder: (context) => [
+                                for (final po in pos)
+                                  PopupMenuItem(
+                                    value: po,
+                                    enabled: po.coversDate(_invoiceDate),
+                                    child: Text(
+                                      po.coversDate(_invoiceDate)
+                                          ? '${po.poNumber} (${po.employeeId})'
+                                          : '${po.poNumber} · expired '
+                                                '${AppDates.compact.format(po.endDate)}',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                    AppTextField(
+                      label: 'Place of Supply',
+                      controller: _place,
+                      enabled: !saving,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _intraState
+                                  ? 'Intra-state (CGST + SGST)'
+                                  : 'Inter-state (IGST)',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontSize: 13,
+                                    color: AppColors.text,
+                                  ),
+                            ),
+                          ),
+                          Switch(
+                            value: _intraState,
+                            activeThumbColor: AppColors.background,
+                            activeTrackColor: AppColors.highlight,
+                            inactiveThumbColor: AppColors.textLight,
+                            inactiveTrackColor: AppColors.border,
+                            trackOutlineColor: WidgetStateProperty.resolveWith((
+                              states,
+                            ) {
                               if (states.contains(WidgetState.selected)) {
                                 return AppColors.highlight;
                               }
                               return AppColors.border;
-                            },
-                          ),
-                          onChanged: saving
-                              ? null
-                              : (value) =>
-                                  setState(() => _intraState = value),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              _card(
-                context,
-                title: 'Buyer',
-                child: Column(
-                  children: [
-                    AppDropdown<Client>(
-                      label: 'Client',
-                      value: () {
-                        final selected = _selectedClient;
-                        if (selected == null) return null;
-                        for (final client in clients) {
-                          if (client.id == selected.id) return client;
-                        }
-                        return null;
-                      }(),
-                      items: [
-                        for (final client in clients)
-                          if (client.isActive ||
-                              (_selectedClient != null &&
-                                  client.id == _selectedClient!.id))
-                            client,
-                      ],
-                      itemLabel: (item) => item.displayLabel,
-                      enabled: !saving,
-                      hintText: 'Select client or type below',
-                      onChanged: saving ? null : _applyClient,
-                    ),
-                    const SizedBox(height: 12),
-                    _grid(isDesktop, [
-                      AppTextField(
-                        label: 'Buyer / Company',
-                        controller: _buyerCompany,
-                        enabled: !saving,
-                      ),
-                      AppTextField(
-                        label: 'Contact person',
-                        controller: _buyerContact,
-                        enabled: !saving,
-                      ),
-                      AppTextField(
-                        label: 'Address',
-                        controller: _buyerAddress,
-                        enabled: !saving,
-                        maxLines: 3,
-                      ),
-                      AppTextField(
-                        label: 'Buyer GSTIN',
-                        controller: _buyerGstin,
-                        enabled: !saving,
-                      ),
-                    ]),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _card(
-                context,
-                title: 'Payment',
-                child: _grid(isDesktop, [
-                  AppDropdown<InvoicePaymentStatus>(
-                    label: 'Payment status',
-                    value: _paymentStatus,
-                    items: InvoicePaymentStatus.values
-                        .where((s) => s != InvoicePaymentStatus.overdue)
-                        .toList(),
-                    itemLabel: (s) => s.label,
-                    enabled: !saving,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _paymentStatus = value;
-                        if (value == InvoicePaymentStatus.paid) {
-                          _paidAt ??= DateTime.now();
-                          if (_amountPaid.text.trim().isEmpty) {
-                            _amountPaid.text =
-                                draft.totalAmount.round().toString();
-                          }
-                        } else {
-                          _paidAt = null;
-                        }
-                      });
-                    },
-                  ),
-                  AppTextField(
-                    label: 'Amount paid',
-                    controller: _amountPaid,
-                    enabled: !saving,
-                    prefixText: AppDisplayConfig.currencySymbol,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                  ),
-                  AppTextField(
-                    label: 'Due date',
-                    controller: _dueDateCtrl,
-                    readOnly: true,
-                    enabled: !saving,
-                    onTap: saving
-                        ? null
-                        : () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _dueDate ?? _invoiceDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked == null) return;
-                            setState(() {
-                              _dueDate = picked;
-                              _dueDateCtrl.text = _dateFormat.format(picked);
-                            });
-                          },
-                    suffixIcon: _dueDate == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'Clear',
-                            onPressed: saving
+                            }),
+                            onChanged: saving
                                 ? null
-                                : () => setState(() {
-                                      _dueDate = null;
-                                      _dueDateCtrl.clear();
-                                    }),
-                            icon: const Icon(Icons.close, size: 18),
-                          ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              _card(
-                context,
-                title: 'Line items',
-                trailing: TextButton.icon(
-                  onPressed: saving
-                      ? null
-                      : () => setState(() => _lines.add(_LineCtrls.empty())),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add line'),
-                ),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < _lines.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 12),
-                      _buildLine(i, saving, candidates),
-                    ],
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Taxable  ${MoneyFormat.format(draft.taxableAmount)}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(fontSize: 13),
-                          ),
-                          if (_intraState) ...[
-                            Text(
-                              'CGST ${AppInvoiceConfig.cgstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.cgstAmount)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(fontSize: 13),
-                            ),
-                            Text(
-                              'SGST ${AppInvoiceConfig.sgstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.sgstAmount)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(fontSize: 13),
-                            ),
-                          ] else
-                            Text(
-                              'IGST ${AppInvoiceConfig.igstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.igstAmount)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(fontSize: 13),
-                            ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Total  ${MoneyFormat.format(draft.totalAmount)}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                : (value) =>
+                                      setState(() => _intraState = value),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ]),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                _card(
+                  context,
+                  title: 'Buyer',
+                  child: Column(
+                    children: [
+                      AppDropdown<Client>(
+                        label: 'Client',
+                        value: () {
+                          final selected = _selectedClient;
+                          if (selected == null) return null;
+                          for (final client in clients) {
+                            if (client.id == selected.id) return client;
+                          }
+                          return null;
+                        }(),
+                        items: [
+                          for (final client in clients)
+                            if (client.isActive ||
+                                (_selectedClient != null &&
+                                    client.id == _selectedClient!.id))
+                              client,
+                        ],
+                        itemLabel: (item) => item.displayLabel,
+                        enabled: !saving,
+                        hintText: 'Select client or type below',
+                        onChanged: saving ? null : _applyClient,
+                      ),
+                      const SizedBox(height: 12),
+                      _grid(isDesktop, [
+                        AppTextField(
+                          label: 'Buyer / Company',
+                          controller: _buyerCompany,
+                          enabled: !saving,
+                        ),
+                        AppTextField(
+                          label: 'Contact person',
+                          controller: _buyerContact,
+                          enabled: !saving,
+                        ),
+                        AppTextField(
+                          label: 'Address',
+                          controller: _buyerAddress,
+                          enabled: !saving,
+                          maxLines: 3,
+                        ),
+                        AppTextField(
+                          label: 'Buyer GSTIN',
+                          controller: _buyerGstin,
+                          enabled: !saving,
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _card(
+                  context,
+                  title: 'Payment',
+                  child: _grid(isDesktop, [
+                    AppDropdown<InvoicePaymentStatus>(
+                      label: 'Payment status',
+                      value: _paymentStatus,
+                      items: InvoicePaymentStatus.values
+                          .where((s) => s != InvoicePaymentStatus.overdue)
+                          .toList(),
+                      itemLabel: (s) => s.label,
+                      enabled: !saving,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _paymentStatus = value;
+                          if (value == InvoicePaymentStatus.paid) {
+                            _paidAt ??= DateTime.now();
+                            if (_amountPaid.text.trim().isEmpty) {
+                              _amountPaid.text = draft.totalAmount
+                                  .round()
+                                  .toString();
+                            }
+                          } else {
+                            _paidAt = null;
+                          }
+                        });
+                      },
+                    ),
+                    AppTextField(
+                      label: 'Amount paid',
+                      controller: _amountPaid,
+                      enabled: !saving,
+                      prefixText: AppDisplayConfig.currencySymbol,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                    ),
+                    AppTextField(
+                      label: 'Due date',
+                      controller: _dueDateCtrl,
+                      readOnly: true,
+                      enabled: !saving,
+                      onTap: saving
+                          ? null
+                          : () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _dueDate ?? _invoiceDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2035),
+                              );
+                              if (picked == null) return;
+                              setState(() {
+                                _dueDate = picked;
+                                _dueDateCtrl.text = _dateFormat.format(picked);
+                              });
+                            },
+                      suffixIcon: _dueDate == null
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              onPressed: saving
+                                  ? null
+                                  : () => setState(() {
+                                      _dueDate = null;
+                                      _dueDateCtrl.clear();
+                                    }),
+                              icon: const Icon(Icons.close, size: 18),
+                            ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                _card(
+                  context,
+                  title: 'Line items',
+                  trailing: TextButton.icon(
+                    onPressed: saving
+                        ? null
+                        : () => setState(() => _lines.add(_LineCtrls.empty())),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add line'),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < _lines.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 12),
+                        _buildLine(i, saving, candidates),
+                      ],
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Taxable  ${MoneyFormat.format(draft.taxableAmount)}',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                            ),
+                            if (_intraState) ...[
+                              Text(
+                                'CGST ${AppInvoiceConfig.cgstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.cgstAmount)}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                              ),
+                              Text(
+                                'SGST ${AppInvoiceConfig.sgstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.sgstAmount)}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                              ),
+                            ] else
+                              Text(
+                                'IGST ${AppInvoiceConfig.igstRate.toStringAsFixed(0)}%  ${MoneyFormat.format(draft.igstAmount)}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Total  ${MoneyFormat.format(draft.totalAmount)}',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        AppStickyActions(
-          children: [
-            OutlinedButton(
-              onPressed: saving
-                  ? null
-                  : () => showInvoicePreview(
+          AppStickyActions(
+            children: [
+              OutlinedButton(
+                onPressed: saving
+                    ? null
+                    : () => showInvoicePreview(
                         context: context,
                         invoice: _draftInvoice(),
                       ),
-              child: const Text('Preview'),
-            ),
-            AppButton(
-              label: widget.state.isEditing ? 'Update invoice' : 'Save invoice',
-              isLoading: saving,
-              enabled: !saving,
-              onPressed: _submit,
-            ),
-          ],
-        ),
-      ],
+                child: const Text('Preview'),
+              ),
+              AppButton(
+                label: widget.state.isEditing
+                    ? 'Update invoice'
+                    : 'Save invoice',
+                isLoading: saving,
+                enabled: !saving,
+                onPressed: _submit,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1120,9 +1195,9 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
             children: [
               Text(
                 'Line ${index + 1}',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.textLight,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: AppColors.textLight),
               ),
               const Spacer(),
               if (_lines.length > 1)
@@ -1158,8 +1233,9 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                             ? employee.employeeName
                             : '${employee.employeeName} - $designation';
                         if (employee.monthlyCtc > 0) {
-                          line.amount.text =
-                              employee.monthlyCtc.round().toString();
+                          line.amount.text = employee.monthlyCtc
+                              .round()
+                              .toString();
                         }
                       });
                     },
@@ -1216,10 +1292,10 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.highlight,
-                        ),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.highlight,
+                    ),
                   ),
                 ),
                 ?trailing,

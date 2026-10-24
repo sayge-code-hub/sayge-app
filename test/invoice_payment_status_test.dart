@@ -43,6 +43,37 @@ void main() {
       );
     });
 
+    test('sent before due stays awaiting payment', () {
+      expect(
+        InvoicePaymentStatus.effective(
+          stored: InvoicePaymentStatus.sent,
+          dueDate: DateTime(2026, 10, 20),
+          today: today,
+        ),
+        InvoicePaymentStatus.sent,
+      );
+      expect(InvoicePaymentStatus.sent.label, 'Awaiting payment');
+    });
+
+    test('sent past due becomes overdue', () {
+      expect(
+        InvoicePaymentStatus.isOverdue(
+          stored: InvoicePaymentStatus.sent,
+          dueDate: DateTime(2026, 10, 1),
+          today: today,
+        ),
+        isTrue,
+      );
+      expect(
+        InvoicePaymentStatus.effective(
+          stored: InvoicePaymentStatus.sent,
+          dueDate: DateTime(2026, 10, 1),
+          today: today,
+        ),
+        InvoicePaymentStatus.overdue,
+      );
+    });
+
     test('partial past due becomes overdue', () {
       expect(
         InvoicePaymentStatus.effective(
@@ -88,6 +119,11 @@ void main() {
       expect(InvoicePaymentStatus.fromDb(null), InvoicePaymentStatus.unpaid);
       expect(InvoicePaymentStatus.fromDb(''), InvoicePaymentStatus.unpaid);
       expect(InvoicePaymentStatus.fromDb('paid'), InvoicePaymentStatus.paid);
+      expect(InvoicePaymentStatus.fromDb('sent'), InvoicePaymentStatus.sent);
+      expect(
+        InvoicePaymentStatus.fromDb('awaiting_payment'),
+        InvoicePaymentStatus.sent,
+      );
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/error/exceptions.dart' as core;
+import '../../../../core/storage/app_storage_urls.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -53,7 +54,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const core.AuthException('Invalid email or password.');
       }
 
-      return _fetchProfile(authUser.id);
+      return await _fetchProfile(authUser.id);
     } on core.AuthException {
       rethrow;
     } on AuthException catch (e) {
@@ -173,7 +174,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           await _client.storage.from(_bucket).remove([previous]);
         } catch (_) {}
       }
-      return _fetchProfile(authUser.id);
+      return await _fetchProfile(authUser.id);
     } on StorageException catch (e) {
       throw core.ServerException(e.message);
     } on PostgrestException catch (e) {
@@ -222,10 +223,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               .maybeSingle();
           final photoPath = (employee?['photo_path'] ?? '').toString().trim();
           if (photoPath.isNotEmpty) {
-            final bucket = photoPath.startsWith('documents/')
-                ? 'documents'
-                : 'employee-avatars';
-            avatarUrl = _client.storage.from(bucket).getPublicUrl(photoPath);
+            final bucket = AppStorageUrls.bucketForPath(
+              photoPath,
+              publicDefault: 'employee-avatars',
+            );
+            avatarUrl = await AppStorageUrls.resolveUrl(
+              _client,
+              bucket: bucket,
+              path: photoPath,
+            );
           }
         } catch (_) {}
       }

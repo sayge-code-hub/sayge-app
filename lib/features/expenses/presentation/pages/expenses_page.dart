@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
+import '../../../../core/error/exceptions.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/csv_export.dart';
@@ -20,8 +22,46 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../../settings/domain/entities/client.dart';
 import '../../../settings/presentation/bloc/clients/clients_bloc.dart';
+import '../../data/datasources/expense_remote_datasource.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/usecases/expense_category_usecases.dart';
 import '../bloc/expenses_bloc.dart';
+
+Future<void> _openExpenseReceipt(BuildContext context, Expense expense) async {
+  final path = (expense.receiptPath ?? '').trim();
+  if (path.isEmpty) {
+    await showAppMessageDialog(
+      context,
+      title: 'Receipt',
+      message: 'No receipt is attached to this expense.',
+    );
+    return;
+  }
+  try {
+    final url = await sl<ExpenseRemoteDataSource>().receiptDownloadUrl(path);
+    final launched = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && context.mounted) {
+      await showAppMessageDialog(
+        context,
+        title: 'Receipt',
+        message: 'Could not open the receipt.',
+      );
+    }
+  } on ServerException catch (e) {
+    if (!context.mounted) return;
+    await showAppMessageDialog(context, title: 'Receipt', message: e.message);
+  } catch (_) {
+    if (!context.mounted) return;
+    await showAppMessageDialog(
+      context,
+      title: 'Receipt',
+      message: 'Could not open the receipt.',
+    );
+  }
+}
 
 class ExpensesPage extends StatelessWidget {
   const ExpensesPage({super.key});
@@ -59,12 +99,24 @@ class _ExpensesBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<ExpensesBloc, ExpensesState>(
       listenWhen: (prev, next) =>
-          next.successMessage != null &&
-          next.successMessage != prev.successMessage,
+          (next.successMessage != null &&
+              next.successMessage != prev.successMessage) ||
+          (next.errorMessage != null &&
+              next.errorMessage != prev.errorMessage &&
+              !next.showingForm),
       listener: (context, state) async {
         final message = state.successMessage;
         if (message != null) {
           await showAppMessageDialog(context, message: message);
+          return;
+        }
+        final error = state.errorMessage;
+        if (error != null && !state.showingForm) {
+          await showAppMessageDialog(
+            context,
+            title: 'Expenses',
+            message: error,
+          );
         }
       },
       builder: (context, state) {
@@ -178,9 +230,10 @@ class _ExpenseListState extends State<_ExpenseList> {
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: 'Export CSV',
-                      onPressed:
-                          widget.state.expenses.isEmpty ? null : exportCsv,
-                      icon: const Icon(Icons.download_outlined),
+                      onPressed: widget.state.expenses.isEmpty
+                          ? null
+                          : exportCsv,
+                      icon: const Icon(Icons.download),
                       color: AppColors.text,
                     ),
                     const SizedBox(width: 4),
@@ -197,9 +250,10 @@ class _ExpenseListState extends State<_ExpenseList> {
                     ),
                     IconButton(
                       tooltip: 'Export CSV',
-                      onPressed:
-                          widget.state.expenses.isEmpty ? null : exportCsv,
-                      icon: const Icon(Icons.download_outlined),
+                      onPressed: widget.state.expenses.isEmpty
+                          ? null
+                          : exportCsv,
+                      icon: const Icon(Icons.download),
                       color: AppColors.text,
                     ),
                   ],
@@ -217,181 +271,186 @@ class _ExpenseListState extends State<_ExpenseList> {
                   ),
                 )
               : expenses.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No matching expenses.',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: EdgeInsets.fromLTRB(
-                        isDesktop ? 32 : 16,
-                        16,
-                        isDesktop ? 32 : 16,
-                        24,
-                      ),
-                      itemCount: expenses.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final expense = expenses[index];
-                        final dateLabel = expense.reportingDate == null
-                            ? ''
-                            : dateFormat
-                                .format(expense.reportingDate!.toLocal());
-                        final approving =
-                            widget.state.approvingId == expense.id;
-                        final canEdit = expense.approvalStatus ==
-                            ExpenseApprovalStatus.pending;
-                        return AppListCard(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      expense.madeFor,
-                                      style: textTheme.titleMedium
-                                          ?.copyWith(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      [
-                                        expense.costCenterLabel,
-                                        expense.category,
-                                        expense.paidFrom,
-                                        if (dateLabel.isNotEmpty) dateLabel,
-                                        if ((expense.receiptName ?? '')
-                                            .isNotEmpty)
-                                          expense.receiptName!,
-                                      ].where((e) => e.isNotEmpty).join(' · '),
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        fontSize: 12,
-                                        color: AppColors.textLight,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _ApprovalBadge(
-                                      status: expense.approvalStatus,
-                                    ),
-                                  ],
+              ? Center(
+                  child: Text(
+                    'No matching expenses.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.fromLTRB(
+                    isDesktop ? 32 : 16,
+                    16,
+                    isDesktop ? 32 : 16,
+                    24,
+                  ),
+                  itemCount: expenses.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final expense = expenses[index];
+                    final dateLabel = expense.reportingDate == null
+                        ? ''
+                        : dateFormat.format(expense.reportingDate!.toLocal());
+                    final approving = widget.state.approvingId == expense.id;
+                    final canEdit =
+                        expense.approvalStatus == ExpenseApprovalStatus.pending;
+                    return AppListCard(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  expense.madeFor,
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontSize: 14,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                const SizedBox(height: 4),
+                                Text(
+                                  [
+                                    expense.costCenterLabel,
+                                    expense.category,
+                                    expense.paidFrom,
+                                    if (dateLabel.isNotEmpty) dateLabel,
+                                    if ((expense.receiptName ?? '').isNotEmpty)
+                                      expense.receiptName!,
+                                  ].where((e) => e.isNotEmpty).join(' · '),
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontSize: 12,
+                                    color: AppColors.textLight,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                _ApprovalBadge(status: expense.approvalStatus),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Text(
+                                    MoneyFormat.format(expense.amount),
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if ((expense.receiptPath ?? '')
+                                      .trim()
+                                      .isNotEmpty)
+                                    AppListIconButton(
+                                      tooltip: 'Open receipt',
+                                      onPressed: busy
+                                          ? null
+                                          : () => _openExpenseReceipt(
+                                                context,
+                                                expense,
+                                              ),
+                                      icon: Icons.attach_file,
+                                    ),
+                                  if (canEdit)
+                                    AppListIconButton(
+                                      tooltip: 'Edit pending',
+                                      onPressed: busy
+                                          ? null
+                                          : () => context
+                                                .read<ExpensesBloc>()
+                                                .add(
+                                                  ExpenseEditOpened(expense),
+                                                ),
+                                      icon: Icons.edit_outlined,
+                                    ),
+                                ],
+                              ),
+                              if (isStaff &&
+                                  expense.approvalStatus ==
+                                      ExpenseApprovalStatus.pending) ...[
+                                const SizedBox(height: 8),
+                                if (approving)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.text,
+                                    ),
+                                  )
+                                else
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        MoneyFormat.format(expense.amount),
-                                        style: textTheme.titleMedium
-                                            ?.copyWith(fontSize: 13),
-                                      ),
-                                      if (canEdit)
-                                        AppListIconButton(
-                                          tooltip: 'Edit pending',
-                                          onPressed: busy
-                                              ? null
-                                              : () => context
+                                      TextButton(
+                                        onPressed: busy
+                                            ? null
+                                            : () => context
                                                   .read<ExpensesBloc>()
                                                   .add(
-                                                    ExpenseEditOpened(expense),
+                                                    ExpenseApprovalChanged(
+                                                      expenseId: expense.id,
+                                                      status:
+                                                          ExpenseApprovalStatus
+                                                              .rejected,
+                                                    ),
                                                   ),
-                                          icon: Icons.edit_outlined,
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.error,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
                                         ),
+                                        child: const Text(
+                                          'Reject',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: busy
+                                            ? null
+                                            : () => context
+                                                  .read<ExpensesBloc>()
+                                                  .add(
+                                                    ExpenseApprovalChanged(
+                                                      expenseId: expense.id,
+                                                      status:
+                                                          ExpenseApprovalStatus
+                                                              .approved,
+                                                    ),
+                                                  ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.success,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text(
+                                          'Approve',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  if (isStaff &&
-                                      expense.approvalStatus ==
-                                          ExpenseApprovalStatus.pending) ...[
-                                    const SizedBox(height: 8),
-                                    if (approving)
-                                      const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppColors.text,
-                                        ),
-                                      )
-                                    else
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          TextButton(
-                                            onPressed: busy
-                                                ? null
-                                                : () => context
-                                                    .read<ExpensesBloc>()
-                                                    .add(
-                                                      ExpenseApprovalChanged(
-                                                        expenseId: expense.id,
-                                                        status:
-                                                            ExpenseApprovalStatus
-                                                                .rejected,
-                                                      ),
-                                                    ),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: AppColors.error,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                              ),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                            child: const Text(
-                                              'Reject',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: busy
-                                                ? null
-                                                : () => context
-                                                    .read<ExpensesBloc>()
-                                                    .add(
-                                                      ExpenseApprovalChanged(
-                                                        expenseId: expense.id,
-                                                        status:
-                                                            ExpenseApprovalStatus
-                                                                .approved,
-                                                      ),
-                                                    ),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor:
-                                                  AppColors.success,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                              ),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                            child: const Text(
-                                              'Approve',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ],
-                              ),
+                              ],
                             ],
                           ),
-                        );
-                      },
-                    ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
         if (!isDesktop) AppStickyActions(children: [newExpense]),
       ],
@@ -425,10 +484,10 @@ class _ApprovalBadge extends StatelessWidget {
       child: Text(
         status.label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -449,6 +508,7 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
   late final TextEditingController _paidFrom;
   late final TextEditingController _dateCtrl;
   String? _category;
+  List<String> _categories = Expense.categories;
   late String _costCenterId;
   late DateTime _expenseDate;
   Uint8List? _receiptBytes;
@@ -467,19 +527,41 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
       text: editing == null
           ? ''
           : (editing.amount == editing.amount.roundToDouble()
-              ? '${editing.amount.round()}'
-              : editing.amount.toStringAsFixed(2)),
+                ? '${editing.amount.round()}'
+                : editing.amount.toStringAsFixed(2)),
     );
     _paidFrom = TextEditingController(text: editing?.paidFrom ?? '');
     _category = editing?.category;
     _costCenterId = editing == null || editing.isCompanyExpense
         ? Expense.companyScopeId
         : (editing.clientId ?? Expense.companyScopeId);
-    _expenseDate = editing?.expenseDate ??
-        editing?.createdAt?.toLocal() ??
-        DateTime.now();
+    _expenseDate =
+        editing?.expenseDate ?? editing?.createdAt?.toLocal() ?? DateTime.now();
     _dateCtrl = TextEditingController(text: _dateFormat.format(_expenseDate));
     _existingReceiptName = editing?.receiptName;
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final result = await sl<GetExpenseCategoriesUseCase>()();
+    if (!mounted) return;
+    result.fold((_) {}, (items) {
+      final names = items
+          .map((category) => category.name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList();
+      if (names.isEmpty) return;
+      setState(() => _categories = names);
+    });
+  }
+
+  List<String> get _categoryItems {
+    final names = List<String>.from(_categories);
+    final current = _category?.trim() ?? '';
+    if (current.isNotEmpty && !names.contains(current)) {
+      names.insert(0, current);
+    }
+    return names;
   }
 
   @override
@@ -504,11 +586,17 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
     });
   }
 
+  void _clearPickedReceipt() {
+    setState(() {
+      _receiptBytes = null;
+      _receiptFileName = null;
+      _receiptMimeType = null;
+    });
+  }
+
   void _submit(List<Client> clients) {
-    final amount = double.tryParse(
-          _amount.text.trim().replaceAll(',', ''),
-        ) ??
-        0;
+    final amount =
+        double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? 0;
     final isCompany = _costCenterId == Expense.companyScopeId;
     Client? client;
     if (!isCompany) {
@@ -520,22 +608,56 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
       }
     }
     context.read<ExpensesBloc>().add(
-          ExpenseSubmitted(
-            Expense(
-              id: widget.editing?.id ?? '',
-              madeFor: _madeFor.text,
-              amount: amount,
-              paidFrom: _paidFrom.text,
-              category: _category ?? '',
-              clientId: isCompany ? null : client?.id,
-              clientName: isCompany ? null : client?.name,
-              expenseDate: _expenseDate,
-            ),
-            receiptBytes: _receiptBytes,
-            receiptFileName: _receiptFileName,
-            receiptMimeType: _receiptMimeType,
-          ),
-        );
+      ExpenseSubmitted(
+        Expense(
+          id: widget.editing?.id ?? '',
+          madeFor: _madeFor.text,
+          amount: amount,
+          paidFrom: _paidFrom.text,
+          category: _category ?? '',
+          clientId: isCompany ? null : client?.id,
+          clientName: isCompany ? null : client?.name,
+          expenseDate: _expenseDate,
+        ),
+        receiptBytes: _receiptBytes,
+        receiptFileName: _receiptFileName,
+        receiptMimeType: _receiptMimeType,
+      ),
+    );
+  }
+
+  Widget _fieldPair({
+    required bool sideBySide,
+    required Widget left,
+    required Widget right,
+  }) {
+    if (!sideBySide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [left, const SizedBox(height: 12), right],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: left),
+        const SizedBox(width: 12),
+        Expanded(child: right),
+      ],
+    );
+  }
+
+  Widget _receiptSlot({required bool sideBySide, required Widget child}) {
+    if (!sideBySide) return child;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: child),
+        const SizedBox(width: 12),
+        const Expanded(child: SizedBox.shrink()),
+      ],
+    );
   }
 
   @override
@@ -561,9 +683,9 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
             if (didPop || saving) return;
             leaveFormIfConfirmed(
               context,
-              () => context
-                  .read<ExpensesBloc>()
-                  .add(const ExpenseFormCancelled()),
+              () => context.read<ExpensesBloc>().add(
+                const ExpenseFormCancelled(),
+              ),
             );
           },
           child: Column(
@@ -572,93 +694,101 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
                   children: [
-                    AppDropdown<String>(
-                      label: 'Cost center',
-                      value: costCenterIds.contains(_costCenterId)
-                          ? _costCenterId
-                          : Expense.companyScopeId,
-                      items: costCenterIds,
-                      itemLabel: (id) {
-                        if (id == Expense.companyScopeId) {
-                          return Expense.companyScopeLabel;
-                        }
-                        for (final c in clients) {
-                          if (c.id == id) return c.name;
-                        }
-                        return id;
-                      },
-                      enabled: !saving,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _costCenterId = value);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      label: 'Expense date',
-                      controller: _dateCtrl,
-                      readOnly: true,
-                      enabled: !saving,
-                      onTap: saving
-                          ? null
-                          : () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _expenseDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2035),
-                              );
-                              if (picked == null) return;
-                              setState(() {
-                                _expenseDate = picked;
-                                _dateCtrl.text = _dateFormat.format(picked);
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      label: 'Expense made for',
-                      controller: _madeFor,
-                      enabled: !saving,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(
-                      label: 'Amount',
-                      controller: _amount,
-                      enabled: !saving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                    _fieldPair(
+                      sideBySide: isDesktop,
+                      left: AppDropdown<String>(
+                        label: 'Cost center',
+                        value: costCenterIds.contains(_costCenterId)
+                            ? _costCenterId
+                            : Expense.companyScopeId,
+                        items: costCenterIds,
+                        itemLabel: (id) {
+                          if (id == Expense.companyScopeId) {
+                            return Expense.companyScopeLabel;
+                          }
+                          for (final c in clients) {
+                            if (c.id == id) return c.name;
+                          }
+                          return id;
+                        },
+                        enabled: !saving,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _costCenterId = value);
+                        },
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                      ],
-                      prefixText: '₹ ',
+                      right: AppTextField(
+                        label: 'Expense date',
+                        controller: _dateCtrl,
+                        readOnly: true,
+                        enabled: !saving,
+                        onTap: saving
+                            ? null
+                            : () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _expenseDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (picked == null) return;
+                                setState(() {
+                                  _expenseDate = picked;
+                                  _dateCtrl.text = _dateFormat.format(picked);
+                                });
+                              },
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    AppTextField(
-                      label: 'Paid from',
-                      controller: _paidFrom,
-                      enabled: !saving,
-                      textCapitalization: TextCapitalization.words,
+                    _fieldPair(
+                      sideBySide: isDesktop,
+                      left: AppTextField(
+                        label: 'Expense made for',
+                        controller: _madeFor,
+                        enabled: !saving,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                      right: AppTextField(
+                        label: 'Amount',
+                        controller: _amount,
+                        enabled: !saving,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        ],
+                        prefixText: '₹ ',
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    AppDropdown<String>(
-                      label: 'Category',
-                      value: _category,
-                      items: Expense.categories,
-                      itemLabel: (item) => item,
-                      enabled: !saving,
-                      onChanged: (value) => setState(() => _category = value),
+                    _fieldPair(
+                      sideBySide: isDesktop,
+                      left: AppTextField(
+                        label: 'Paid from',
+                        controller: _paidFrom,
+                        enabled: !saving,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      right: AppDropdown<String>(
+                        label: 'Category',
+                        value: _category,
+                        items: _categoryItems,
+                        itemLabel: (item) => item,
+                        enabled: !saving,
+                        onChanged: (value) => setState(() => _category = value),
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: saving ? null : _pickReceipt,
-                      icon: const Icon(Icons.attach_file, size: 18),
-                      label: Text(
-                        receiptLabel == null || receiptLabel.isEmpty
-                            ? 'Attach receipt'
-                            : 'Receipt: $receiptLabel',
+                    _receiptSlot(
+                      sideBySide: isDesktop,
+                      child: _ReceiptField(
+                        fileName: receiptLabel,
+                        enabled: !saving,
+                        onPick: _pickReceipt,
+                        onClear: _receiptBytes == null
+                            ? null
+                            : _clearPickedReceipt,
                       ),
                     ),
                     if (state.errorMessage != null) ...[
@@ -666,9 +796,9 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
                       Text(
                         state.errorMessage!,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.error,
-                              fontSize: 13,
-                            ),
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ],
@@ -680,19 +810,17 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
                     onPressed: saving
                         ? null
                         : () => leaveFormIfConfirmed(
-                              context,
-                              () => context
-                                  .read<ExpensesBloc>()
-                                  .add(const ExpenseFormCancelled()),
+                            context,
+                            () => context.read<ExpensesBloc>().add(
+                              const ExpenseFormCancelled(),
                             ),
+                          ),
                     child: const Text('Back'),
                   ),
                   AppButton(
                     label: saving
                         ? 'Saving…'
-                        : (widget.editing == null
-                            ? 'Save'
-                            : 'Update expense'),
+                        : (widget.editing == null ? 'Save' : 'Update expense'),
                     expand: true,
                     isLoading: saving,
                     enabled: !saving,
@@ -704,6 +832,87 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ReceiptField extends StatelessWidget {
+  const _ReceiptField({
+    required this.fileName,
+    required this.enabled,
+    required this.onPick,
+    this.onClear,
+  });
+
+  final String? fileName;
+  final bool enabled;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final name = fileName?.trim() ?? '';
+    final hasFile = name.isNotEmpty;
+
+    return Column(
+      key: const Key('expense-receipt-field'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Receipt',
+          style: textTheme.labelLarge?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textLight,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Material(
+          color: AppColors.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          child: InkWell(
+            onTap: enabled ? onPick : null,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 6, 11),
+              child: Row(
+                children: [
+                  Icon(
+                    hasFile ? Icons.description_outlined : Icons.attach_file,
+                    size: 18,
+                    color: AppColors.textLight,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasFile ? name : 'Attach receipt',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: hasFile ? AppColors.text : AppColors.textLight,
+                      ),
+                    ),
+                  ),
+                  if (onClear != null)
+                    AppListIconButton(
+                      icon: Icons.close,
+                      tooltip: 'Remove',
+                      iconSize: 16,
+                      buttonSize: 28,
+                      onPressed: enabled ? onClear : null,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -3,10 +3,13 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const root = '/';
   static const hrms = '/hrms';
+
   /// Employee single-page home (profile, slip, expenses).
   static const dashboard = '/dashboard';
+
   /// Dashboard focused on salary slip download.
   static const dashboardSlips = '/dashboard?section=slips';
+
   /// Employee self-service landing when no `employee_id` is linked yet.
   static const myDetails = '/hrms/me';
   static const employees = '/hrms/employees';
@@ -30,6 +33,8 @@ abstract final class AppRoutes {
   static const companyDetails = '/settings/company';
   static const roles = '/settings/roles';
   static const ledger = '/settings/ledger';
+  static const theme = '/settings/theme';
+  static const categories = '/settings/categories';
   static const inviteEmployee = '/settings/invite';
   static const manageInvites = '/settings/invites';
   static const setPassword = '/set-password';
@@ -37,8 +42,7 @@ abstract final class AppRoutes {
   static const posHub = '/pos?hub=1';
   static const posBrandAdd = '/pos/brands/add';
 
-  static String clientDetail(String clientId) =>
-      '/settings/clients/$clientId';
+  static String clientDetail(String clientId) => '/settings/clients/$clientId';
 
   static String clientEdit(String clientId) =>
       '/settings/clients/$clientId/edit';
@@ -62,8 +66,7 @@ abstract final class AppRoutes {
 
   static String posAnalytics(String brandId) => '/pos/$brandId/analytics';
 
-  static String posProductAdd(String brandId) =>
-      '/pos/$brandId/products/add';
+  static String posProductAdd(String brandId) => '/pos/$brandId/products/add';
 
   static String posProductEdit(String brandId, String productId) =>
       '/pos/$brandId/products/$productId/edit';

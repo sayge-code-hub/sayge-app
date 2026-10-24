@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../../domain/entities/dms_entity.dart';
 import '../models/document_model.dart';
 
@@ -48,7 +49,7 @@ abstract class DocumentRemoteDataSource {
 
 class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
   DocumentRemoteDataSourceImpl({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
@@ -74,14 +75,18 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
-      throw const NetworkException('Failed to load DMS entities from Supabase.');
+      throw const NetworkException(
+        'Failed to load DMS entities from Supabase.',
+      );
     }
   }
 
   Future<List<DmsEntity>> _employees() async {
     final rows = await _client
         .from(_employeesTable)
-        .select('employee_id, employee_name, designation, is_active, photo_path')
+        .select(
+          'employee_id, employee_name, designation, is_active, photo_path',
+        )
         .order('employee_name');
     return (rows as List<dynamic>).map((row) {
       final map = row as Map<String, dynamic>;
@@ -104,22 +109,20 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
 
   String? _employeePhotoUrl(String path) {
     if (path.isEmpty) return null;
-    final bucket = path.startsWith('documents/') ? 'documents' : 'employee-avatars';
-    try {
-      return _client.storage.from(bucket).getPublicUrl(path);
-    } catch (_) {
-      return null;
-    }
+    final bucket = AppStorageUrls.bucketForPath(
+      path,
+      publicDefault: 'employee-avatars',
+    );
+    return AppStorageUrls.publicUrl(_client, bucket: bucket, path: path);
   }
 
   String? _brandLogoUrl(String path) {
     if (path.isEmpty) return null;
-    final bucket = path.startsWith('documents/') ? 'documents' : 'brand-logos';
-    try {
-      return _client.storage.from(bucket).getPublicUrl(path);
-    } catch (_) {
-      return null;
-    }
+    final bucket = AppStorageUrls.bucketForPath(
+      path,
+      publicDefault: 'brand-logos',
+    );
+    return AppStorageUrls.publicUrl(_client, bucket: bucket, path: path);
   }
 
   Future<List<DmsEntity>> _clients() async {
@@ -217,8 +220,9 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
         'doc-${entityType.storageValue}-$entityId-${DateTime.now().microsecondsSinceEpoch}';
     final path =
         'documents/${entityType.storageValue}/$entityId/${id}_$safeFile';
-    final resolvedMime =
-        mimeType.trim().isEmpty ? 'application/octet-stream' : mimeType.trim();
+    final resolvedMime = mimeType.trim().isEmpty
+        ? 'application/octet-stream'
+        : mimeType.trim();
     final payload = {
       'id': id,
       'entity_type': entityType.storageValue,
@@ -235,13 +239,12 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     };
 
     try {
-      await _client.storage.from(_bucket).uploadBinary(
+      await _client.storage
+          .from(_bucket)
+          .uploadBinary(
             path,
             fileBytes,
-            fileOptions: FileOptions(
-              contentType: resolvedMime,
-              upsert: false,
-            ),
+            fileOptions: FileOptions(contentType: resolvedMime, upsert: false),
           );
       final row = await _client
           .from(_documentsTable)
@@ -355,8 +358,7 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
     if (trimmed.isEmpty) {
       throw const ServerException('Name is required.');
     }
-    final id =
-        '${type.storageValue}_${DateTime.now().microsecondsSinceEpoch}';
+    final id = '${type.storageValue}_${DateTime.now().microsecondsSinceEpoch}';
     final payload = {
       'id': id,
       'entity_type': type.storageValue,
@@ -378,22 +380,16 @@ class DocumentRemoteDataSourceImpl implements DocumentRemoteDataSource {
         subtitle: (row['subtitle'] ?? subtitle).toString(),
       );
     } on PostgrestException catch (e) {
-      // Older schema without subtitle column.
-      if (e.message.contains('subtitle')) {
-        final row = await _client
-            .from(_entitiesTable)
-            .insert({
-              'id': id,
-              'entity_type': type.storageValue,
-              'name': trimmed,
-            })
-            .select()
-            .single();
-        return DmsEntity(
-          id: (row['id'] ?? id).toString(),
-          name: (row['name'] ?? trimmed).toString(),
-          type: type,
-          subtitle: subtitle.trim(),
+      final msg = e.message.toLowerCase();
+      if (msg.contains('subtitle') &&
+          (e.code == '42703' ||
+              e.code == 'PGRST204' ||
+              msg.contains('does not exist') ||
+              msg.contains('schema cache'))) {
+        throw const ServerException(
+          'DMS subtitle column is missing. Run '
+          'supabase/dms_entities_subtitle.sql (or '
+          'supabase/production_gaps_pack.sql) in the Supabase SQL editor.',
         );
       }
       throw ServerException(e.message);

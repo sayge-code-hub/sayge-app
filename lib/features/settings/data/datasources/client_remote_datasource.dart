@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../../domain/entities/client.dart';
 import '../models/client_model.dart';
 
@@ -42,19 +43,20 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
 
   static const _table = 'clients';
   static const _brandLogosBucket = 'brand-logos';
-  static const _documentsBucket = 'documents';
 
   @override
   String? logoPublicUrl(String? path) {
     final trimmed = path?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    final bucket =
-        trimmed.startsWith('documents/') ? _documentsBucket : _brandLogosBucket;
-    try {
-      return _client.storage.from(bucket).getPublicUrl(trimmed);
-    } catch (_) {
-      return null;
-    }
+    final bucket = AppStorageUrls.bucketForPath(
+      trimmed,
+      publicDefault: _brandLogosBucket,
+    );
+    return AppStorageUrls.publicUrl(
+      _client,
+      bucket: bucket,
+      path: trimmed,
+    );
   }
 
   ClientModel _withLogoUrl(ClientModel model) {
@@ -137,15 +139,6 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
     }
 
     try {
-      final previousRow = await _client
-          .from(_table)
-          .select()
-          .eq('id', client.id)
-          .maybeSingle();
-      final previous = previousRow == null
-          ? null
-          : ClientModel.fromJson(previousRow);
-
       final row = await _client
           .from(_table)
           .update({
@@ -159,76 +152,15 @@ class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
           .eq('id', client.id)
           .select()
           .single();
-      final updated = _withLogoUrl(ClientModel.fromJson(row));
-      if (previous != null) {
-        await _cascadeClientToProposals(previous: previous, next: updated);
-        await _cascadeClientToInvoices(previous: previous, next: updated);
-      }
-      return updated;
+      // Party fields on invoices/proposals are immutable legal snapshots.
+      // Do not rewrite historical documents when a client master changes.
+      return _withLogoUrl(ClientModel.fromJson(row));
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to update client.');
     }
-  }
-
-  /// Proposals snapshot party fields — keep them in sync when a client changes.
-  Future<void> _cascadeClientToProposals({
-    required Client previous,
-    required Client next,
-  }) async {
-    final oldCompany = previous.name.trim();
-    final oldContact = previous.contactName.trim();
-    if (oldCompany.isEmpty && oldContact.isEmpty) return;
-
-    var billQuery = _client.from('proposals').update({
-      'bill_to_name': next.contactName.trim(),
-      'bill_to_company': next.name.trim(),
-      'bill_to_address': next.address.trim(),
-      'bill_to_gstin': next.gstin.trim(),
-      'vendor_code': next.vendorCode.trim(),
-      'entity_code': next.entityCode.trim(),
-    });
-    if (oldCompany.isNotEmpty) {
-      billQuery = billQuery.eq('bill_to_company', oldCompany);
-    }
-    billQuery = billQuery.eq('bill_to_name', oldContact);
-    await billQuery;
-
-    var shipQuery = _client.from('proposals').update({
-      'ship_to_name': next.contactName.trim(),
-      'ship_to_company': next.name.trim(),
-      'ship_to_address': next.address.trim(),
-      'ship_to_gstin': next.gstin.trim(),
-    });
-    if (oldCompany.isNotEmpty) {
-      shipQuery = shipQuery.eq('ship_to_company', oldCompany);
-    }
-    shipQuery = shipQuery.eq('ship_to_name', oldContact);
-    await shipQuery;
-  }
-
-  Future<void> _cascadeClientToInvoices({
-    required Client previous,
-    required Client next,
-  }) async {
-    final oldCompany = previous.name.trim();
-    final oldContact = previous.contactName.trim();
-    if (oldCompany.isEmpty && oldContact.isEmpty) return;
-
-    var query = _client.from('invoices').update({
-      'buyer_name': next.contactName.trim(),
-      'buyer_company': next.name.trim(),
-      'buyer_address': next.address.trim(),
-      'buyer_gstin': next.gstin.trim(),
-      'buyer_contact': next.contactName.trim(),
-    });
-    if (oldCompany.isNotEmpty) {
-      query = query.eq('buyer_company', oldCompany);
-    }
-    query = query.eq('buyer_contact', oldContact);
-    await query;
   }
 
   @override

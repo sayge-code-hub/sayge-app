@@ -206,7 +206,41 @@ async function inviteUser(
     if (employeeId) patch.employee_id = employeeId
 
     // Profile row is created by on_auth_user_created; update extras.
-    await admin.from('users').update(patch).eq('id', userId)
+    // Retry briefly — the trigger may race the first update.
+    let patchErr: { message?: string } | null = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error } = await admin.from('users').update(patch).eq('id', userId)
+      if (!error) {
+        patchErr = null
+        break
+      }
+      patchErr = error
+      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)))
+    }
+    if (patchErr) {
+      return json(
+        {
+          error:
+            `Invite email sent, but the user profile could not be updated: ${patchErr.message ?? 'unknown error'}`,
+        },
+        500,
+      )
+    }
+
+    const { data: profile } = await admin
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+    if (!profile) {
+      return json(
+        {
+          error:
+            'Invite email sent, but no app profile was created. Check lock_signup_provisioning.sql and @sayge.in domain.',
+        },
+        500,
+      )
+    }
   }
 
   return json({
@@ -229,20 +263,45 @@ async function resendInvite(
     )
   }
 
-  // Prefer existing profile metadata when re-sending.
-  const { data: profile } = await admin
-    .from('users')
-    .select('full_name, role_id, employee_id')
-    .eq('email', emailRaw)
-    .maybeSingle()
+  const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
 
-  return await inviteUser(admin, {
+  // Prefer generateLink for existing pending users (re-inviteUserByEmail fails).
+  const linkOptions: {
+    type: 'invite'
+    email: string
+    options?: { redirectTo?: string; data?: Record<string, string> }
+  } = {
+    type: 'invite',
     email: emailRaw,
-    fullName: body.fullName ?? body.full_name ?? profile?.full_name ?? '',
-    roleId: body.roleId ?? body.role_id ?? profile?.role_id ?? 'role_employee',
-    employeeId:
-      body.employeeId ?? body.employee_id ?? profile?.employee_id ?? '',
-    redirectTo: body.redirectTo ?? body.redirect_to ?? '',
+    options: {
+      data: { must_set_password: 'true' },
+    },
+  }
+  if (redirectTo) {
+    linkOptions.options = {
+      ...linkOptions.options,
+      redirectTo,
+    }
+  }
+
+  const { data: linkData, error: linkErr } =
+    await admin.auth.admin.generateLink(linkOptions)
+
+  if (linkErr) {
+    // User may not exist yet — fall back to a fresh invite.
+    if (/not found|does not exist/i.test(linkErr.message)) {
+      return await inviteUser(admin, body)
+    }
+    return json({ error: linkErr.message }, 400)
+  }
+
+  // generateLink sends the invite email when type is invite.
+  const userId = linkData.user?.id
+  return json({
+    ok: true,
+    email: emailRaw,
+    userId,
+    message: 'Invite email resent.',
   })
 }
 

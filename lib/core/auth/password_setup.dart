@@ -25,8 +25,13 @@ abstract final class PasswordSetup {
   }
 
   static bool currentUserRequiresSetup() {
-    if (urlIndicatesInvite()) return true;
     final user = Supabase.instance.client.auth.currentUser;
-    return metadataRequiresSetup(user?.userMetadata);
+    final meta = user?.userMetadata;
+    // Cleared invite flag wins even if the browser URL still has type=invite.
+    if (meta != null && meta.containsKey(metaKey)) {
+      return metadataRequiresSetup(meta);
+    }
+    if (urlIndicatesInvite()) return true;
+    return metadataRequiresSetup(meta);
   }
 }

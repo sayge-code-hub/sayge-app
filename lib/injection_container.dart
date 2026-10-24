@@ -7,6 +7,7 @@ import 'core/auth/auth_local_storage.dart';
 import 'core/auth/auth_session.dart';
 import 'core/auth/password_setup.dart';
 import 'core/config/app_config.dart';
+import 'core/theme/app_accent.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/entities/user.dart';
@@ -28,9 +29,14 @@ import 'features/dms/domain/usecases/get_documents.dart';
 import 'features/dms/domain/usecases/replace_document.dart';
 import 'features/dms/presentation/bloc/dms/dms_bloc.dart';
 import 'features/expenses/data/datasources/expense_remote_datasource.dart';
+import 'features/expenses/data/datasources/expense_category_remote_datasource.dart';
+import 'features/expenses/data/repositories/expense_category_repository_impl.dart';
 import 'features/expenses/data/repositories/expense_repository_impl.dart';
+import 'features/expenses/domain/repositories/expense_category_repository.dart';
 import 'features/expenses/domain/repositories/expense_repository.dart';
+import 'features/expenses/domain/usecases/expense_category_usecases.dart';
 import 'features/expenses/domain/usecases/expense_usecases.dart';
+import 'features/expenses/presentation/bloc/categories/expense_categories_bloc.dart';
 import 'features/expenses/presentation/bloc/expenses_bloc.dart';
 import 'features/hrms/data/datasources/employee_purchase_order_remote_datasource.dart';
 import 'features/hrms/data/datasources/employee_remote_datasource.dart';
@@ -106,15 +112,14 @@ Future<void> initDependencies() async {
   );
 
   final prefs = await SharedPreferences.getInstance();
+  sl.registerSingleton<AppAccent>(AppAccent(prefs));
   final authStorage = AuthLocalStorage(prefs);
   sl.registerLazySingleton<AuthLocalStorage>(() => authStorage);
 
   sl.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(),
   );
-  sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(sl()),
-  );
+  sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
 
   final restoredUser = await _restoreAuthUser(
     storage: authStorage,
@@ -264,12 +269,31 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<ExpenseRepository>(
     () => ExpenseRepositoryImpl(remoteDataSource: sl()),
   );
+  sl.registerLazySingleton<ExpenseCategoryRemoteDataSource>(
+    () => ExpenseCategoryRemoteDataSourceImpl(),
+  );
+  sl.registerLazySingleton<ExpenseCategoryRepository>(
+    () => ExpenseCategoryRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton(() => GetExpenseCategoriesUseCase(sl()));
+  sl.registerLazySingleton(() => AddExpenseCategoryUseCase(sl()));
+  sl.registerLazySingleton(() => RenameExpenseCategoryUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteExpenseCategoryUseCase(sl()));
+  sl.registerFactory(
+    () => ExpenseCategoriesBloc(
+      getCategories: sl(),
+      addCategory: sl(),
+      renameCategory: sl(),
+      deleteCategory: sl(),
+    ),
+  );
 
   sl.registerFactory(
     () => InvoicesBloc(
       getInvoicesUseCase: sl(),
       createInvoiceUseCase: sl(),
       updateInvoiceUseCase: sl(),
+      updateInvoicePaymentUseCase: sl(),
       getAllPosUseCase: sl(),
       getCompanyDetailsUseCase: sl(),
     ),
@@ -277,6 +301,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetInvoicesUseCase(sl()));
   sl.registerLazySingleton(() => CreateInvoiceUseCase(sl()));
   sl.registerLazySingleton(() => UpdateInvoiceUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateInvoicePaymentUseCase(sl()));
   sl.registerLazySingleton<InvoiceRemoteDataSource>(
     () => InvoiceRemoteDataSourceImpl(),
   );

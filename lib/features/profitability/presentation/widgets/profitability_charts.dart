@@ -331,7 +331,7 @@ class ProfitabilityClientShareCard extends StatelessWidget {
 
   final List<ClientProfitability> clients;
 
-  static const _palette = [
+  static List<Color> get _palette => [
     AppColors.text,
     AppColors.highlight,
     AppColors.success,

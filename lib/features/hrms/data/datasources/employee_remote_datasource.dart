@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../models/employee_model.dart';
 
 abstract class EmployeeRemoteDataSource {
@@ -58,13 +59,15 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
   String? photoPublicUrl(String? path) {
     final trimmed = path?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    final bucket =
-        trimmed.startsWith('documents/') ? _documentsBucket : _avatarsBucket;
-    try {
-      return _client.storage.from(bucket).getPublicUrl(trimmed);
-    } catch (_) {
-      return null;
-    }
+    final bucket = AppStorageUrls.bucketForPath(
+      trimmed,
+      publicDefault: _avatarsBucket,
+    );
+    return AppStorageUrls.publicUrl(
+      _client,
+      bucket: bucket,
+      path: trimmed,
+    );
   }
 
   EmployeeModel _fromRow(Map<String, dynamic> row) {
@@ -344,13 +347,31 @@ class EmployeeRemoteDataSourceImpl implements EmployeeRemoteDataSource {
       throw const ServerException('Document path is missing.');
     }
     try {
-      final row = await _client
-          .from(_table)
-          .update({'photo_path': path})
-          .eq('employee_id', employeeId)
-          .select(_selectWithClient)
-          .single();
-      return _fromRow(row);
+      // Copy into the public avatars bucket — never point photo_path at private
+      // `documents/` objects (getPublicUrl would fail / leak if misconfigured).
+      final sourceBucket = AppStorageUrls.bucketForPath(
+        path,
+        publicDefault: _documentsBucket,
+      );
+      final bytes = await _client.storage.from(sourceBucket).download(path);
+      final fileName = path.split('/').last;
+      final ext = fileName.contains('.')
+          ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase()
+          : 'jpg';
+      final mime = switch (ext) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        _ => 'image/jpeg',
+      };
+      return await updateEmployeePhoto(
+        employeeId: employeeId,
+        bytes: bytes,
+        fileName: fileName.isEmpty ? 'avatar.$ext' : fileName,
+        mimeType: mime,
+      );
+    } on StorageException catch (e) {
+      throw ServerException(e.message);
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
     } catch (e) {

@@ -139,16 +139,38 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
         Expense finalExpense = saved;
         final receipt = event.receiptBytes;
         final receiptName = event.receiptFileName?.trim() ?? '';
-        if (receipt != null &&
-            receipt.isNotEmpty &&
-            receiptName.isNotEmpty) {
+        if (receipt != null && receipt.isNotEmpty && receiptName.isNotEmpty) {
           final upload = await uploadExpenseReceiptUseCase(
             expenseId: saved.id,
             fileName: receiptName,
             fileBytes: receipt,
             mimeType: event.receiptMimeType ?? 'application/octet-stream',
           );
-          upload.fold((_) {}, (updated) => finalExpense = updated);
+          final uploadFailed = upload.fold((failure) => failure.message, (
+            updated,
+          ) {
+            finalExpense = updated;
+            return null;
+          });
+          if (uploadFailed != null) {
+            emit(
+              state.copyWith(
+                status: ExpensesStatus.failure,
+                // Keep the form open so the error is visible and the user can retry.
+                showingForm: true,
+                editingExpense: finalExpense,
+                errorMessage:
+                    'Expense saved, but the receipt failed to upload: $uploadFailed',
+                expenses: [
+                  for (final e in state.expenses)
+                    if (e.id == finalExpense.id) finalExpense else e,
+                  if (!state.expenses.any((e) => e.id == finalExpense.id))
+                    finalExpense,
+                ],
+              ),
+            );
+            return;
+          }
         }
 
         final latest = await getExpensesUseCase();
@@ -207,10 +229,7 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
           ),
         );
         emit(
-          state.copyWith(
-            status: ExpensesStatus.ready,
-            clearApprovingId: true,
-          ),
+          state.copyWith(status: ExpensesStatus.ready, clearApprovingId: true),
         );
       },
       (updated) async {

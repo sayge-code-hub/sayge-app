@@ -36,13 +36,7 @@ drop policy if exists "invoices_select_anon" on public.invoices;
 drop policy if exists "invoices_insert_anon" on public.invoices;
 drop policy if exists "invoices_update_anon" on public.invoices;
 drop policy if exists "invoices_delete_anon" on public.invoices;
-
-create policy "invoices_select_anon" on public.invoices for select to anon, authenticated using (true);
-create policy "invoices_insert_anon" on public.invoices for insert to anon, authenticated with check (true);
-create policy "invoices_update_anon" on public.invoices for update to anon, authenticated using (true) with check (true);
-create policy "invoices_delete_anon" on public.invoices for delete to anon, authenticated using (true);
-
-grant select, insert, update, delete on public.invoices to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 create table if not exists public.invoice_line_items (
   id text primary key,
@@ -62,13 +56,7 @@ drop policy if exists "invoice_line_items_select_anon" on public.invoice_line_it
 drop policy if exists "invoice_line_items_insert_anon" on public.invoice_line_items;
 drop policy if exists "invoice_line_items_update_anon" on public.invoice_line_items;
 drop policy if exists "invoice_line_items_delete_anon" on public.invoice_line_items;
-
-create policy "invoice_line_items_select_anon" on public.invoice_line_items for select to anon, authenticated using (true);
-create policy "invoice_line_items_insert_anon" on public.invoice_line_items for insert to anon, authenticated with check (true);
-create policy "invoice_line_items_update_anon" on public.invoice_line_items for update to anon, authenticated using (true) with check (true);
-create policy "invoice_line_items_delete_anon" on public.invoice_line_items for delete to anon, authenticated using (true);
-
-grant select, insert, update, delete on public.invoice_line_items to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 do $$
 begin

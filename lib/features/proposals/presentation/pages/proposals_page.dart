@@ -265,27 +265,8 @@ class _ProposalCard extends StatelessWidget {
                             style: textTheme.titleMedium?.copyWith(fontSize: 14),
                           ),
                         ),
-                        if (muted) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              proposal.poStatus.label,
-                              style: textTheme.labelLarge?.copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.error,
-                              ),
-                            ),
-                          ),
-                        ],
+                        const SizedBox(width: 8),
+                        _ProposalStatusChip(status: proposal.poStatus),
                       ],
                     ),
                     if (description.isNotEmpty) ...[
@@ -330,6 +311,36 @@ class _ProposalCard extends StatelessWidget {
           Row(
             children: [
               const Spacer(),
+              if (proposal.poStatus == ProposalPoStatus.active)
+                AppListIconButton(
+                  tooltip: 'Mark sent',
+                  iconSize: 15,
+                  buttonSize: 28,
+                  onPressed: () => context.read<ProposalsBloc>().add(
+                        ProposalStatusChanged(
+                          proposalId: proposal.id,
+                          status: ProposalPoStatus.sent,
+                        ),
+                      ),
+                  icon: Icons.send_outlined,
+                ),
+              if (proposal.poStatus == ProposalPoStatus.active ||
+                  proposal.poStatus == ProposalPoStatus.sent) ...[
+                const SizedBox(width: 6),
+                AppListIconButton(
+                  tooltip: 'Mark accepted',
+                  iconSize: 15,
+                  buttonSize: 28,
+                  onPressed: () => context.read<ProposalsBloc>().add(
+                        ProposalStatusChanged(
+                          proposalId: proposal.id,
+                          status: ProposalPoStatus.accepted,
+                        ),
+                      ),
+                  icon: Icons.check_circle_outline,
+                ),
+              ],
+              const SizedBox(width: 6),
               PopupMenuButton<ProposalPoStatus>(
                 tooltip: 'Set status',
                 padding: EdgeInsets.zero,
@@ -341,24 +352,16 @@ class _ProposalCard extends StatelessWidget {
                       ),
                     ),
                 itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: ProposalPoStatus.archived,
-                    enabled: proposal.poStatus != ProposalPoStatus.archived,
-                    child: Text(
-                      proposal.poStatus == ProposalPoStatus.archived
-                          ? '✓ Archived'
-                          : 'Archive',
+                  for (final status in ProposalPoStatus.values)
+                    PopupMenuItem(
+                      value: status,
+                      enabled: proposal.poStatus != status,
+                      child: Text(
+                        proposal.poStatus == status
+                            ? '✓ ${status.label}'
+                            : status.label,
+                      ),
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: ProposalPoStatus.active,
-                    enabled: proposal.poStatus != ProposalPoStatus.active,
-                    child: Text(
-                      proposal.poStatus == ProposalPoStatus.active
-                          ? '✓ Active'
-                          : 'Restore to active',
-                    ),
-                  ),
                 ],
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -405,11 +408,47 @@ class _ProposalCard extends StatelessWidget {
                 onPressed: () => context.read<ProposalsBloc>().add(
                       ProposalDownloadRequested(proposal),
                     ),
-                icon: Icons.download_outlined,
+                icon: Icons.download,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProposalStatusChip extends StatelessWidget {
+  const _ProposalStatusChip({required this.status});
+
+  final ProposalPoStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    switch (status) {
+      case ProposalPoStatus.active:
+        color = AppColors.textLight;
+      case ProposalPoStatus.sent:
+        color = AppColors.text;
+      case ProposalPoStatus.accepted:
+        color = AppColors.success;
+      case ProposalPoStatus.archived:
+        color = AppColors.error;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
       ),
     );
   }

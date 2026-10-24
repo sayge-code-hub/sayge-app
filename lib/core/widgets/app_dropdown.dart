@@ -43,6 +43,7 @@ class AppDropdown<T> extends StatelessWidget {
         DropdownButtonFormField<T>(
           // ignore: deprecated_member_use
           value: value,
+          isExpanded: true,
           items: items
               .map(
                 (item) => DropdownMenuItem<T>(

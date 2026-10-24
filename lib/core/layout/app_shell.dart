@@ -761,7 +761,6 @@ class _NavTile extends StatelessWidget {
     required this.fontSize,
     required this.indent,
     this.enabled = true,
-    this.accentColor,
     this.leading,
     this.trailing,
     this.onTap,
@@ -770,7 +769,6 @@ class _NavTile extends StatelessWidget {
   final String label;
   final bool selected;
   final bool enabled;
-  final Color? accentColor;
   final double fontSize;
   final bool indent;
   final Widget? leading;
@@ -782,8 +780,6 @@ class _NavTile extends StatelessWidget {
     final Color textColor;
     if (!enabled) {
       textColor = AppColors.textLight.withValues(alpha: 0.55);
-    } else if (accentColor != null) {
-      textColor = accentColor!;
     } else if (selected) {
       textColor = AppColors.highlight;
     } else if (onTap == null) {

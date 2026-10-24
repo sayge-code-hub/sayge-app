@@ -57,4 +57,20 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       return const Left(NetworkFailure('Failed to update invoice.'));
     }
   }
+
+  @override
+  Future<Either<Failure, Invoice>> updatePaymentFields(Invoice invoice) async {
+    try {
+      final updated = await remoteDataSource.updatePaymentFields(
+        InvoiceModel.fromEntity(invoice),
+      );
+      return Right(updated);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } catch (_) {
+      return const Left(NetworkFailure('Failed to update invoice payment.'));
+    }
+  }
 }

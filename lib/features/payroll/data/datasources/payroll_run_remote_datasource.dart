@@ -1,10 +1,22 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/payslip.dart';
 
-/// Persists payroll runs + payslip snapshots. Soft-fails when tables are missing.
+/// True when PostgREST reports the payroll tables are absent (not RLS denial).
+bool isMissingPayrollTableError(PostgrestException e) {
+  final code = (e.code ?? '').toUpperCase();
+  final msg = e.message.toLowerCase();
+  return code == '42P01' ||
+      code == 'PGRST205' ||
+      ((msg.contains('payroll_runs') || msg.contains('payslip_records')) &&
+          (msg.contains('does not exist') ||
+              msg.contains('schema cache') ||
+              msg.contains('could not find')));
+}
+
+/// Persists payroll runs + payslip snapshots.
+/// Soft-fails only when the payroll tables are missing from the schema.
 abstract class PayrollRunRemoteDataSource {
   Future<void> savePayrollRun({
     required int periodYear,
@@ -16,7 +28,7 @@ abstract class PayrollRunRemoteDataSource {
 
 class PayrollRunRemoteDataSourceImpl implements PayrollRunRemoteDataSource {
   PayrollRunRemoteDataSourceImpl({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
@@ -40,7 +52,7 @@ class PayrollRunRemoteDataSourceImpl implements PayrollRunRemoteDataSource {
       'period_year': periodYear,
       'period_month': periodMonth,
       'generated_at': DateTime.now().toUtc().toIso8601String(),
-      if (uid != null) 'generated_by': uid,
+      'generated_by': ?uid,
       'employee_count': slips.length,
       'notes': notes,
     };
@@ -79,19 +91,17 @@ class PayrollRunRemoteDataSourceImpl implements PayrollRunRemoteDataSource {
 
       await _client.from(_slipsTable).upsert(records);
     } on PostgrestException catch (e) {
-      // Soft-fail when migration has not been applied yet.
-      final msg = e.message.toLowerCase();
-      if (msg.contains('payroll_runs') ||
-          msg.contains('payslip_records') ||
-          msg.contains('does not exist') ||
-          msg.contains('schema cache')) {
-        debugPrint('Payroll persistence skipped (tables missing): ${e.message}');
-        return;
+      if (isMissingPayrollTableError(e)) {
+        throw const ServerException(
+          'Payslips downloaded, but payroll tables are missing. Run '
+          'supabase/ops_completeness_pack.sql in the Supabase SQL editor to '
+          'persist payroll runs.',
+        );
       }
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;
-      debugPrint('Payroll persistence soft-failed: $e');
+      throw const NetworkException('Failed to persist payroll run.');
     }
   }
 }

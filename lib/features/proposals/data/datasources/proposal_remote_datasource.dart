@@ -83,7 +83,7 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
         await _client.from(_lines).insert(rows);
       }
 
-      return getProposal(proposal.id);
+      return await getProposal(proposal.id);
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Proposal reference already exists.');
@@ -120,7 +120,7 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
         await _client.from(_lines).insert(rows);
       }
 
-      return getProposal(proposal.id);
+      return await getProposal(proposal.id);
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Proposal reference already exists.');
@@ -142,8 +142,13 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
           .from(_table)
           .update({'status': status.storageValue})
           .eq('id', id);
-      return getProposal(id);
+      return await getProposal(id);
     } on PostgrestException catch (e) {
+      if (e.code == '23514') {
+        throw const ServerException(
+          'Could not save that proposal status. Run supabase/proposals_status_lifecycle.sql in the Supabase SQL editor, then try again.',
+        );
+      }
       throw ServerException(e.message);
     } catch (e) {
       if (e is ServerException) rethrow;

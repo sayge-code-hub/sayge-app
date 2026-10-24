@@ -13,7 +13,7 @@ alter table public.proposals
 
 alter table public.proposals
   add constraint proposals_status_check
-  check (status in ('active', 'archived'));
+  check (status in ('active', 'sent', 'accepted', 'archived'));
 
 create index if not exists proposals_status_idx
   on public.proposals (status);

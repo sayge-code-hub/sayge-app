@@ -7,7 +7,7 @@
 -- ---------------------------------------------------------------------------
 alter table public.invoices
   add column if not exists payment_status text not null default 'unpaid'
-    check (payment_status in ('unpaid', 'partial', 'paid', 'overdue')),
+    check (payment_status in ('unpaid', 'sent', 'partial', 'paid', 'overdue')),
   add column if not exists amount_paid numeric(14, 2) not null default 0,
   add column if not exists due_date date,
   add column if not exists paid_at date;
@@ -217,7 +217,7 @@ create policy "documents_delete_rbac"
     )
   );
 
--- Expense receipts live in documents bucket under expenses/
+-- Expense receipts live in the private `documents` bucket under expenses/.
 insert into storage.buckets (id, name, public)
-values ('documents', 'documents', true)
-on conflict (id) do update set public = excluded.public;
+values ('documents', 'documents', false)
+on conflict (id) do update set public = false;

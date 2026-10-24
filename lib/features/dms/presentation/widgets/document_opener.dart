@@ -216,7 +216,7 @@ class _DocumentPreviewDialogState extends State<_DocumentPreviewDialog> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.download_outlined, size: 20),
+                        : const Icon(Icons.download, size: 20),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),

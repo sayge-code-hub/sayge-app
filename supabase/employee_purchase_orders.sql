@@ -36,30 +36,7 @@ drop policy if exists "employee_purchase_orders_update_anon"
   on public.employee_purchase_orders;
 drop policy if exists "employee_purchase_orders_delete_anon"
   on public.employee_purchase_orders;
-
-create policy "employee_purchase_orders_select_anon"
-  on public.employee_purchase_orders for select
-  to anon, authenticated
-  using (true);
-
-create policy "employee_purchase_orders_insert_anon"
-  on public.employee_purchase_orders for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "employee_purchase_orders_update_anon"
-  on public.employee_purchase_orders for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "employee_purchase_orders_delete_anon"
-  on public.employee_purchase_orders for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete
-  on public.employee_purchase_orders to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 do $$
 begin
@@ -71,31 +48,11 @@ begin
 end $$;
 
 insert into storage.buckets (id, name, public)
-values ('employee-pos', 'employee-pos', true)
-on conflict (id) do nothing;
+values ('employee-pos', 'employee-pos', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "employee_pos_storage_select" on storage.objects;
 drop policy if exists "employee_pos_storage_insert" on storage.objects;
 drop policy if exists "employee_pos_storage_update" on storage.objects;
 drop policy if exists "employee_pos_storage_delete" on storage.objects;
-
-create policy "employee_pos_storage_select"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_insert"
-  on storage.objects for insert
-  to anon, authenticated
-  with check (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_update"
-  on storage.objects for update
-  to anon, authenticated
-  using (bucket_id = 'employee-pos')
-  with check (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_delete"
-  on storage.objects for delete
-  to anon, authenticated
-  using (bucket_id = 'employee-pos');
+-- Storage policies: supabase/security_hardening.sql (run after this file).

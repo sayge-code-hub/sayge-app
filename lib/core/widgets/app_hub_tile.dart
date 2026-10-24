@@ -122,9 +122,10 @@ abstract final class AppHubGrid {
   static SliverGridDelegate delegate({
     required bool isDesktop,
     required bool hasSubtitle,
+    int? columns,
   }) {
     return SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: isDesktop ? 3 : 1,
+      crossAxisCount: isDesktop ? (columns ?? 3) : 1,
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
       // Short, wide cards read as professional density — not hollow squares.

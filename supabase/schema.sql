@@ -40,33 +40,12 @@ create trigger roles_set_updated_at
 
 alter table public.roles enable row level security;
 
+-- Access rules live in supabase/security_hardening.sql, which MUST be run
+-- after this file. Until it is, the table is deny-all (RLS on, no policies).
 drop policy if exists "roles_select_anon" on public.roles;
 drop policy if exists "roles_insert_anon" on public.roles;
 drop policy if exists "roles_update_anon" on public.roles;
 drop policy if exists "roles_delete_anon" on public.roles;
-
-create policy "roles_select_anon"
-  on public.roles for select
-  to anon, authenticated
-  using (true);
-
-create policy "roles_insert_anon"
-  on public.roles for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "roles_update_anon"
-  on public.roles for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "roles_delete_anon"
-  on public.roles for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.roles to anon, authenticated;
 
 -- System role rows (reference catalog, not demo business data).
 -- ON CONFLICT DO NOTHING preserves labels/descriptions edited in the dashboard.
@@ -114,38 +93,17 @@ create index if not exists clients_name_idx on public.clients (name);
 
 alter table public.clients enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "clients_select_anon" on public.clients;
 drop policy if exists "clients_insert_anon" on public.clients;
 drop policy if exists "clients_update_anon" on public.clients;
 drop policy if exists "clients_delete_anon" on public.clients;
 
-create policy "clients_select_anon"
-  on public.clients for select
-  to anon, authenticated
-  using (true);
-
-create policy "clients_insert_anon"
-  on public.clients for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "clients_update_anon"
-  on public.clients for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "clients_delete_anon"
-  on public.clients for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.clients to anon, authenticated;
-
 create table if not exists public.employees (
   employee_id text primary key,
   employee_name text not null,
   date_of_joining date not null,
+  date_of_birth date,
   designation text not null,
   department text not null,
   annual_ctc numeric(14, 2) not null,
@@ -207,6 +165,9 @@ alter table public.employees
 
 alter table public.employees
   add column if not exists photo_path text;
+
+alter table public.employees
+  add column if not exists date_of_birth date;
 
 -- Upgrade path: legacy free-text `client` → linked `client_id`
 alter table public.employees add column if not exists client_id text;
@@ -285,34 +246,11 @@ create trigger employees_set_updated_at
 
 alter table public.employees enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "employees_select_anon" on public.employees;
 drop policy if exists "employees_insert_anon" on public.employees;
 drop policy if exists "employees_update_anon" on public.employees;
 drop policy if exists "employees_delete_anon" on public.employees;
-
--- Open policies for prototype. Tighten once role-based Auth is finalized.
-create policy "employees_select_anon"
-  on public.employees for select
-  to anon, authenticated
-  using (true);
-
-create policy "employees_insert_anon"
-  on public.employees for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "employees_update_anon"
-  on public.employees for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "employees_delete_anon"
-  on public.employees for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.employees to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- DMS (Document Management System)
@@ -325,8 +263,12 @@ create table if not exists public.dms_entities (
   entity_type text not null check (
     entity_type in ('company', 'vendor', 'employee', 'candidate')
   ),
+  subtitle text not null default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.dms_entities
+  add column if not exists subtitle text not null default '';
 
 create index if not exists dms_entities_type_idx
   on public.dms_entities (entity_type);
@@ -335,33 +277,11 @@ create index if not exists dms_entities_name_idx
 
 alter table public.dms_entities enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "dms_entities_select_anon" on public.dms_entities;
 drop policy if exists "dms_entities_insert_anon" on public.dms_entities;
 drop policy if exists "dms_entities_update_anon" on public.dms_entities;
 drop policy if exists "dms_entities_delete_anon" on public.dms_entities;
-
-create policy "dms_entities_select_anon"
-  on public.dms_entities for select
-  to anon, authenticated
-  using (true);
-
-create policy "dms_entities_insert_anon"
-  on public.dms_entities for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "dms_entities_update_anon"
-  on public.dms_entities for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "dms_entities_delete_anon"
-  on public.dms_entities for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.dms_entities to anon, authenticated;
 
 create table if not exists public.documents (
   id text primary key,
@@ -391,33 +311,11 @@ create index if not exists documents_uploaded_at_idx
 
 alter table public.documents enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "documents_select_anon" on public.documents;
 drop policy if exists "documents_insert_anon" on public.documents;
 drop policy if exists "documents_update_anon" on public.documents;
 drop policy if exists "documents_delete_anon" on public.documents;
-
-create policy "documents_select_anon"
-  on public.documents for select
-  to anon, authenticated
-  using (true);
-
-create policy "documents_insert_anon"
-  on public.documents for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "documents_update_anon"
-  on public.documents for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "documents_delete_anon"
-  on public.documents for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.documents to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Users (app profiles). Credentials live in auth.users; this table is the
@@ -451,33 +349,11 @@ create trigger users_set_updated_at
 
 alter table public.users enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "users_select_anon" on public.users;
 drop policy if exists "users_insert_anon" on public.users;
 drop policy if exists "users_update_anon" on public.users;
 drop policy if exists "users_delete_anon" on public.users;
-
-create policy "users_select_anon"
-  on public.users for select
-  to anon, authenticated
-  using (true);
-
-create policy "users_insert_anon"
-  on public.users for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "users_update_anon"
-  on public.users for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "users_delete_anon"
-  on public.users for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.users to anon, authenticated;
 
 -- Storage bucket for user profile pictures
 insert into storage.buckets (id, name, public)
@@ -488,39 +364,7 @@ drop policy if exists "user_avatars_storage_select" on storage.objects;
 drop policy if exists "user_avatars_storage_insert" on storage.objects;
 drop policy if exists "user_avatars_storage_update" on storage.objects;
 drop policy if exists "user_avatars_storage_delete" on storage.objects;
-
-create policy "user_avatars_storage_select"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'user-avatars');
-
-create policy "user_avatars_storage_insert"
-  on storage.objects for insert
-  to authenticated
-  with check (
-    bucket_id = 'user-avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "user_avatars_storage_update"
-  on storage.objects for update
-  to authenticated
-  using (
-    bucket_id = 'user-avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  )
-  with check (
-    bucket_id = 'user-avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "user_avatars_storage_delete"
-  on storage.objects for delete
-  to authenticated
-  using (
-    bucket_id = 'user-avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
+-- Storage policies: supabase/security_hardening.sql (run after this file).
 
 -- Storage bucket for employee profile pictures
 insert into storage.buckets (id, name, public)
@@ -531,27 +375,7 @@ drop policy if exists "employee_avatars_storage_select" on storage.objects;
 drop policy if exists "employee_avatars_storage_insert" on storage.objects;
 drop policy if exists "employee_avatars_storage_update" on storage.objects;
 drop policy if exists "employee_avatars_storage_delete" on storage.objects;
-
-create policy "employee_avatars_storage_select"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'employee-avatars');
-
-create policy "employee_avatars_storage_insert"
-  on storage.objects for insert
-  to authenticated
-  with check (bucket_id = 'employee-avatars');
-
-create policy "employee_avatars_storage_update"
-  on storage.objects for update
-  to authenticated
-  using (bucket_id = 'employee-avatars')
-  with check (bucket_id = 'employee-avatars');
-
-create policy "employee_avatars_storage_delete"
-  on storage.objects for delete
-  to authenticated
-  using (bucket_id = 'employee-avatars');
+-- Storage policies: supabase/security_hardening.sql (run after this file).
 
 insert into storage.buckets (id, name, public)
 values ('brand-logos', 'brand-logos', true)
@@ -561,29 +385,11 @@ drop policy if exists "brand_logos_storage_select" on storage.objects;
 drop policy if exists "brand_logos_storage_insert" on storage.objects;
 drop policy if exists "brand_logos_storage_update" on storage.objects;
 drop policy if exists "brand_logos_storage_delete" on storage.objects;
+-- Storage policies: supabase/security_hardening.sql (run after this file).
 
-create policy "brand_logos_storage_select"
-  on storage.objects for select
-  to public
-  using (bucket_id = 'brand-logos');
-
-create policy "brand_logos_storage_insert"
-  on storage.objects for insert
-  to authenticated
-  with check (bucket_id = 'brand-logos');
-
-create policy "brand_logos_storage_update"
-  on storage.objects for update
-  to authenticated
-  using (bucket_id = 'brand-logos')
-  with check (bucket_id = 'brand-logos');
-
-create policy "brand_logos_storage_delete"
-  on storage.objects for delete
-  to authenticated
-  using (bucket_id = 'brand-logos');
-
--- Auto-create a public.users row when someone signs up in Auth.
+-- Auto-create a public.users row for invited @sayge.in Auth users only.
+-- Self-signup without invite metadata does not get an app profile.
+-- Dashboard: Authentication → Providers → Email → disable "Allow new users to sign up".
 create or replace function public.handle_new_auth_user()
 returns trigger
 language plpgsql
@@ -593,12 +399,40 @@ as $$
 declare
   default_role_id text;
   preferred_name text;
+  meta_role text;
+  invited boolean;
+  must_set boolean;
+  email_lower text;
 begin
-  select id into default_role_id
-  from public.roles
-  where code = 'employee' and is_active
-  order by sort_order
-  limit 1;
+  email_lower := lower(coalesce(new.email, ''));
+
+  if email_lower = '' or email_lower not like '%@sayge.in' then
+    return new;
+  end if;
+
+  invited := new.invited_at is not null;
+  must_set := coalesce(new.raw_user_meta_data ->> 'must_set_password', '')
+    in ('true', '1');
+
+  if not invited and not must_set then
+    return new;
+  end if;
+
+  meta_role := nullif(trim(coalesce(new.raw_user_meta_data ->> 'role_id', '')), '');
+  if meta_role is not null then
+    select id into default_role_id
+    from public.roles
+    where id = meta_role and is_active
+    limit 1;
+  end if;
+
+  if default_role_id is null then
+    select id into default_role_id
+    from public.roles
+    where code = 'employee' and is_active
+    order by sort_order
+    limit 1;
+  end if;
 
   if default_role_id is null then
     select id into default_role_id from public.roles order by sort_order limit 1;
@@ -677,16 +511,12 @@ create index if not exists activity_log_record_idx
 
 alter table public.activity_log enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
+-- Rows are written only by the SECURITY DEFINER trigger below.
 drop policy if exists "activity_log_select_auth" on public.activity_log;
 drop policy if exists "activity_log_select_anon" on public.activity_log;
 
-create policy "activity_log_select_anon"
-  on public.activity_log for select
-  to anon, authenticated
-  using (true);
-
-revoke insert, update, delete on public.activity_log from anon, authenticated;
-grant select on public.activity_log to anon, authenticated;
+revoke all on public.activity_log from anon, authenticated;
 
 create or replace function public.log_row_activity()
 returns trigger
@@ -823,33 +653,11 @@ create trigger proposals_set_updated_at
 
 alter table public.proposals enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "proposals_select_anon" on public.proposals;
 drop policy if exists "proposals_insert_anon" on public.proposals;
 drop policy if exists "proposals_update_anon" on public.proposals;
 drop policy if exists "proposals_delete_anon" on public.proposals;
-
-create policy "proposals_select_anon"
-  on public.proposals for select
-  to anon, authenticated
-  using (true);
-
-create policy "proposals_insert_anon"
-  on public.proposals for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "proposals_update_anon"
-  on public.proposals for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "proposals_delete_anon"
-  on public.proposals for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.proposals to anon, authenticated;
 
 create table if not exists public.proposal_line_items (
   id text primary key,
@@ -868,34 +676,11 @@ create index if not exists proposal_line_items_proposal_idx
 
 alter table public.proposal_line_items enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "proposal_line_items_select_anon" on public.proposal_line_items;
 drop policy if exists "proposal_line_items_insert_anon" on public.proposal_line_items;
 drop policy if exists "proposal_line_items_update_anon" on public.proposal_line_items;
 drop policy if exists "proposal_line_items_delete_anon" on public.proposal_line_items;
-
-create policy "proposal_line_items_select_anon"
-  on public.proposal_line_items for select
-  to anon, authenticated
-  using (true);
-
-create policy "proposal_line_items_insert_anon"
-  on public.proposal_line_items for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "proposal_line_items_update_anon"
-  on public.proposal_line_items for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "proposal_line_items_delete_anon"
-  on public.proposal_line_items for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete
-  on public.proposal_line_items to anon, authenticated;
 
 -- Ledger triggers for proposals
 do $$
@@ -952,29 +737,7 @@ drop policy if exists "employee_purchase_orders_update_anon"
 drop policy if exists "employee_purchase_orders_delete_anon"
   on public.employee_purchase_orders;
 
-create policy "employee_purchase_orders_select_anon"
-  on public.employee_purchase_orders for select
-  to anon, authenticated
-  using (true);
-
-create policy "employee_purchase_orders_insert_anon"
-  on public.employee_purchase_orders for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "employee_purchase_orders_update_anon"
-  on public.employee_purchase_orders for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "employee_purchase_orders_delete_anon"
-  on public.employee_purchase_orders for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete
-  on public.employee_purchase_orders to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 do $$
 begin
@@ -985,67 +748,28 @@ begin
     for each row execute function public.log_row_activity();
 end $$;
 
--- Storage bucket for DMS document binaries (public read for simple view URLs)
+-- Storage bucket for DMS document binaries. PRIVATE: contains HR / contractual
+-- files. The app reads them through short-lived signed URLs.
 insert into storage.buckets (id, name, public)
-values ('documents', 'documents', true)
-on conflict (id) do nothing;
+values ('documents', 'documents', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "documents_storage_select" on storage.objects;
 drop policy if exists "documents_storage_insert" on storage.objects;
 drop policy if exists "documents_storage_update" on storage.objects;
 drop policy if exists "documents_storage_delete" on storage.objects;
+-- Storage policies: supabase/security_hardening.sql (run after this file).
 
-create policy "documents_storage_select"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'documents');
-
-create policy "documents_storage_insert"
-  on storage.objects for insert
-  to anon, authenticated
-  with check (bucket_id = 'documents');
-
-create policy "documents_storage_update"
-  on storage.objects for update
-  to anon, authenticated
-  using (bucket_id = 'documents')
-  with check (bucket_id = 'documents');
-
-create policy "documents_storage_delete"
-  on storage.objects for delete
-  to anon, authenticated
-  using (bucket_id = 'documents');
-
--- Storage bucket for PO PDFs (public read for simple download URLs)
+-- Storage bucket for PO PDFs. PRIVATE: contractual documents, signed URLs only.
 insert into storage.buckets (id, name, public)
-values ('employee-pos', 'employee-pos', true)
-on conflict (id) do nothing;
+values ('employee-pos', 'employee-pos', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "employee_pos_storage_select" on storage.objects;
 drop policy if exists "employee_pos_storage_insert" on storage.objects;
 drop policy if exists "employee_pos_storage_update" on storage.objects;
 drop policy if exists "employee_pos_storage_delete" on storage.objects;
-
-create policy "employee_pos_storage_select"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_insert"
-  on storage.objects for insert
-  to anon, authenticated
-  with check (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_update"
-  on storage.objects for update
-  to anon, authenticated
-  using (bucket_id = 'employee-pos')
-  with check (bucket_id = 'employee-pos');
-
-create policy "employee_pos_storage_delete"
-  on storage.objects for delete
-  to anon, authenticated
-  using (bucket_id = 'employee-pos');
+-- Storage policies: supabase/security_hardening.sql (run after this file).
 
 -- ---------------------------------------------------------------------------
 -- Tax Invoices
@@ -1086,33 +810,11 @@ create trigger invoices_set_updated_at
 
 alter table public.invoices enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "invoices_select_anon" on public.invoices;
 drop policy if exists "invoices_insert_anon" on public.invoices;
 drop policy if exists "invoices_update_anon" on public.invoices;
 drop policy if exists "invoices_delete_anon" on public.invoices;
-
-create policy "invoices_select_anon"
-  on public.invoices for select
-  to anon, authenticated
-  using (true);
-
-create policy "invoices_insert_anon"
-  on public.invoices for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "invoices_update_anon"
-  on public.invoices for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "invoices_delete_anon"
-  on public.invoices for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.invoices to anon, authenticated;
 
 create table if not exists public.invoice_line_items (
   id text primary key,
@@ -1128,34 +830,11 @@ create index if not exists invoice_line_items_invoice_idx
 
 alter table public.invoice_line_items enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "invoice_line_items_select_anon" on public.invoice_line_items;
 drop policy if exists "invoice_line_items_insert_anon" on public.invoice_line_items;
 drop policy if exists "invoice_line_items_update_anon" on public.invoice_line_items;
 drop policy if exists "invoice_line_items_delete_anon" on public.invoice_line_items;
-
-create policy "invoice_line_items_select_anon"
-  on public.invoice_line_items for select
-  to anon, authenticated
-  using (true);
-
-create policy "invoice_line_items_insert_anon"
-  on public.invoice_line_items for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "invoice_line_items_update_anon"
-  on public.invoice_line_items for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "invoice_line_items_delete_anon"
-  on public.invoice_line_items for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete
-  on public.invoice_line_items to anon, authenticated;
 
 do $$
 begin
@@ -1208,33 +887,11 @@ create trigger company_details_set_updated_at
 
 alter table public.company_details enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "company_details_select_anon" on public.company_details;
 drop policy if exists "company_details_insert_anon" on public.company_details;
 drop policy if exists "company_details_update_anon" on public.company_details;
 drop policy if exists "company_details_delete_anon" on public.company_details;
-
-create policy "company_details_select_anon"
-  on public.company_details for select
-  to anon, authenticated
-  using (true);
-
-create policy "company_details_insert_anon"
-  on public.company_details for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "company_details_update_anon"
-  on public.company_details for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "company_details_delete_anon"
-  on public.company_details for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.company_details to anon, authenticated;
 
 insert into public.company_details (
   id,
@@ -1266,19 +923,7 @@ values (
   'Deonagar Branch',
   'MSCI0082051'
 )
-on conflict (name) do update set
-  display_name = excluded.display_name,
-  address = excluded.address,
-  gstin = excluded.gstin,
-  pan = excluded.pan,
-  sac_code = excluded.sac_code,
-  telephone = excluded.telephone,
-  email = excluded.email,
-  bank_name = excluded.bank_name,
-  bank_account_no = excluded.bank_account_no,
-  bank_branch = excluded.bank_branch,
-  bank_ifsc = excluded.bank_ifsc,
-  updated_at = now();
+on conflict (name) do nothing;
 
 do $$
 begin
@@ -1295,16 +940,15 @@ create table if not exists public.expenses (
   amount numeric(14, 2) not null default 0,
   paid_from text not null default '',
   category text not null default '',
+  client_id text references public.clients (id) on delete set null,
+  created_by uuid references auth.users (id) on delete set null,
+  approval_status text not null default 'pending',
+  approved_by uuid references auth.users (id) on delete set null,
+  approved_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint expenses_category_chk check (
-    category in (
-      'Software Tools',
-      'Commissions',
-      'CA',
-      'Accountant Consulting',
-      'Misc'
-    )
+  constraint expenses_approval_status_chk check (
+    approval_status in ('pending', 'approved', 'rejected')
   )
 );
 
@@ -1312,6 +956,8 @@ create index if not exists expenses_created_at_idx
   on public.expenses (created_at desc);
 create index if not exists expenses_category_idx
   on public.expenses (category);
+create index if not exists expenses_client_id_idx
+  on public.expenses (client_id);
 
 drop trigger if exists expenses_set_updated_at on public.expenses;
 create trigger expenses_set_updated_at
@@ -1321,33 +967,11 @@ create trigger expenses_set_updated_at
 
 alter table public.expenses enable row level security;
 
+-- Access rules: supabase/security_hardening.sql (run after this file).
 drop policy if exists "expenses_select_anon" on public.expenses;
 drop policy if exists "expenses_insert_anon" on public.expenses;
 drop policy if exists "expenses_update_anon" on public.expenses;
 drop policy if exists "expenses_delete_anon" on public.expenses;
-
-create policy "expenses_select_anon"
-  on public.expenses for select
-  to anon, authenticated
-  using (true);
-
-create policy "expenses_insert_anon"
-  on public.expenses for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "expenses_update_anon"
-  on public.expenses for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "expenses_delete_anon"
-  on public.expenses for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.expenses to anon, authenticated;
 
 do $$
 begin

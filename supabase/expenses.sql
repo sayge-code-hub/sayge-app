@@ -13,15 +13,6 @@ create table if not exists public.expenses (
   approved_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint expenses_category_chk check (
-    category in (
-      'Software Tools',
-      'Commissions',
-      'CA',
-      'Accountant Consulting',
-      'Misc'
-    )
-  ),
   constraint expenses_approval_status_chk check (
     approval_status in ('pending', 'approved', 'rejected')
   )
@@ -46,29 +37,7 @@ drop policy if exists "expenses_select_anon" on public.expenses;
 drop policy if exists "expenses_insert_anon" on public.expenses;
 drop policy if exists "expenses_update_anon" on public.expenses;
 drop policy if exists "expenses_delete_anon" on public.expenses;
-
-create policy "expenses_select_anon"
-  on public.expenses for select
-  to anon, authenticated
-  using (true);
-
-create policy "expenses_insert_anon"
-  on public.expenses for insert
-  to anon, authenticated
-  with check (true);
-
-create policy "expenses_update_anon"
-  on public.expenses for update
-  to anon, authenticated
-  using (true)
-  with check (true);
-
-create policy "expenses_delete_anon"
-  on public.expenses for delete
-  to anon, authenticated
-  using (true);
-
-grant select, insert, update, delete on public.expenses to anon, authenticated;
+-- Access rules: supabase/security_hardening.sql (run after this file).
 
 do $$
 begin

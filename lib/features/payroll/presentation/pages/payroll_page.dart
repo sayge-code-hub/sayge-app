@@ -10,6 +10,7 @@ import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/document_email.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_list_search_field.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
@@ -49,11 +50,7 @@ class _PayrollBody extends StatelessWidget {
       listener: (context, state) {
         final message = state.errorMessage;
         if (message != null) {
-          showAppMessageDialog(
-            context,
-            title: 'Payroll',
-            message: message,
-          );
+          showAppMessageDialog(context, title: 'Payroll', message: message);
         }
       },
       builder: (context, state) {
@@ -65,9 +62,9 @@ class _PayrollBody extends StatelessWidget {
         }
 
         return Theme(
-          data: Theme.of(context).copyWith(
-            checkboxTheme: _payrollCheckboxTheme,
-          ),
+          data: Theme.of(
+            context,
+          ).copyWith(checkboxTheme: _payrollCheckboxTheme),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -88,10 +85,8 @@ class _PayrollBody extends StatelessWidget {
                           state.employees.isEmpty
                               ? 'No active employees.'
                               : 'No employees had joined in this month.',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.textLight,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppColors.textLight),
                         ),
                       )
                     : _EmployeePicker(state: state, isDesktop: isDesktop),
@@ -118,10 +113,7 @@ final _payrollCheckboxTheme = CheckboxThemeData(
 );
 
 class _PayrollPeriodPicker extends StatelessWidget {
-  const _PayrollPeriodPicker({
-    required this.state,
-    required this.isDesktop,
-  });
+  const _PayrollPeriodPicker({required this.state, required this.isDesktop});
 
   final PayrollState state;
   final bool isDesktop;
@@ -136,9 +128,8 @@ class _PayrollPeriodPicker extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final selected = DateTime(state.year, state.month, 1);
-    final value = options.any(
-      (d) => d.year == selected.year && d.month == selected.month,
-    )
+    final value =
+        options.any((d) => d.year == selected.year && d.month == selected.month)
         ? selected
         : options.last;
 
@@ -146,8 +137,8 @@ class _PayrollPeriodPicker extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         context.read<PayrollBloc>().add(
-              PayrollMonthChanged(month: value.month, year: value.year),
-            );
+          PayrollMonthChanged(month: value.month, year: value.year),
+        );
       });
     }
 
@@ -155,36 +146,21 @@ class _PayrollPeriodPicker extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: SizedBox(
         width: isDesktop ? 220 : double.infinity,
-        child: DropdownButtonFormField<DateTime>(
-          // Controlled by PayrollBloc month/year.
-          // ignore: deprecated_member_use
+        child: AppFilterDropdown<DateTime>(
           value: value,
-          decoration: const InputDecoration(
-            prefixIcon: Icon(
-              Icons.calendar_month_outlined,
-              size: 20,
-              color: AppColors.textLight,
-            ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          items: [
+          enabled: !generating,
+          options: [
             for (final d in options)
-              DropdownMenuItem(
+              AppFilterOption(
                 value: d,
-                child: Text(DateFormat('MMMM yyyy').format(d)),
+                label: DateFormat('MMMM yyyy').format(d),
               ),
           ],
-          onChanged: generating
-              ? null
-              : (picked) {
-                  if (picked == null) return;
-                  context.read<PayrollBloc>().add(
-                        PayrollMonthChanged(
-                          month: picked.month,
-                          year: picked.year,
-                        ),
-                      );
-                },
+          onChanged: (picked) {
+            context.read<PayrollBloc>().add(
+              PayrollMonthChanged(month: picked.month, year: picked.year),
+            );
+          },
         ),
       ),
     );
@@ -201,10 +177,13 @@ class _PayrollStickyActions extends StatelessWidget {
     final generating = state.status == PayrollStatus.generating;
     final hasSelection = state.selectedIds.isNotEmpty;
 
+    final compact = Breakpoints.isCompact(context);
     final downloadSelected = AppButton(
       label: state.selectedIds.length <= 1
-          ? 'Download slip'
-          : 'Download ${state.selectedIds.length} slips',
+          ? (compact ? 'Download' : 'Download slip')
+          : (compact
+                ? 'Download ${state.selectedIds.length}'
+                : 'Download ${state.selectedIds.length} slips'),
       isLoading: generating,
       enabled: !generating && hasSelection,
       onPressed: () =>
@@ -220,8 +199,10 @@ class _PayrollStickyActions extends StatelessWidget {
         context: context,
         title: 'Email payslip',
         onRecipient: (to) async {
-          final company =
-              (await sl<GetCompanyDetailsUseCase>()()).fold((_) => null, (d) => d);
+          final company = (await sl<GetCompanyDetailsUseCase>()()).fold(
+            (_) => null,
+            (d) => d,
+          );
           for (var i = 0; i < selected.length; i++) {
             final employee = selected[i];
             final slip = PayslipCalculator.fromEmployee(
@@ -229,18 +210,14 @@ class _PayrollStickyActions extends StatelessWidget {
               month: state.month,
               year: state.year,
             );
-            final doc = await PayslipPdfBuilder.build(
-              [slip],
-              company: company,
-            );
+            final doc = await PayslipPdfBuilder.build([slip], company: company);
             final bytes = Uint8List.fromList(await doc.save());
             final filename =
                 'Payslip_${employee.employeeId}_${slip.periodLabel}.pdf';
             await emailPdfDocument(
               bytes: bytes,
               filename: filename,
-              subject:
-                  'Payslip ${employee.employeeName} · ${slip.periodLabel}',
+              subject: 'Payslip ${employee.employeeName} · ${slip.periodLabel}',
               body:
                   'Please find the payslip PDF attached (downloaded to your device).\n\n${employee.employeeName} · ${slip.periodLabel}',
               to: to,
@@ -268,8 +245,8 @@ class _PayrollStickyActions extends StatelessWidget {
           onPressed: generating || state.employeesForPeriod.isEmpty
               ? null
               : () =>
-                  context.read<PayrollBloc>().add(const PayrollDownloadAll()),
-          child: const Text('Download all'),
+                    context.read<PayrollBloc>().add(const PayrollDownloadAll()),
+          child: Text(compact ? 'All' : 'Download all'),
         ),
         emailButton,
         downloadSelected,
@@ -279,10 +256,7 @@ class _PayrollStickyActions extends StatelessWidget {
 }
 
 class _EmployeePicker extends StatefulWidget {
-  const _EmployeePicker({
-    required this.state,
-    required this.isDesktop,
-  });
+  const _EmployeePicker({required this.state, required this.isDesktop});
 
   final PayrollState state;
   final bool isDesktop;
@@ -347,14 +321,14 @@ class _EmployeePickerState extends State<_EmployeePicker> {
                   value: state.allSelected
                       ? true
                       : state.selectedIds.isEmpty
-                          ? false
-                          : null,
+                      ? false
+                      : null,
                   tristate: true,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
-                  onChanged: (_) => context
-                      .read<PayrollBloc>()
-                      .add(const PayrollSelectAllToggled()),
+                  onChanged: (_) => context.read<PayrollBloc>().add(
+                    const PayrollSelectAllToggled(),
+                  ),
                 ),
               ),
               Text(
@@ -399,8 +373,7 @@ class _EmployeePickerState extends State<_EmployeePicker> {
                     final employee = employees[index];
                     return _EmployeeRow(
                       employee: employee,
-                      selected:
-                          state.selectedIds.contains(employee.employeeId),
+                      selected: state.selectedIds.contains(employee.employeeId),
                       enabled: state.status != PayrollStatus.generating,
                       month: state.month,
                       year: state.year,
@@ -446,8 +419,8 @@ class _EmployeeRow extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               onChanged: enabled
                   ? (_) => context.read<PayrollBloc>().add(
-                        PayrollEmployeeToggled(employee.employeeId),
-                      )
+                      PayrollEmployeeToggled(employee.employeeId),
+                    )
                   : null,
             ),
           ),
@@ -461,11 +434,11 @@ class _EmployeeRow extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: enabled
                     ? () => showPayslipPreview(
-                          context: context,
-                          employee: employee,
-                          month: month,
-                          year: year,
-                        )
+                        context: context,
+                        employee: employee,
+                        month: month,
+                        year: year,
+                      )
                     : null,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -501,13 +474,18 @@ class _EmployeeRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          employee.client,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontSize: 12,
-                            color: AppColors.textLight,
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            employee.client,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontSize: 12,
+                              color: AppColors.textLight,
+                            ),
                           ),
                         ),
                       ),

@@ -191,53 +191,82 @@ class _ManageInvitesPageState extends State<ManageInvitesPage> {
           return AppListCard(
             borderRadius: 12,
             padding: AppListCard.sectionPadding,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked = constraints.maxWidth < 420;
+                final details = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invite.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontSize: 14,
+                          ),
+                    ),
+                    if (invite.fullName.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        invite.email,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 14,
-                            ),
+                        invite.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontSize: 13,
+                                  color: AppColors.textLight,
+                                ),
                       ),
-                      if (invite.fullName.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          invite.fullName,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 13,
-                                    color: AppColors.textLight,
-                                  ),
-                        ),
-                      ],
-                      if (invite.invitedAt != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Invited ${AppDates.medium.format(invite.invitedAt!)}',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 12,
-                                    color: AppColors.textLight,
-                                  ),
-                        ),
-                      ],
                     ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => _resend(invite),
-                  child: Text(busy ? '…' : 'Resend'),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => _revoke(invite),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                  child: const Text('Revoke'),
-                ),
-              ],
+                    if (invite.invitedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Invited ${AppDates.medium.format(invite.invitedAt!)}',
+                        style:
+                            Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontSize: 12,
+                                  color: AppColors.textLight,
+                                ),
+                      ),
+                    ],
+                  ],
+                );
+                final actions = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: busy ? null : () => _resend(invite),
+                      child: Text(busy ? '…' : 'Resend'),
+                    ),
+                    TextButton(
+                      onPressed: busy ? null : () => _revoke(invite),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: const Text('Revoke'),
+                    ),
+                  ],
+                );
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      details,
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actions,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: details),
+                    actions,
+                  ],
+                );
+              },
             ),
           );
         },
