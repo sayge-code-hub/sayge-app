@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
@@ -7,6 +9,15 @@ abstract class CafePosRepository {
   Future<Either<Failure, List<Cafe>>> getCafes();
 
   Future<Either<Failure, Cafe>> upsertCafe(Cafe cafe);
+
+  Future<Either<Failure, Cafe>> uploadGuestLogo({
+    required String cafeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  });
+
+  Future<Either<Failure, Cafe>> clearGuestLogo(String cafeId);
 
   Future<Either<Failure, List<CafeCategory>>> getCategories(String cafeId);
 

@@ -46,6 +46,12 @@ class CafePosSettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _SettingsTile(
+            icon: Icons.palette_outlined,
+            title: 'Guest menu look',
+            onTap: () => context.push(AppRoutes.posGuestBrand(cafeId)),
+          ),
+          const SizedBox(height: 10),
+          _SettingsTile(
             icon: Icons.qr_code_2_rounded,
             title: 'Guest menu QR',
             onTap: () => context.push(AppRoutes.posQr(cafeId)),

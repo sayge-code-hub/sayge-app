@@ -91,4 +91,7 @@ abstract final class AppRoutes {
   static String posFloor(String cafeId) => '/pos/$cafeId/settings/floor';
 
   static String posQr(String cafeId) => '/pos/$cafeId/settings/qr';
+
+  static String posGuestBrand(String cafeId) =>
+      '/pos/$cafeId/settings/guest-look';
 }

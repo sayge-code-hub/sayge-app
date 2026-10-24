@@ -361,6 +361,8 @@ Future<void> initDependencies() async {
   );
   sl.registerLazySingleton(() => GetCafes(sl()));
   sl.registerLazySingleton(() => UpsertCafe(sl()));
+  sl.registerLazySingleton(() => UploadCafeGuestLogo(sl()));
+  sl.registerLazySingleton(() => ClearCafeGuestLogo(sl()));
   sl.registerLazySingleton(() => GetCafeCategories(sl()));
   sl.registerLazySingleton(() => UpsertCafeCategory(sl()));
   sl.registerLazySingleton(() => DeleteCafeCategory(sl()));

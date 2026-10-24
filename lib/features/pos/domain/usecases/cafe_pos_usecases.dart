@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
@@ -14,6 +16,30 @@ class UpsertCafe {
   const UpsertCafe(this._repo);
   final CafePosRepository _repo;
   Future<Either<Failure, Cafe>> call(Cafe cafe) => _repo.upsertCafe(cafe);
+}
+
+class UploadCafeGuestLogo {
+  const UploadCafeGuestLogo(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, Cafe>> call({
+    required String cafeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) =>
+      _repo.uploadGuestLogo(
+        cafeId: cafeId,
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+}
+
+class ClearCafeGuestLogo {
+  const ClearCafeGuestLogo(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, Cafe>> call(String cafeId) =>
+      _repo.clearGuestLogo(cafeId);
 }
 
 class GetCafeCategories {

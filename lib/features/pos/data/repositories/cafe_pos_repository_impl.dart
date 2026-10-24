@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -30,6 +32,26 @@ class CafePosRepositoryImpl implements CafePosRepository {
   @override
   Future<Either<Failure, Cafe>> upsertCafe(Cafe cafe) =>
       _guard(() => remoteDataSource.upsertCafe(cafe));
+
+  @override
+  Future<Either<Failure, Cafe>> uploadGuestLogo({
+    required String cafeId,
+    required Uint8List bytes,
+    required String fileName,
+    String mimeType = 'image/jpeg',
+  }) =>
+      _guard(
+        () => remoteDataSource.uploadGuestLogo(
+          cafeId: cafeId,
+          bytes: bytes,
+          fileName: fileName,
+          mimeType: mimeType,
+        ),
+      );
+
+  @override
+  Future<Either<Failure, Cafe>> clearGuestLogo(String cafeId) =>
+      _guard(() => remoteDataSource.clearGuestLogo(cafeId));
 
   @override
   Future<Either<Failure, List<CafeCategory>>> getCategories(String cafeId) =>

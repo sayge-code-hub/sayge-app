@@ -105,6 +105,45 @@ extension CafePaymentMethodX on CafePaymentMethod {
   }
 }
 
+/// Guest QR menu layout presets.
+enum GuestMenuLayout {
+  /// Dark espresso hero + list rows (default).
+  night,
+
+  /// Light list with accent chips and qty pills.
+  fresh,
+
+  /// Two-column gallery cards with + buttons.
+  gallery,
+}
+
+extension GuestMenuLayoutX on GuestMenuLayout {
+  String get dbValue => name;
+
+  String get label => switch (this) {
+        GuestMenuLayout.night => 'Night',
+        GuestMenuLayout.fresh => 'Fresh',
+        GuestMenuLayout.gallery => 'Gallery',
+      };
+
+  String get blurb => switch (this) {
+        GuestMenuLayout.night => 'Bold dark hero, clean list',
+        GuestMenuLayout.fresh => 'Bright chips, menu rows',
+        GuestMenuLayout.gallery => 'Photo-style grid cards',
+      };
+
+  static GuestMenuLayout fromDb(String? raw) {
+    switch ((raw ?? '').trim().toLowerCase()) {
+      case 'fresh':
+        return GuestMenuLayout.fresh;
+      case 'gallery':
+        return GuestMenuLayout.gallery;
+      default:
+        return GuestMenuLayout.night;
+    }
+  }
+}
+
 /// POS tenant — created in Cafe POS, independent of Settings clients.
 class Cafe extends Equatable {
   const Cafe({
@@ -115,6 +154,12 @@ class Cafe extends Equatable {
     this.gstLabel = 'GST',
     this.gstSplitHalves = false,
     this.tableCount = 16,
+    this.guestLogoPath = '',
+    this.guestShowLogo = true,
+    this.guestTagline = '',
+    this.guestAccentHex = '',
+    this.guestLayout = GuestMenuLayout.night,
+    this.guestShowSearch = false,
   });
 
   final String id;
@@ -133,6 +178,18 @@ class Cafe extends Equatable {
   /// Numbered dine-in tables available on the terminal (1…[tableCount]).
   final int tableCount;
 
+  /// Storage path in `brand-logos` for the guest QR menu logo.
+  final String guestLogoPath;
+
+  final bool guestShowLogo;
+  final String guestTagline;
+
+  /// Optional `#RRGGBB` accent; empty uses app highlight.
+  final String guestAccentHex;
+
+  final GuestMenuLayout guestLayout;
+  final bool guestShowSearch;
+
   Cafe copyWith({
     String? id,
     String? name,
@@ -141,6 +198,12 @@ class Cafe extends Equatable {
     String? gstLabel,
     bool? gstSplitHalves,
     int? tableCount,
+    String? guestLogoPath,
+    bool? guestShowLogo,
+    String? guestTagline,
+    String? guestAccentHex,
+    GuestMenuLayout? guestLayout,
+    bool? guestShowSearch,
   }) {
     return Cafe(
       id: id ?? this.id,
@@ -150,6 +213,12 @@ class Cafe extends Equatable {
       gstLabel: gstLabel ?? this.gstLabel,
       gstSplitHalves: gstSplitHalves ?? this.gstSplitHalves,
       tableCount: tableCount ?? this.tableCount,
+      guestLogoPath: guestLogoPath ?? this.guestLogoPath,
+      guestShowLogo: guestShowLogo ?? this.guestShowLogo,
+      guestTagline: guestTagline ?? this.guestTagline,
+      guestAccentHex: guestAccentHex ?? this.guestAccentHex,
+      guestLayout: guestLayout ?? this.guestLayout,
+      guestShowSearch: guestShowSearch ?? this.guestShowSearch,
     );
   }
 
@@ -162,6 +231,12 @@ class Cafe extends Equatable {
         gstLabel,
         gstSplitHalves,
         tableCount,
+        guestLogoPath,
+        guestShowLogo,
+        guestTagline,
+        guestAccentHex,
+        guestLayout,
+        guestShowSearch,
       ];
 }
 
