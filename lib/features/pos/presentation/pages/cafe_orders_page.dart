@@ -17,9 +17,9 @@ import '../../domain/usecases/cafe_pos_usecases.dart';
 final _orderTime = DateFormat('h:mm a');
 
 class CafeOrdersPage extends StatefulWidget {
-  const CafeOrdersPage({super.key, required this.clientId});
+  const CafeOrdersPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafeOrdersPage> createState() => _CafeOrdersPageState();
@@ -42,7 +42,7 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
       _loading = true;
       _error = null;
     });
-    final result = await sl<GetCafeOrders>()(widget.clientId, day: _day);
+    final result = await sl<GetCafeOrders>()(widget.cafeId, day: _day);
     if (!mounted) return;
     result.fold(
       (f) => setState(() {
@@ -108,8 +108,8 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    final canTerminal = AppAccess.canRunCafeTerminal(user, widget.clientId);
-    final canKitchen = AppAccess.canRunCafeKitchen(user, widget.clientId);
+    final canTerminal = AppAccess.canRunCafeTerminal(user, widget.cafeId);
+    final canKitchen = AppAccess.canRunCafeKitchen(user, widget.cafeId);
     if (!canTerminal && !canKitchen) {
       return const Center(child: Text('Orders access denied.'));
     }

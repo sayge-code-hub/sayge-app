@@ -8,12 +8,12 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_hub_tile.dart';
 import '../../../../injection_container.dart';
-import '../../../settings/domain/usecases/get_clients.dart';
+import '../../domain/usecases/cafe_pos_usecases.dart';
 
 class CafePosHubPage extends StatefulWidget {
-  const CafePosHubPage({super.key, required this.clientId});
+  const CafePosHubPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafePosHubPage> createState() => _CafePosHubPageState();
@@ -29,10 +29,10 @@ class _CafePosHubPageState extends State<CafePosHubPage> {
   }
 
   Future<void> _loadName() async {
-    final result = await sl<GetClientsUseCase>()();
-    result.fold((_) {}, (clients) {
-      for (final c in clients) {
-        if (c.id == widget.clientId) {
+    final result = await sl<GetCafes>()();
+    result.fold((_) {}, (cafes) {
+      for (final c in cafes) {
+        if (c.id == widget.cafeId) {
           if (mounted) setState(() => _title = c.name);
           return;
         }
@@ -43,48 +43,48 @@ class _CafePosHubPageState extends State<CafePosHubPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    final clientId = widget.clientId;
-    if (!AppAccess.canAccessCafeClient(user, clientId)) {
+    final cafeId = widget.cafeId;
+    if (!AppAccess.canAccessCafe(user, cafeId)) {
       return const Center(child: Text('You cannot access this cafe.'));
     }
 
     final isDesktop = Breakpoints.isDesktop(context);
     final tiles = <AppHubTile>[
-      if (AppAccess.canManageCafeMenu(user, clientId))
+      if (AppAccess.canManageCafeMenu(user, cafeId))
         AppHubTile(
           icon: Icons.restaurant_menu_outlined,
           title: 'Menu',
           subtitle: 'Categories and items',
-          onTap: () => context.go(AppRoutes.posMenu(clientId)),
+          onTap: () => context.go(AppRoutes.posMenu(cafeId)),
         ),
-      if (AppAccess.canRunCafeTerminal(user, clientId))
+      if (AppAccess.canRunCafeTerminal(user, cafeId))
         AppHubTile(
           icon: Icons.point_of_sale_outlined,
           title: 'Terminal',
           subtitle: 'Take orders and payments',
-          onTap: () => context.go(AppRoutes.posTerminal(clientId)),
+          onTap: () => context.go(AppRoutes.posTerminal(cafeId)),
         ),
-      if (AppAccess.canRunCafeKitchen(user, clientId))
+      if (AppAccess.canRunCafeKitchen(user, cafeId))
         AppHubTile(
           icon: Icons.soup_kitchen_outlined,
           title: 'Kitchen',
           subtitle: 'Prep status board',
-          onTap: () => context.go(AppRoutes.posKitchen(clientId)),
+          onTap: () => context.go(AppRoutes.posKitchen(cafeId)),
         ),
-      if (AppAccess.canRunCafeTerminal(user, clientId) ||
-          AppAccess.canRunCafeKitchen(user, clientId))
+      if (AppAccess.canRunCafeTerminal(user, cafeId) ||
+          AppAccess.canRunCafeKitchen(user, cafeId))
         AppHubTile(
           icon: Icons.receipt_long_outlined,
           title: 'Orders',
           subtitle: 'History and cancellations',
-          onTap: () => context.go(AppRoutes.posOrders(clientId)),
+          onTap: () => context.go(AppRoutes.posOrders(cafeId)),
         ),
-      if (AppAccess.canViewCafeReports(user, clientId))
+      if (AppAccess.canViewCafeReports(user, cafeId))
         AppHubTile(
           icon: Icons.bar_chart_outlined,
           title: 'Reports',
           subtitle: 'Daily sales summary',
-          onTap: () => context.go(AppRoutes.posReports(clientId)),
+          onTap: () => context.go(AppRoutes.posReports(cafeId)),
         ),
     ];
 

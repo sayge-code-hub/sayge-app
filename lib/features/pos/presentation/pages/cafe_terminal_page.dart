@@ -9,15 +9,14 @@ import '../../../../core/utils/pdf_saver.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
-import '../../../settings/domain/usecases/get_clients.dart';
 import '../../data/cafe_receipt_pdf.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
 
 class CafeTerminalPage extends StatefulWidget {
-  const CafeTerminalPage({super.key, required this.clientId});
+  const CafeTerminalPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafeTerminalPage> createState() => _CafeTerminalPageState();
@@ -42,10 +41,10 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   }
 
   Future<void> _loadCafeName() async {
-    final result = await sl<GetClientsUseCase>()();
-    result.fold((_) {}, (clients) {
-      for (final c in clients) {
-        if (c.id == widget.clientId && mounted) {
+    final result = await sl<GetCafes>()();
+    result.fold((_) {}, (cafes) {
+      for (final c in cafes) {
+        if (c.id == widget.cafeId && mounted) {
           setState(() => _cafeName = c.name);
           return;
         }
@@ -58,9 +57,9 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
       _loading = true;
       _error = null;
     });
-    final cats = await sl<GetCafeCategories>()(widget.clientId);
+    final cats = await sl<GetCafeCategories>()(widget.cafeId);
     final items = await sl<GetCafeMenuItems>()(
-      widget.clientId,
+      widget.cafeId,
       availableOnly: true,
     );
     if (!mounted) return;
@@ -139,7 +138,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
 
     setState(() => _busy = true);
     final created = await sl<CreateCafeOrder>()(
-      clientId: widget.clientId,
+      cafeId: widget.cafeId,
       orderType: _orderType,
       lines: List.of(_cart),
     );
@@ -223,7 +222,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    if (!AppAccess.canRunCafeTerminal(user, widget.clientId)) {
+    if (!AppAccess.canRunCafeTerminal(user, widget.cafeId)) {
       return const Center(child: Text('Terminal access denied.'));
     }
     final isDesktop = Breakpoints.isDesktop(context);

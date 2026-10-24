@@ -24,8 +24,16 @@ class CafePosRepositoryImpl implements CafePosRepository {
   }
 
   @override
-  Future<Either<Failure, List<CafeCategory>>> getCategories(String clientId) =>
-      _guard(() => remoteDataSource.getCategories(clientId));
+  Future<Either<Failure, List<Cafe>>> getCafes() =>
+      _guard(() => remoteDataSource.getCafes());
+
+  @override
+  Future<Either<Failure, Cafe>> upsertCafe(Cafe cafe) =>
+      _guard(() => remoteDataSource.upsertCafe(cafe));
+
+  @override
+  Future<Either<Failure, List<CafeCategory>>> getCategories(String cafeId) =>
+      _guard(() => remoteDataSource.getCategories(cafeId));
 
   @override
   Future<Either<Failure, CafeCategory>> upsertCategory(CafeCategory category) =>
@@ -37,12 +45,12 @@ class CafePosRepositoryImpl implements CafePosRepository {
 
   @override
   Future<Either<Failure, List<CafeMenuItem>>> getMenuItems(
-    String clientId, {
+    String cafeId, {
     bool availableOnly = false,
   }) =>
       _guard(
         () => remoteDataSource.getMenuItems(
-          clientId,
+          cafeId,
           availableOnly: availableOnly,
         ),
       );
@@ -57,13 +65,13 @@ class CafePosRepositoryImpl implements CafePosRepository {
 
   @override
   Future<Either<Failure, List<CafeOrder>>> getOrders(
-    String clientId, {
+    String cafeId, {
     DateTime? day,
     List<CafePrepStatus>? prepStatuses,
   }) =>
       _guard(
         () => remoteDataSource.getOrders(
-          clientId,
+          cafeId,
           day: day,
           prepStatuses: prepStatuses,
         ),
@@ -75,14 +83,14 @@ class CafePosRepositoryImpl implements CafePosRepository {
 
   @override
   Future<Either<Failure, CafeOrder>> createOrder({
-    required String clientId,
+    required String cafeId,
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
   }) =>
       _guard(
         () => remoteDataSource.createOrder(
-          clientId: clientId,
+          cafeId: cafeId,
           orderType: orderType,
           lines: lines,
           discountAmount: discountAmount,
@@ -126,10 +134,10 @@ class CafePosRepositoryImpl implements CafePosRepository {
 
   @override
   Future<Either<Failure, CafeDailyReport>> getDailyReport({
-    required String clientId,
+    required String cafeId,
     required DateTime day,
   }) =>
       _guard(
-        () => remoteDataSource.getDailyReport(clientId: clientId, day: day),
+        () => remoteDataSource.getDailyReport(cafeId: cafeId, day: day),
       );
 }

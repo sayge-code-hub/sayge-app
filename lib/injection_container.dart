@@ -355,6 +355,8 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<CafePosRepository>(
     () => CafePosRepositoryImpl(remoteDataSource: sl()),
   );
+  sl.registerLazySingleton(() => GetCafes(sl()));
+  sl.registerLazySingleton(() => UpsertCafe(sl()));
   sl.registerLazySingleton(() => GetCafeCategories(sl()));
   sl.registerLazySingleton(() => UpsertCafeCategory(sl()));
   sl.registerLazySingleton(() => DeleteCafeCategory(sl()));

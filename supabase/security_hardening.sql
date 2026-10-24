@@ -960,26 +960,26 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 5b. Cafe POS helpers + client read policy (when cafe_pos.sql was applied).
+-- 5b. Cafe POS helpers (when cafe_pos.sql / cafes table was applied).
 --     Nested CREATE FUNCTION must use $fn$ / $body$ — plain $$ conflicts with
 --     the outer DO $$ delimiter.
 -- ---------------------------------------------------------------------------
 
 do $$
 begin
-  if to_regclass('public.cafe_orders') is null then
+  if to_regclass('public.cafes') is null then
     return;
   end if;
 
   execute $fn$
-    create or replace function public.app_client_id()
+    create or replace function public.app_cafe_id()
     returns text
     language sql
     stable
     security definer
     set search_path = public
     as $body$
-      select client_id
+      select cafe_id
       from public.users
       where id = auth.uid()
         and is_active is true
@@ -1000,7 +1000,7 @@ begin
   $fn$;
 
   execute $fn$
-    create or replace function public.app_can_access_cafe_client(p_client_id text)
+    create or replace function public.app_can_access_cafe(p_cafe_id text)
     returns boolean
     language sql
     stable
@@ -1010,14 +1010,14 @@ begin
       select public.app_is_staff()
         or (
           public.app_is_cafe_role()
-          and public.app_client_id() is not null
-          and public.app_client_id() = p_client_id
+          and public.app_cafe_id() is not null
+          and public.app_cafe_id() = p_cafe_id
         );
     $body$;
   $fn$;
 
   execute $fn$
-    create or replace function public.app_can_manage_cafe_menu(p_client_id text)
+    create or replace function public.app_can_manage_cafe_menu(p_cafe_id text)
     returns boolean
     language sql
     stable
@@ -1027,13 +1027,13 @@ begin
       select public.app_is_staff()
         or (
           public.app_role_code() = 'cafe_admin'
-          and public.app_client_id() = p_client_id
+          and public.app_cafe_id() = p_cafe_id
         );
     $body$;
   $fn$;
 
   execute $fn$
-    create or replace function public.app_can_run_cafe_terminal(p_client_id text)
+    create or replace function public.app_can_run_cafe_terminal(p_cafe_id text)
     returns boolean
     language sql
     stable
@@ -1043,13 +1043,13 @@ begin
       select public.app_is_staff()
         or (
           public.app_role_code() in ('cafe_admin', 'cashier')
-          and public.app_client_id() = p_client_id
+          and public.app_cafe_id() = p_cafe_id
         );
     $body$;
   $fn$;
 
   execute $fn$
-    create or replace function public.app_can_run_cafe_kitchen(p_client_id text)
+    create or replace function public.app_can_run_cafe_kitchen(p_cafe_id text)
     returns boolean
     language sql
     stable
@@ -1059,26 +1059,19 @@ begin
       select public.app_is_staff()
         or (
           public.app_role_code() in ('cafe_admin', 'kitchen')
-          and public.app_client_id() = p_client_id
+          and public.app_cafe_id() = p_cafe_id
         );
     $body$;
   $fn$;
 
-  grant execute on function public.app_client_id() to authenticated, service_role;
+  grant execute on function public.app_cafe_id() to authenticated, service_role;
   grant execute on function public.app_is_cafe_role() to authenticated, service_role;
-  grant execute on function public.app_can_access_cafe_client(text) to authenticated, service_role;
+  grant execute on function public.app_can_access_cafe(text) to authenticated, service_role;
   grant execute on function public.app_can_manage_cafe_menu(text) to authenticated, service_role;
   grant execute on function public.app_can_run_cafe_terminal(text) to authenticated, service_role;
   grant execute on function public.app_can_run_cafe_kitchen(text) to authenticated, service_role;
 
   drop policy if exists clients_select_cafe_scoped on public.clients;
-  create policy clients_select_cafe_scoped on public.clients
-    for select to authenticated
-    using (
-      public.app_is_cafe_role()
-      and public.app_client_id() is not null
-      and id = public.app_client_id()
-    );
 end $$;
 
 -- ---------------------------------------------------------------------------

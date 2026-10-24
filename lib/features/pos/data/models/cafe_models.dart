@@ -1,9 +1,31 @@
 import '../../domain/entities/cafe_entities.dart';
 
+class CafeModel extends Cafe {
+  const CafeModel({
+    required super.id,
+    required super.name,
+    super.isActive,
+  });
+
+  factory CafeModel.fromJson(Map<String, dynamic> json) {
+    return CafeModel(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      isActive: json['is_active'] != false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'is_active': isActive,
+      };
+}
+
 class CafeCategoryModel extends CafeCategory {
   const CafeCategoryModel({
     required super.id,
-    required super.clientId,
+    required super.cafeId,
     required super.name,
     super.sortOrder,
     super.isActive,
@@ -12,7 +34,7 @@ class CafeCategoryModel extends CafeCategory {
   factory CafeCategoryModel.fromJson(Map<String, dynamic> json) {
     return CafeCategoryModel(
       id: (json['id'] ?? '').toString(),
-      clientId: (json['client_id'] ?? '').toString(),
+      cafeId: (json['cafe_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] != false,
@@ -21,7 +43,7 @@ class CafeCategoryModel extends CafeCategory {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'client_id': clientId,
+        'cafe_id': cafeId,
         'name': name,
         'sort_order': sortOrder,
         'is_active': isActive,
@@ -31,7 +53,7 @@ class CafeCategoryModel extends CafeCategory {
 class CafeMenuItemModel extends CafeMenuItem {
   const CafeMenuItemModel({
     required super.id,
-    required super.clientId,
+    required super.cafeId,
     required super.categoryId,
     required super.name,
     required super.price,
@@ -47,7 +69,7 @@ class CafeMenuItemModel extends CafeMenuItem {
     final catMap = cat is Map<String, dynamic> ? cat : null;
     return CafeMenuItemModel(
       id: (json['id'] ?? '').toString(),
-      clientId: (json['client_id'] ?? '').toString(),
+      cafeId: (json['cafe_id'] ?? '').toString(),
       categoryId: (json['category_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       price: (json['price'] as num?)?.toDouble() ?? 0,
@@ -61,7 +83,7 @@ class CafeMenuItemModel extends CafeMenuItem {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'client_id': clientId,
+        'cafe_id': cafeId,
         'category_id': categoryId,
         'name': name,
         'price': price,
@@ -116,7 +138,7 @@ class CafeOrderItemModel extends CafeOrderItem {
 class CafeOrderModel extends CafeOrder {
   const CafeOrderModel({
     required super.id,
-    required super.clientId,
+    required super.cafeId,
     required super.orderNo,
     required super.orderType,
     required super.prepStatus,
@@ -143,7 +165,7 @@ class CafeOrderModel extends CafeOrder {
 
     return CafeOrderModel(
       id: (json['id'] ?? '').toString(),
-      clientId: (json['client_id'] ?? '').toString(),
+      cafeId: (json['cafe_id'] ?? '').toString(),
       orderNo: (json['order_no'] ?? '').toString(),
       orderType: CafeOrderTypeX.fromDb(json['order_type']?.toString()),
       prepStatus: CafePrepStatusX.fromDb(json['prep_status']?.toString()),

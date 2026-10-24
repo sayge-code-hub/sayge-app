@@ -16,9 +16,9 @@ import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
 
 class CafeMenuPage extends StatefulWidget {
-  const CafeMenuPage({super.key, required this.clientId});
+  const CafeMenuPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafeMenuPage> createState() => _CafeMenuPageState();
@@ -42,8 +42,8 @@ class _CafeMenuPageState extends State<CafeMenuPage> {
       _loading = true;
       _error = null;
     });
-    final cats = await sl<GetCafeCategories>()(widget.clientId);
-    final items = await sl<GetCafeMenuItems>()(widget.clientId);
+    final cats = await sl<GetCafeCategories>()(widget.cafeId);
+    final items = await sl<GetCafeMenuItems>()(widget.cafeId);
     if (!mounted) return;
     cats.fold(
       (f) => setState(() {
@@ -90,7 +90,7 @@ class _CafeMenuPageState extends State<CafeMenuPage> {
     final result = await sl<UpsertCafeCategory>()(
       CafeCategory(
         id: '',
-        clientId: widget.clientId,
+        cafeId: widget.cafeId,
         name: name.text.trim(),
         sortOrder: _categories.length,
       ),
@@ -200,7 +200,7 @@ class _CafeMenuPageState extends State<CafeMenuPage> {
     final result = await sl<UpsertCafeMenuItem>()(
       CafeMenuItem(
         id: existing?.id ?? '',
-        clientId: widget.clientId,
+        cafeId: widget.cafeId,
         categoryId: categoryId,
         name: name.text.trim(),
         price: p,
@@ -220,7 +220,7 @@ class _CafeMenuPageState extends State<CafeMenuPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    if (!AppAccess.canManageCafeMenu(user, widget.clientId)) {
+    if (!AppAccess.canManageCafeMenu(user, widget.cafeId)) {
       return const Center(child: Text('Menu management is not allowed.'));
     }
     final isDesktop = Breakpoints.isDesktop(context);
