@@ -67,6 +67,32 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
     await _reload();
   }
 
+  Future<void> _clearAllOrders() async {
+    final ok = await confirmLeaveForm(
+      context,
+      title: 'Delete all orders?',
+      message:
+          'This permanently removes every order and payment for this cafe '
+          '(reports will reset). Menu and tables are not affected.',
+      stayLabel: 'Keep',
+      leaveLabel: 'Delete all',
+    );
+    if (!ok || !mounted) return;
+    final result = await sl<ClearCafeOrders>()(widget.cafeId);
+    if (!mounted) return;
+    result.fold(
+      (f) => showAppMessageDialog(context, title: 'Orders', message: f.message),
+      (_) async {
+        await showAppMessageDialog(
+          context,
+          title: 'Orders',
+          message: 'All orders cleared.',
+        );
+        if (mounted) await _reload();
+      },
+    );
+  }
+
   Future<void> _cancel(CafeOrder order) async {
     if (order.prepStatus == CafePrepStatus.cancelled) return;
     final reason = TextEditingController();
@@ -139,27 +165,23 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
                 children: [
                   TextButton.icon(
                     onPressed: _pickDay,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.text,
-                      backgroundColor: AppColors.background,
-                      side: const BorderSide(color: AppColors.border),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                    ),
-                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    style: CafePosHeaderActions.dateButtonStyle(),
+                    icon: const Icon(Icons.calendar_today_outlined, size: 15),
                     label: Text(AppDates.medium.format(_day)),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
                     onPressed: _reload,
                     tooltip: 'Refresh',
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.background,
-                      side: const BorderSide(color: AppColors.border),
-                    ),
+                    style: CafePosHeaderActions.iconButtonStyle(),
                     icon: const Icon(Icons.refresh_rounded, size: 20),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: _clearAllOrders,
+                    tooltip: 'Delete all orders',
+                    style: CafePosHeaderActions.iconButtonStyle(),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
                   ),
                 ],
               ),

@@ -285,10 +285,7 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
       child: IconButton(
         tooltip: 'Refresh',
         onPressed: _reload,
-        style: IconButton.styleFrom(
-          backgroundColor: AppColors.background,
-          side: const BorderSide(color: AppColors.border),
-        ),
+        style: CafePosHeaderActions.iconButtonStyle(),
         icon: const Icon(Icons.refresh_rounded, size: 20),
       ),
     );
