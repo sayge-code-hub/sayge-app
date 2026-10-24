@@ -37,6 +37,9 @@ abstract class CafePosRemoteDataSource {
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
+    String? couponId,
+    String couponCode = '',
+    String tableNo = '',
   });
 
   Future<CafeOrderModel> updatePrepStatus({
@@ -59,6 +62,17 @@ abstract class CafePosRemoteDataSource {
     required String cafeId,
     required DateTime day,
   });
+
+  Future<List<CafeCouponModel>> getCoupons(String cafeId);
+
+  Future<CafeCouponModel?> lookupCoupon({
+    required String cafeId,
+    required String code,
+  });
+
+  Future<CafeCouponModel> upsertCoupon(CafeCoupon coupon);
+
+  Future<void> deleteCoupon(String id);
 }
 
 class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
@@ -79,9 +93,10 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         e.code == '42P01' ||
         e.code == 'PGRST205') {
       throw const ServerException(
-        'Cafe POS tables are missing. If you previously installed the '
-        'client-scoped pack, run cafe_pos_reset_to_cafes.sql, then '
-        'cafe_pos.sql, then security_hardening.sql.',
+        'Cafe POS tables are missing. Run cafe_pos.sql (and '
+        'cafe_pos_coupons.sql / cafe_pos_tables.sql / '
+        'cafe_pos_gst_settings.sql as needed), then '
+        'security_hardening.sql or cafe_pos_rls_fix.sql.',
       );
     }
     throw ServerException(e.message);
@@ -108,18 +123,50 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
   @override
   Future<CafeModel> upsertCafe(Cafe cafe) async {
     final id = cafe.id.trim().isEmpty ? _id('cafe') : cafe.id.trim();
+    final payload = <String, dynamic>{
+      'id': id,
+      'name': cafe.name.trim(),
+      'is_active': cafe.isActive,
+      'show_gst_on_bill': cafe.showGstOnBill,
+      'gst_label': cafe.gstLabel.trim().isEmpty ? 'GST' : cafe.gstLabel.trim(),
+      'gst_split_halves': cafe.gstSplitHalves,
+      'table_count': cafe.tableCount.clamp(1, 100),
+    };
     try {
-      final row = await _client
-          .from('cafes')
-          .upsert({
+      final row =
+          await _client.from('cafes').upsert(payload).select().single();
+      return CafeModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      // Older DBs before cafe_pos_gst_settings / cafe_pos_tables — strip new cols.
+      final msg = e.message.toLowerCase();
+      if (msg.contains('show_gst') ||
+          msg.contains('gst_label') ||
+          msg.contains('gst_split') ||
+          msg.contains('table_count')) {
+        try {
+          final stripped = <String, dynamic>{
             'id': id,
             'name': cafe.name.trim(),
             'is_active': cafe.isActive,
-          })
-          .select()
-          .single();
-      return CafeModel.fromJson(row);
-    } on PostgrestException catch (e) {
+          };
+          if (!msg.contains('show_gst') &&
+              !msg.contains('gst_label') &&
+              !msg.contains('gst_split')) {
+            stripped['show_gst_on_bill'] = cafe.showGstOnBill;
+            stripped['gst_label'] =
+                cafe.gstLabel.trim().isEmpty ? 'GST' : cafe.gstLabel.trim();
+            stripped['gst_split_halves'] = cafe.gstSplitHalves;
+          }
+          final row = await _client
+              .from('cafes')
+              .upsert(stripped)
+              .select()
+              .single();
+          return CafeModel.fromJson(row);
+        } on PostgrestException catch (e2) {
+          _schemaHint(e2);
+        }
+      }
       _schemaHint(e);
     } catch (e) {
       if (e is ServerException) rethrow;
@@ -329,10 +376,15 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
+    String? couponId,
+    String couponCode = '',
+    String tableNo = '',
   }) async {
     if (lines.isEmpty) {
       throw const ServerException('Add at least one item.');
     }
+    final normalizedTable =
+        orderType == CafeOrderType.dineIn ? tableNo.trim() : '';
     try {
       var subtotal = 0.0;
       var tax = 0.0;
@@ -367,7 +419,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         row['order_id'] = orderId;
       }
 
-      await _client.from('cafe_orders').insert({
+      final baseOrder = <String, dynamic>{
         'id': orderId,
         'cafe_id': cafeId,
         'order_no': orderNo,
@@ -379,7 +431,49 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         'discount_amount': discount,
         'total_amount': total,
         'created_by': uid,
-      });
+      };
+      final withExtras = <String, dynamic>{
+        ...baseOrder,
+        'coupon_id': couponId,
+        'coupon_code': couponCode.trim().toUpperCase(),
+        'table_no': normalizedTable,
+      };
+      try {
+        await _client.from('cafe_orders').insert(withExtras);
+      } on PostgrestException catch (e) {
+        final msg = e.message.toLowerCase();
+        if (msg.contains('table_no')) {
+          try {
+            await _client.from('cafe_orders').insert({
+              ...baseOrder,
+              'coupon_id': couponId,
+              'coupon_code': couponCode.trim().toUpperCase(),
+            });
+          } on PostgrestException catch (e2) {
+            final msg2 = e2.message.toLowerCase();
+            if (msg2.contains('coupon_')) {
+              await _client.from('cafe_orders').insert(baseOrder);
+            } else {
+              rethrow;
+            }
+          }
+        } else if (msg.contains('coupon_')) {
+          try {
+            await _client.from('cafe_orders').insert({
+              ...baseOrder,
+              'table_no': normalizedTable,
+            });
+          } on PostgrestException catch (e2) {
+            if (e2.message.toLowerCase().contains('table_no')) {
+              await _client.from('cafe_orders').insert(baseOrder);
+            } else {
+              rethrow;
+            }
+          }
+        } else {
+          rethrow;
+        }
+      }
       await _client.from('cafe_order_items').insert(itemRows);
       return await getOrder(orderId);
     } on PostgrestException catch (e) {
@@ -431,6 +525,22 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       await _client.from('cafe_orders').update({
         'payment_status': CafePaymentStatus.paid.dbValue,
       }).eq('id', orderId);
+      final couponId = existing.couponId;
+      if (couponId != null && couponId.isNotEmpty) {
+        try {
+          final row = await _client
+              .from('cafe_coupons')
+              .select('usage_count')
+              .eq('id', couponId)
+              .maybeSingle();
+          final current = (row?['usage_count'] as num?)?.toInt() ?? 0;
+          await _client.from('cafe_coupons').update({
+            'usage_count': current + 1,
+          }).eq('id', couponId);
+        } catch (_) {
+          // Non-fatal: order is already paid.
+        }
+      }
       return await getOrder(orderId);
     } on PostgrestException catch (e) {
       _schemaHint(e);
@@ -530,6 +640,110 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to load report.');
+    }
+  }
+
+  @override
+  Future<List<CafeCouponModel>> getCoupons(String cafeId) async {
+    try {
+      final rows = await _client
+          .from('cafe_coupons')
+          .select()
+          .eq('cafe_id', cafeId)
+          .order('code');
+      return (rows as List)
+          .whereType<Map<String, dynamic>>()
+          .map(CafeCouponModel.fromJson)
+          .toList();
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to load coupons.');
+    }
+  }
+
+  @override
+  Future<CafeCouponModel?> lookupCoupon({
+    required String cafeId,
+    required String code,
+  }) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return null;
+    try {
+      final row = await _client
+          .from('cafe_coupons')
+          .select()
+          .eq('cafe_id', cafeId)
+          .eq('code', normalized)
+          .maybeSingle();
+      if (row == null) return null;
+      return CafeCouponModel.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to look up coupon.');
+    }
+  }
+
+  @override
+  Future<CafeCouponModel> upsertCoupon(CafeCoupon coupon) async {
+    final code = coupon.code.trim().toUpperCase();
+    if (code.isEmpty) {
+      throw const ServerException('Coupon code is required.');
+    }
+    if (coupon.discountValue <= 0) {
+      throw const ServerException('Discount value must be greater than zero.');
+    }
+    if (coupon.discountType == CafeDiscountType.percent &&
+        coupon.discountValue > 100) {
+      throw const ServerException('Percent discount cannot exceed 100.');
+    }
+    try {
+      final id = coupon.id.trim().isEmpty ? _id('ccup') : coupon.id;
+      final model = CafeCouponModel(
+        id: id,
+        cafeId: coupon.cafeId,
+        code: code,
+        name: coupon.name,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minOrderAmount: coupon.minOrderAmount,
+        maxDiscountAmount: coupon.maxDiscountAmount,
+        isActive: coupon.isActive,
+        startsAt: coupon.startsAt,
+        endsAt: coupon.endsAt,
+        maxUses: coupon.maxUses,
+        usageCount: coupon.usageCount,
+      );
+      await _client.from('cafe_coupons').upsert(model.toJson());
+      final row = await _client
+          .from('cafe_coupons')
+          .select()
+          .eq('id', id)
+          .single();
+      return CafeCouponModel.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        throw const ServerException('A coupon with this code already exists.');
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to save coupon.');
+    }
+  }
+
+  @override
+  Future<void> deleteCoupon(String id) async {
+    try {
+      await _client.from('cafe_coupons').delete().eq('id', id);
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to delete coupon.');
     }
   }
 }

@@ -40,6 +40,16 @@ abstract final class AppRoutes {
   static const setPassword = '/set-password';
   static const pos = '/pos';
 
+  /// Public guest QR menu (no auth). Optional `?t=` table number.
+  static const guestMenu = '/m';
+
+  static String guestMenuCafe(String cafeId, {String? tableNo}) {
+    final base = '/m/$cafeId';
+    final t = tableNo?.trim() ?? '';
+    if (t.isEmpty) return base;
+    return '$base?t=${Uri.encodeQueryComponent(t)}';
+  }
+
   static String clientDetail(String cafeId) => '/settings/clients/$cafeId';
 
   static String clientEdit(String cafeId) =>
@@ -56,6 +66,14 @@ abstract final class AppRoutes {
 
   static String posMenu(String cafeId) => '/pos/$cafeId/menu';
 
+  static String posMenuAdd(String cafeId) => '/pos/$cafeId/menu/add';
+
+  static String posMenuEdit(String cafeId, String itemId) =>
+      '/pos/$cafeId/menu/$itemId/edit';
+
+  static String posCategories(String cafeId) =>
+      '/pos/$cafeId/menu/categories';
+
   static String posTerminal(String cafeId) => '/pos/$cafeId/terminal';
 
   static String posKitchen(String cafeId) => '/pos/$cafeId/kitchen';
@@ -63,4 +81,12 @@ abstract final class AppRoutes {
   static String posOrders(String cafeId) => '/pos/$cafeId/orders';
 
   static String posReports(String cafeId) => '/pos/$cafeId/reports';
+
+  static String posSettings(String cafeId) => '/pos/$cafeId/settings';
+
+  static String posCoupons(String cafeId) => '/pos/$cafeId/settings/coupons';
+
+  static String posTax(String cafeId) => '/pos/$cafeId/settings/tax';
+
+  static String posQr(String cafeId) => '/pos/$cafeId/settings/qr';
 }

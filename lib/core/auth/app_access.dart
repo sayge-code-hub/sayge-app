@@ -96,7 +96,7 @@ abstract final class AppAccess {
         if (!location.startsWith('${AppRoutes.pos}/$cafeId')) {
           return false;
         }
-        if (location.contains('/menu')) {
+        if (location.contains('/menu') || location.contains('/settings')) {
           return canManageCafeMenu(user, cafeId);
         }
         if (location.contains('/reports')) {

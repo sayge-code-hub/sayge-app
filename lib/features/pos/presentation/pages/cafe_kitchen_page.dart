@@ -7,11 +7,11 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
+import '../widgets/cafe_pos_chrome.dart';
 
 class CafeKitchenPage extends StatefulWidget {
   const CafeKitchenPage({super.key, required this.cafeId});
@@ -89,27 +89,39 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
     );
   }
 
+  Color _tintFor(CafePrepStatus status) {
+    return switch (status) {
+      CafePrepStatus.neu => const Color(0xFFD97706),
+      CafePrepStatus.preparing => const Color(0xFF2563EB),
+      CafePrepStatus.ready => AppColors.success,
+      _ => AppColors.textLight,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
     if (!AppAccess.canRunCafeKitchen(user, widget.cafeId)) {
-      return const Center(child: Text('Kitchen access denied.'));
+      return const CafePosBackdrop(
+        child: Center(child: Text('Kitchen access denied.')),
+      );
     }
     final isDesktop = Breakpoints.isDesktop(context);
+    final pagePad = CafePosSpace.page(context);
     if (_loading && _orders.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.text),
+      return const CafePosBackdrop(
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.text),
+        ),
       );
     }
     if (_error != null && _orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!),
-            const SizedBox(height: 12),
-            AppButton(label: 'Retry', expand: false, onPressed: _reload),
-          ],
+      return CafePosBackdrop(
+        child: CafePosEmptyState(
+          icon: Icons.wifi_off_rounded,
+          title: 'Couldn’t load kitchen',
+          message: _error!,
+          action: AppButton(label: 'Retry', expand: false, onPressed: _reload),
         ),
       );
     }
@@ -117,123 +129,228 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
     List<CafeOrder> col(CafePrepStatus s) =>
         _orders.where((o) => o.prepStatus == s).toList();
 
-    Widget column(String title, CafePrepStatus status, Color tint) {
+    Widget column(String title, CafePrepStatus status, {EdgeInsets? inset}) {
       final list = col(status);
+      final tint = _tintFor(status);
+      final hPad = inset ?? EdgeInsets.zero;
       return Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: tint.withValues(alpha: 0.12),
-              child: Text(
-                '$title (${list.length})',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 14,
-                    ),
-              ),
-            ),
-            Expanded(
-              child: list.isEmpty
-                  ? Center(
-                      child: Text(
-                        '—',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textLight,
-                            ),
+        child: Padding(
+          padding: hPad,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: tint.withValues(alpha: 0.28)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: tint,
+                        shape: BoxShape.circle,
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(8),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final order = list[index];
-                        final next = _next(order.prepStatus);
-                        return AppListCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                    ),
+                    Text(
+                      '${list.length}',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: tint,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: list.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Quiet here',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textLight,
+                                    fontSize: 13,
+                                  ),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        itemCount: list.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final order = list[index];
+                          final next = _next(order.prepStatus);
+                          return Material(
+                            color: AppColors.background,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(CafePosSpace.radius),
+                              side: const BorderSide(color: AppColors.border),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    order.orderNo,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontSize: 15),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        order.orderNo,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        [
+                                          if (order.tableNo.trim().isNotEmpty)
+                                            'Table ${order.tableNo.trim()}',
+                                          order.orderType.label,
+                                        ].join(' · '),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textLight,
+                                              fontSize: 12,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    order.orderType.label,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(color: AppColors.textLight),
-                                  ),
+                                  const SizedBox(height: 10),
+                                  for (final item in order.items)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        '${item.quantity.toStringAsFixed(0)} × ${item.itemName}'
+                                        '${item.notes.trim().isEmpty ? '' : ' (${item.notes})'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 13,
+                                              height: 1.35,
+                                            ),
+                                      ),
+                                    ),
+                                  if (next != null) ...[
+                                    const SizedBox(height: 12),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: AppButton(
+                                        label: next.label,
+                                        expand: false,
+                                        onPressed: () => _advance(order),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
-                              const SizedBox(height: 6),
-                              for (final item in order.items)
-                                Text(
-                                  '${item.quantity.toStringAsFixed(0)} × ${item.itemName}'
-                                  '${item.notes.trim().isEmpty ? '' : ' (${item.notes})'}',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              if (next != null) ...[
-                                const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: AppButton(
-                                    label: next.label,
-                                    expand: false,
-                                    onPressed: () => _advance(order),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final board = isDesktop
-        ? Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              column('New', CafePrepStatus.neu, Colors.orange),
-              const VerticalDivider(width: 1),
-              column('Preparing', CafePrepStatus.preparing, Colors.blue),
-              const VerticalDivider(width: 1),
-              column('Ready', CafePrepStatus.ready, Colors.green),
-            ],
+        ? Padding(
+            padding: EdgeInsets.fromLTRB(
+              pagePad.left,
+              0,
+              pagePad.right,
+              pagePad.bottom,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                column('New', CafePrepStatus.neu),
+                const SizedBox(width: 16),
+                column('Preparing', CafePrepStatus.preparing),
+                const SizedBox(width: 16),
+                column('Ready', CafePrepStatus.ready),
+              ],
+            ),
           )
         : DefaultTabController(
             length: 3,
             child: Column(
               children: [
-                const TabBar(
-                  tabs: [
-                    Tab(text: 'New'),
-                    Tab(text: 'Preparing'),
-                    Tab(text: 'Ready'),
-                  ],
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: pagePad.left),
+                  child: TabBar(
+                    labelColor: AppColors.text,
+                    unselectedLabelColor: AppColors.textLight,
+                    indicatorColor: AppColors.highlight,
+                    tabs: [
+                      Tab(text: 'New (${col(CafePrepStatus.neu).length})'),
+                      Tab(
+                        text:
+                            'Preparing (${col(CafePrepStatus.preparing).length})',
+                      ),
+                      Tab(text: 'Ready (${col(CafePrepStatus.ready).length})'),
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: TabBarView(
                     children: [
-                      column('New', CafePrepStatus.neu, Colors.orange),
+                      column(
+                        'New',
+                        CafePrepStatus.neu,
+                        inset: EdgeInsets.fromLTRB(
+                          pagePad.left,
+                          12,
+                          pagePad.right,
+                          pagePad.bottom,
+                        ),
+                      ),
                       column(
                         'Preparing',
                         CafePrepStatus.preparing,
-                        Colors.blue,
+                        inset: EdgeInsets.fromLTRB(
+                          pagePad.left,
+                          12,
+                          pagePad.right,
+                          pagePad.bottom,
+                        ),
                       ),
-                      column('Ready', CafePrepStatus.ready, Colors.green),
+                      column(
+                        'Ready',
+                        CafePrepStatus.ready,
+                        inset: EdgeInsets.fromLTRB(
+                          pagePad.left,
+                          12,
+                          pagePad.right,
+                          pagePad.bottom,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -241,27 +358,28 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
             ),
           );
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(isDesktop ? 24 : 12, 8, 12, 0),
-          child: Row(
-            children: [
-              Text(
-                'Kitchen display',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              IconButton(
+    return CafePosBackdrop(
+      child: Column(
+        children: [
+          Padding(
+            padding: pagePad.copyWith(bottom: 12),
+            child: CafePosPageHeader(
+              title: 'Kitchen',
+              subtitle: 'Advance tickets as you prep',
+              trailing: IconButton(
                 tooltip: 'Refresh',
                 onPressed: _reload,
-                icon: const Icon(Icons.refresh),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.background,
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 20),
               ),
-            ],
+            ),
           ),
-        ),
-        Expanded(child: board),
-      ],
+          Expanded(child: board),
+        ],
+      ),
     );
   }
 }

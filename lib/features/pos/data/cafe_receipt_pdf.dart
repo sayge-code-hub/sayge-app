@@ -37,7 +37,12 @@ abstract final class CafeReceiptPdf {
             pw.SizedBox(height: 8),
             pw.Text('Order ${order.orderNo}', style: const pw.TextStyle(fontSize: 10)),
             pw.Text(
-              '${order.orderType.label} · ${_when.format(order.createdAt.toLocal())}',
+              [
+                if (order.tableNo.trim().isNotEmpty)
+                  'Table ${order.tableNo.trim()}',
+                order.orderType.label,
+                _when.format(order.createdAt.toLocal()),
+              ].join(' · '),
               style: const pw.TextStyle(fontSize: 9),
             ),
             pw.SizedBox(height: 8),
@@ -69,9 +74,14 @@ abstract final class CafeReceiptPdf {
             ],
             pw.Divider(),
             _row('Subtotal', _m(order.subtotal)),
-            if (order.taxAmount > 0) _row('Tax', _m(order.taxAmount)),
+            if (order.taxAmount > 0) _row('GST', _m(order.taxAmount)),
             if (order.discountAmount > 0)
-              _row('Discount', '- ${_m(order.discountAmount)}'),
+              _row(
+                order.couponCode.isNotEmpty
+                    ? 'Discount (${order.couponCode})'
+                    : 'Discount',
+                '- ${_m(order.discountAmount)}',
+              ),
             _row('Total', _m(order.totalAmount), bold: true),
             pw.SizedBox(height: 6),
             pw.Text(

@@ -3,16 +3,15 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
-import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_list_card.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
+import '../widgets/cafe_pos_chrome.dart';
 
 final _orderTime = DateFormat('h:mm a');
 
@@ -74,6 +73,7 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.background,
         title: Text('Cancel ${order.orderNo}?'),
         content: AppTextField(
           label: 'Reason',
@@ -105,161 +105,234 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
     );
   }
 
+  Color _prepColor(CafePrepStatus status) {
+    return switch (status) {
+      CafePrepStatus.neu => const Color(0xFFD97706),
+      CafePrepStatus.preparing => const Color(0xFF2563EB),
+      CafePrepStatus.ready => AppColors.success,
+      CafePrepStatus.completed => AppColors.textLight,
+      CafePrepStatus.cancelled => AppColors.error,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
     final canTerminal = AppAccess.canRunCafeTerminal(user, widget.cafeId);
     final canKitchen = AppAccess.canRunCafeKitchen(user, widget.cafeId);
     if (!canTerminal && !canKitchen) {
-      return const Center(child: Text('Orders access denied.'));
+      return const CafePosBackdrop(
+        child: Center(child: Text('Orders access denied.')),
+      );
     }
-    final isDesktop = Breakpoints.isDesktop(context);
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            isDesktop ? 32 : 16,
-            12,
-            isDesktop ? 32 : 16,
-            8,
-          ),
-          child: Row(
-            children: [
-              TextButton.icon(
-                onPressed: _pickDay,
-                icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                label: Text(AppDates.medium.format(_day)),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: _reload,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.text),
-                )
-              : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!),
-                          const SizedBox(height: 12),
-                          AppButton(
-                            label: 'Retry',
-                            expand: false,
-                            onPressed: _reload,
-                          ),
-                        ],
+    return CafePosBackdrop(
+      child: Column(
+        children: [
+          Padding(
+            padding: CafePosSpace.page(context).copyWith(bottom: 8),
+            child: CafePosPageHeader(
+              title: 'Orders',
+              subtitle: 'History for the selected day',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: _pickDay,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.text,
+                      backgroundColor: AppColors.background,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
                       ),
-                    )
-                  : _orders.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No orders for this day.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: AppColors.textLight),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.fromLTRB(
-                            isDesktop ? 32 : 16,
-                            8,
-                            isDesktop ? 32 : 16,
-                            24,
-                          ),
-                          itemCount: _orders.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final order = _orders[index];
-                            final cancelled =
-                                order.prepStatus == CafePrepStatus.cancelled;
-                            return AppListCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                    ),
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text(AppDates.medium.format(_day)),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    onPressed: _reload,
+                    tooltip: 'Refresh',
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.background,
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.text),
+                  )
+                : _error != null
+                    ? CafePosEmptyState(
+                        icon: Icons.wifi_off_rounded,
+                        title: 'Couldn’t load orders',
+                        message: _error!,
+                        action: AppButton(
+                          label: 'Retry',
+                          expand: false,
+                          onPressed: _reload,
+                        ),
+                      )
+                    : _orders.isEmpty
+                        ? const CafePosEmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'No orders',
+                            message: 'Nothing for this day yet.',
+                          )
+                        : ListView.separated(
+                            padding:
+                                CafePosSpace.page(context).copyWith(top: 4),
+                            itemCount: _orders.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final order = _orders[index];
+                              final cancelled = order.prepStatus ==
+                                  CafePrepStatus.cancelled;
+                              final tint = _prepColor(order.prepStatus);
+                              return Material(
+                                color: AppColors.background,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    CafePosSpace.radius,
+                                  ),
+                                  side: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    14,
+                                    14,
+                                    12,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          order.orderNo,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(fontSize: 14),
-                                        ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              order.orderNo,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                          ),
+                                          Text(
+                                            MoneyFormat.format(
+                                              order.totalAmount,
+                                            ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ],
                                       ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          CafePosStatusChip(
+                                            label: order.prepStatus.label,
+                                            color: tint,
+                                            selected: true,
+                                          ),
+                                          CafePosStatusChip(
+                                            label: order.tableNo.trim().isEmpty
+                                                ? order.orderType.label
+                                                : 'Table ${order.tableNo.trim()}',
+                                            color: AppColors.textLight,
+                                          ),
+                                          if (order.tableNo.trim().isNotEmpty)
+                                            CafePosStatusChip(
+                                              label: order.orderType.label,
+                                              color: AppColors.textLight,
+                                            ),
+                                          CafePosStatusChip(
+                                            label: order.paymentStatus.label,
+                                            color: AppColors.textLight,
+                                          ),
+                                          CafePosStatusChip(
+                                            label: _orderTime.format(
+                                              order.createdAt.toLocal(),
+                                            ),
+                                            color: AppColors.textLight,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
                                       Text(
-                                        MoneyFormat.format(order.totalAmount),
+                                        order.items
+                                            .map(
+                                              (i) =>
+                                                  '${i.quantity.toStringAsFixed(0)}× ${i.itemName}',
+                                            )
+                                            .join(', '),
                                         style: Theme.of(context)
                                             .textTheme
-                                            .titleMedium
-                                            ?.copyWith(fontSize: 13),
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 13,
+                                              height: 1.35,
+                                            ),
                                       ),
+                                      if (cancelled &&
+                                          order.cancelReason.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Cancelled: ${order.cancelReason}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: AppColors.error,
+                                              ),
+                                        ),
+                                      ],
+                                      if (canTerminal && !cancelled) ...[
+                                        const SizedBox(height: 4),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: () => _cancel(order),
+                                            child: Text(
+                                              'Cancel',
+                                              style: TextStyle(
+                                                color: AppColors.error,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    [
-                                      order.orderType.label,
-                                      order.prepStatus.label,
-                                      order.paymentStatus.label,
-                                      _orderTime.format(
-                                        order.createdAt.toLocal(),
-                                      ),
-                                    ].join(' · '),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(color: AppColors.textLight),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    order.items
-                                        .map(
-                                          (i) =>
-                                              '${i.quantity.toStringAsFixed(0)}× ${i.itemName}',
-                                        )
-                                        .join(', '),
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                  if (cancelled &&
-                                      order.cancelReason.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Cancelled: ${order.cancelReason}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: AppColors.error),
-                                    ),
-                                  ],
-                                  if (canTerminal && !cancelled) ...[
-                                    const SizedBox(height: 8),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton(
-                                        onPressed: () => _cancel(order),
-                                        child: const Text('Cancel'),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-        ),
-      ],
+                                ),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
     );
   }
 }

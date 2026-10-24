@@ -41,6 +41,18 @@ security_verification.sql
 
 After `lock_signup_provisioning.sql`: Dashboard → **Authentication → Providers → Email** → turn **off** “Allow new users to sign up”.
 
+### Demo cafe for client walkthroughs
+
+After Cafe POS SQL is applied:
+
+```text
+cafe_pos_demo_seed.sql
+```
+
+Creates **Sayge Demo Cafe** with coffee/tea/snacks/drinks menu and three open kitchen tickets (New / Preparing / Ready).
+
+If POS still shows “No cafes yet” after seeding, run `cafe_pos_rls_fix.sql` — hardening used to drop Cafe POS policies without recreating them.
+
 ### Cafe POS already installed against Clients?
 
 If you ran the first Cafe POS pack (tables used `client_id` → `clients`), run **`cafe_pos_reset_to_cafes.sql`** then **`cafe_pos.sql`** then **`security_hardening.sql`**. That wipes cafe menu/orders so tenants become POS cafes instead of Mahindra-style Settings clients.

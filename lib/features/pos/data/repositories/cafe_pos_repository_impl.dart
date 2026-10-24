@@ -87,6 +87,9 @@ class CafePosRepositoryImpl implements CafePosRepository {
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
+    String? couponId,
+    String couponCode = '',
+    String tableNo = '',
   }) =>
       _guard(
         () => remoteDataSource.createOrder(
@@ -94,6 +97,9 @@ class CafePosRepositoryImpl implements CafePosRepository {
           orderType: orderType,
           lines: lines,
           discountAmount: discountAmount,
+          couponId: couponId,
+          couponCode: couponCode,
+          tableNo: tableNo,
         ),
       );
 
@@ -140,4 +146,25 @@ class CafePosRepositoryImpl implements CafePosRepository {
       _guard(
         () => remoteDataSource.getDailyReport(cafeId: cafeId, day: day),
       );
+
+  @override
+  Future<Either<Failure, List<CafeCoupon>>> getCoupons(String cafeId) =>
+      _guard(() => remoteDataSource.getCoupons(cafeId));
+
+  @override
+  Future<Either<Failure, CafeCoupon?>> lookupCoupon({
+    required String cafeId,
+    required String code,
+  }) =>
+      _guard(
+        () => remoteDataSource.lookupCoupon(cafeId: cafeId, code: code),
+      );
+
+  @override
+  Future<Either<Failure, CafeCoupon>> upsertCoupon(CafeCoupon coupon) =>
+      _guard(() => remoteDataSource.upsertCoupon(coupon));
+
+  @override
+  Future<Either<Failure, void>> deleteCoupon(String id) =>
+      _guard(() => remoteDataSource.deleteCoupon(id));
 }

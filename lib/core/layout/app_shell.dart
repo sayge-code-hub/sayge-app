@@ -271,12 +271,14 @@ class _DesktopHeader extends StatelessWidget {
           ] else
             const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 26,
+            child: title.isEmpty
+                ? const SizedBox.shrink()
+                : Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontSize: 26,
+                        ),
                   ),
-            ),
           ),
           const AppVersionLabel(
             alignment: Alignment.centerRight,

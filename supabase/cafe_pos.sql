@@ -459,3 +459,6 @@ create policy cafe_payments_delete on public.cafe_payments
 
 -- Remove legacy clients_select_cafe_scoped if present
 drop policy if exists clients_select_cafe_scoped on public.clients;
+
+-- Coupon codes: run cafe_pos_coupons.sql (table + RLS) after this file.
+-- GST bill options: run cafe_pos_gst_settings.sql after this file.

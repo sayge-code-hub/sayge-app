@@ -5,13 +5,23 @@ class CafeModel extends Cafe {
     required super.id,
     required super.name,
     super.isActive,
+    super.showGstOnBill,
+    super.gstLabel,
+    super.gstSplitHalves,
+    super.tableCount,
   });
 
   factory CafeModel.fromJson(Map<String, dynamic> json) {
+    final label = (json['gst_label'] ?? 'GST').toString().trim();
+    final tables = (json['table_count'] as num?)?.toInt() ?? 16;
     return CafeModel(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       isActive: json['is_active'] != false,
+      showGstOnBill: json['show_gst_on_bill'] != false,
+      gstLabel: label.isEmpty ? 'GST' : label,
+      gstSplitHalves: json['gst_split_halves'] == true,
+      tableCount: tables.clamp(1, 100),
     );
   }
 
@@ -19,6 +29,10 @@ class CafeModel extends Cafe {
         'id': id,
         'name': name,
         'is_active': isActive,
+        'show_gst_on_bill': showGstOnBill,
+        'gst_label': gstLabel.trim().isEmpty ? 'GST' : gstLabel.trim(),
+        'gst_split_halves': gstSplitHalves,
+        'table_count': tableCount.clamp(1, 100),
       };
 }
 
@@ -151,6 +165,9 @@ class CafeOrderModel extends CafeOrder {
     super.items,
     super.cancelReason,
     super.cancelledAt,
+    super.couponId,
+    super.couponCode,
+    super.tableNo,
   });
 
   factory CafeOrderModel.fromJson(Map<String, dynamic> json) {
@@ -163,6 +180,7 @@ class CafeOrderModel extends CafeOrder {
         : <CafeOrderItem>[];
     items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
+    final couponIdRaw = (json['coupon_id'] ?? '').toString().trim();
     return CafeOrderModel(
       id: (json['id'] ?? '').toString(),
       cafeId: (json['cafe_id'] ?? '').toString(),
@@ -181,6 +199,61 @@ class CafeOrderModel extends CafeOrder {
       cancelReason: (json['cancel_reason'] ?? '').toString(),
       cancelledAt:
           DateTime.tryParse((json['cancelled_at'] ?? '').toString()),
+      couponId: couponIdRaw.isEmpty ? null : couponIdRaw,
+      couponCode: (json['coupon_code'] ?? '').toString(),
+      tableNo: (json['table_no'] ?? '').toString().trim(),
     );
   }
+}
+
+class CafeCouponModel extends CafeCoupon {
+  const CafeCouponModel({
+    required super.id,
+    required super.cafeId,
+    required super.code,
+    required super.discountType,
+    required super.discountValue,
+    super.name,
+    super.minOrderAmount,
+    super.maxDiscountAmount,
+    super.isActive,
+    super.startsAt,
+    super.endsAt,
+    super.maxUses,
+    super.usageCount,
+  });
+
+  factory CafeCouponModel.fromJson(Map<String, dynamic> json) {
+    return CafeCouponModel(
+      id: (json['id'] ?? '').toString(),
+      cafeId: (json['cafe_id'] ?? '').toString(),
+      code: (json['code'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      discountType: CafeDiscountTypeX.fromDb(json['discount_type']?.toString()),
+      discountValue: (json['discount_value'] as num?)?.toDouble() ?? 0,
+      minOrderAmount: (json['min_order_amount'] as num?)?.toDouble() ?? 0,
+      maxDiscountAmount: (json['max_discount_amount'] as num?)?.toDouble(),
+      isActive: json['is_active'] != false,
+      startsAt: DateTime.tryParse((json['starts_at'] ?? '').toString()),
+      endsAt: DateTime.tryParse((json['ends_at'] ?? '').toString()),
+      maxUses: (json['max_uses'] as num?)?.toInt(),
+      usageCount: (json['usage_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'cafe_id': cafeId,
+        'code': code.trim().toUpperCase(),
+        'name': name.trim(),
+        'discount_type': discountType.dbValue,
+        'discount_value': discountValue,
+        'min_order_amount': minOrderAmount,
+        'max_discount_amount': maxDiscountAmount,
+        'is_active': isActive,
+        'starts_at': startsAt?.toUtc().toIso8601String(),
+        'ends_at': endsAt?.toUtc().toIso8601String(),
+        'max_uses': maxUses,
+        'usage_count': usageCount,
+      };
 }
