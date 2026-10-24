@@ -21,15 +21,13 @@ import '../../features/payroll/presentation/pages/payroll_page.dart';
 import '../../features/profitability/presentation/pages/profitability_client_page.dart';
 import '../../features/profitability/presentation/pages/profitability_page.dart';
 import '../../features/profitability/presentation/pages/profitability_projections_page.dart';
-import '../../features/pos/presentation/pages/pos_analytics_page.dart';
-import '../../features/pos/presentation/pages/pos_brand_dashboard_page.dart';
-import '../../features/pos/presentation/pages/pos_brand_form_page.dart';
-import '../../features/pos/presentation/pages/pos_brands_page.dart';
-import '../../features/pos/presentation/pages/pos_inventory_page.dart';
-import '../../features/pos/presentation/pages/pos_product_detail_page.dart';
-import '../../features/pos/presentation/pages/pos_product_form_page.dart';
-import '../../features/pos/presentation/pages/pos_products_page.dart';
-import '../../features/pos/presentation/pages/pos_terminal_page.dart';
+import '../../features/pos/presentation/pages/cafe_kitchen_page.dart';
+import '../../features/pos/presentation/pages/cafe_menu_page.dart';
+import '../../features/pos/presentation/pages/cafe_orders_page.dart';
+import '../../features/pos/presentation/pages/cafe_pos_clients_page.dart';
+import '../../features/pos/presentation/pages/cafe_pos_hub_page.dart';
+import '../../features/pos/presentation/pages/cafe_reports_page.dart';
+import '../../features/pos/presentation/pages/cafe_terminal_page.dart';
 import '../../features/proposals/domain/entities/proposal.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
@@ -333,89 +331,54 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: AppRoutes.expenses,
             pageBuilder: (context, state) => _page(state, const ExpensesPage()),
           ),
-          // Flat POS routes so each screen remounts (no stale parent hub).
+          // Cafe POS — client-scoped menu / terminal / kitchen / reports.
           GoRoute(
             path: AppRoutes.pos,
             pageBuilder: (context, state) => _page(
               state,
-              PosBrandsPage(
-                key: ValueKey('pos-hub-${state.uri}'),
-                forceHub: state.uri.queryParameters['hub'] == '1',
-              ),
+              CafePosClientsPage(key: ValueKey('pos-hub-${state.uri}')),
             ),
           ),
           GoRoute(
-            path: AppRoutes.posBrandAdd,
-            pageBuilder: (context, state) =>
-                _page(state, const PosBrandFormPage()),
-          ),
-          GoRoute(
-            path: '/pos/brands/:brandId/edit',
+            path: '/pos/:clientId/menu',
             pageBuilder: (context, state) => _page(
               state,
-              PosBrandFormPage(brandId: state.pathParameters['brandId']),
+              CafeMenuPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId/products/add',
+            path: '/pos/:clientId/terminal',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductFormPage(brandId: state.pathParameters['brandId']!),
+              CafeTerminalPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId/products/:productId/edit',
+            path: '/pos/:clientId/kitchen',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductFormPage(
-                brandId: state.pathParameters['brandId']!,
-                productId: state.pathParameters['productId'],
-              ),
+              CafeKitchenPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId/products/:productId',
+            path: '/pos/:clientId/orders',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductDetailPage(
-                brandId: state.pathParameters['brandId']!,
-                productId: state.pathParameters['productId']!,
-              ),
+              CafeOrdersPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId/products',
+            path: '/pos/:clientId/reports',
             pageBuilder: (context, state) => _page(
               state,
-              PosProductsPage(brandId: state.pathParameters['brandId']!),
+              CafeReportsPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:brandId/inventory',
+            path: '/pos/:clientId',
             pageBuilder: (context, state) => _page(
               state,
-              PosInventoryPage(brandId: state.pathParameters['brandId']!),
-            ),
-          ),
-          GoRoute(
-            path: '/pos/:brandId/terminal',
-            pageBuilder: (context, state) => _page(
-              state,
-              PosTerminalPage(brandId: state.pathParameters['brandId']!),
-            ),
-          ),
-          GoRoute(
-            path: '/pos/:brandId/analytics',
-            pageBuilder: (context, state) => _page(
-              state,
-              PosAnalyticsPage(brandId: state.pathParameters['brandId']!),
-            ),
-          ),
-          GoRoute(
-            path: '/pos/:brandId',
-            pageBuilder: (context, state) => _page(
-              state,
-              PosBrandDashboardPage(brandId: state.pathParameters['brandId']!),
+              CafePosHubPage(clientId: state.pathParameters['clientId']!),
             ),
           ),
           GoRoute(

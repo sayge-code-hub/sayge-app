@@ -39,8 +39,6 @@ abstract final class AppRoutes {
   static const manageInvites = '/settings/invites';
   static const setPassword = '/set-password';
   static const pos = '/pos';
-  static const posHub = '/pos?hub=1';
-  static const posBrandAdd = '/pos/brands/add';
 
   static String clientDetail(String clientId) => '/settings/clients/$clientId';
 
@@ -54,23 +52,15 @@ abstract final class AppRoutes {
   static String employeeCompensation(String id) =>
       '/hrms/employees/$id/compensation';
 
-  static String posBrand(String brandId) => '/pos/$brandId';
+  static String posClient(String clientId) => '/pos/$clientId';
 
-  static String posBrandEdit(String brandId) => '/pos/brands/$brandId/edit';
+  static String posMenu(String clientId) => '/pos/$clientId/menu';
 
-  static String posProducts(String brandId) => '/pos/$brandId/products';
+  static String posTerminal(String clientId) => '/pos/$clientId/terminal';
 
-  static String posInventory(String brandId) => '/pos/$brandId/inventory';
+  static String posKitchen(String clientId) => '/pos/$clientId/kitchen';
 
-  static String posTerminal(String brandId) => '/pos/$brandId/terminal';
+  static String posOrders(String clientId) => '/pos/$clientId/orders';
 
-  static String posAnalytics(String brandId) => '/pos/$brandId/analytics';
-
-  static String posProductAdd(String brandId) => '/pos/$brandId/products/add';
-
-  static String posProductEdit(String brandId, String productId) =>
-      '/pos/$brandId/products/$productId/edit';
-
-  static String posProductDetail(String brandId, String productId) =>
-      '/pos/$brandId/products/$productId';
+  static String posReports(String clientId) => '/pos/$clientId/reports';
 }

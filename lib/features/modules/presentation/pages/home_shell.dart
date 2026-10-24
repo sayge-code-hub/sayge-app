@@ -39,6 +39,8 @@ class _HomeShellState extends State<HomeShell> {
 
   bool get _isStaff => AppAccess.isStaff(widget.user);
 
+  bool get _isCafeRole => AppAccess.isCafeRole(widget.user);
+
   bool get _employeeLinked {
     final id = widget.user.employeeId?.trim();
     return id != null && id.isNotEmpty;
@@ -114,6 +116,17 @@ class _HomeShellState extends State<HomeShell> {
       ];
     }
 
+    if (_isCafeRole) {
+      return const [
+        AppNavSection(
+          label: 'POS',
+          icon: Icons.storefront_outlined,
+          selectable: true,
+          items: [],
+        ),
+      ];
+    }
+
     final linked = _employeeLinked;
     return [
       const AppNavSection(
@@ -164,6 +177,10 @@ class _HomeShellState extends State<HomeShell> {
       ];
     }
 
+    if (_isCafeRole) {
+      return const [AppRoutes.pos];
+    }
+
     final id = widget.user.employeeId?.trim();
     if (id == null || id.isEmpty) {
       return const [AppRoutes.dashboard];
@@ -179,6 +196,10 @@ class _HomeShellState extends State<HomeShell> {
   int get _selectedIndex {
     final location = widget.location;
     final paths = _paths;
+
+    if (_isCafeRole) {
+      return 0;
+    }
 
     if (!_isStaff) {
       if (location.startsWith(AppRoutes.expenses)) return 3;
@@ -239,20 +260,12 @@ class _HomeShellState extends State<HomeShell> {
     if (path == AppRoutes.categories) return 'Categories';
     if (path == AppRoutes.settings) return 'Settings';
     if (path.startsWith(AppRoutes.pos)) {
-      if (path.endsWith('/edit') && path.contains('/brands/')) {
-        return 'Edit brand';
-      }
-      if (path == AppRoutes.posBrandAdd) return 'Add brand';
-      if (path.contains('/products/add')) return 'New product';
-      if (path.endsWith('/edit') && path.contains('/products/')) {
-        return 'Edit product';
-      }
-      if (path.endsWith('/products')) return 'All products';
-      if (path.contains('/products/')) return 'Product';
-      if (path.endsWith('/inventory')) return 'Manage inventory';
-      if (path.endsWith('/terminal')) return 'POS';
-      if (path.endsWith('/analytics')) return 'Analytics';
-      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Brand';
+      if (path.endsWith('/menu')) return 'Menu';
+      if (path.endsWith('/terminal')) return 'Terminal';
+      if (path.endsWith('/kitchen')) return 'Kitchen';
+      if (path.endsWith('/orders')) return 'Orders';
+      if (path.endsWith('/reports')) return 'Reports';
+      if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) return 'Cafe POS';
       return 'POS';
     }
     if (path.startsWith(AppRoutes.expenses)) return 'Expense';
@@ -274,6 +287,16 @@ class _HomeShellState extends State<HomeShell> {
   VoidCallback? get _onBack {
     final location = widget.location;
     final path = Uri.tryParse(location)?.path ?? location;
+
+    if (_isCafeRole) {
+      final clientId = AppAccess.cafeClientId(widget.user);
+      if (clientId != null &&
+          path.startsWith('${AppRoutes.pos}/$clientId/') &&
+          path != AppRoutes.posClient(clientId)) {
+        return () => _goBack(AppRoutes.posClient(clientId));
+      }
+      return null;
+    }
 
     if (!_isStaff) {
       if (path.endsWith('/compensation')) {
@@ -351,40 +374,19 @@ class _HomeShellState extends State<HomeShell> {
     if (RegExp(r'^/profitability/[^/]+$').hasMatch(path)) {
       return () => _goBack(AppRoutes.profitability);
     }
-    if (path == AppRoutes.posBrandAdd ||
-        (path.endsWith('/edit') && path.contains('/pos/brands/'))) {
-      return confirming(() => _goBack(AppRoutes.posHub));
-    }
-    if (path.contains('/pos/') && path.contains('/products/')) {
-      final segments = Uri.parse(path).pathSegments;
-      if (segments.length >= 2) {
-        final isProductEdit = path.endsWith('/edit') && segments.length >= 5;
-        final isProductAdd =
-            path.endsWith('/add') || path.contains('/products/add');
-        if (isProductEdit) {
-          return confirming(
-            () => _goBack(AppRoutes.posProductDetail(segments[1], segments[3])),
-          );
-        }
-        if (isProductAdd) {
-          return confirming(() => _goBack(AppRoutes.posProducts(segments[1])));
-        }
-        // Product detail (view) — leave without confirm.
-        return () => _goBack(AppRoutes.posProducts(segments[1]));
-      }
-    }
     if (path.contains('/pos/') &&
-        (path.endsWith('/products') ||
-            path.endsWith('/inventory') ||
+        (path.endsWith('/menu') ||
             path.endsWith('/terminal') ||
-            path.endsWith('/analytics'))) {
+            path.endsWith('/kitchen') ||
+            path.endsWith('/orders') ||
+            path.endsWith('/reports'))) {
       final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 2) {
-        return () => _goBack(AppRoutes.posBrand(segments[1]));
+        return () => _goBack(AppRoutes.posClient(segments[1]));
       }
     }
     if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) {
-      return () => _goBack(AppRoutes.posHub);
+      return () => _goBack(AppRoutes.pos);
     }
     return null;
   }
@@ -398,6 +400,13 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _selectDestination(int index) {
+    if (_isCafeRole) {
+      final home = AppAccess.homeRoute(widget.user);
+      if (home != widget.location) {
+        context.go(home);
+      }
+      return;
+    }
     final paths = _paths;
     if (index < 0 || index >= paths.length) return;
     final path = paths[index];
