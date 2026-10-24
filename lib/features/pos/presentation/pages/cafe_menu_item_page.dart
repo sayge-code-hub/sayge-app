@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dropdown.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
@@ -40,21 +41,52 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
   bool _available = true;
   bool _loading = true;
   bool _saving = false;
+  bool _dirty = false;
   String? _error;
   CafeMenuItem? _existing;
+
+  String _baselineName = '';
+  String _baselinePrice = '';
+  String _baselineTax = '0';
+  String? _baselineCategoryId;
+  bool _baselineAvailable = true;
 
   @override
   void initState() {
     super.initState();
+    _name.addListener(_markDirty);
+    _price.addListener(_markDirty);
+    _tax.addListener(_markDirty);
     _load();
   }
 
   @override
   void dispose() {
+    _name.removeListener(_markDirty);
+    _price.removeListener(_markDirty);
+    _tax.removeListener(_markDirty);
     _name.dispose();
     _price.dispose();
     _tax.dispose();
     super.dispose();
+  }
+
+  void _markDirty() {
+    final dirty = _name.text != _baselineName ||
+        _price.text != _baselinePrice ||
+        _tax.text != _baselineTax ||
+        _categoryId != _baselineCategoryId ||
+        _available != _baselineAvailable;
+    if (dirty != _dirty) setState(() => _dirty = dirty);
+  }
+
+  void _captureBaseline() {
+    _baselineName = _name.text;
+    _baselinePrice = _price.text;
+    _baselineTax = _tax.text;
+    _baselineCategoryId = _categoryId;
+    _baselineAvailable = _available;
+    _dirty = false;
   }
 
   Future<void> _load() async {
@@ -77,6 +109,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
             _categoryId = active.isNotEmpty ? active.first.id : null;
             _loading = false;
           });
+          _captureBaseline();
           return;
         }
         final items = await sl<GetCafeMenuItems>()(widget.cafeId);
@@ -112,10 +145,27 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
               _categoryId = _categories.first.id;
             }
             setState(() => _loading = false);
+            _captureBaseline();
           },
         );
       },
     );
+  }
+
+  Future<void> _leave() async {
+    void go() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.posMenu(widget.cafeId));
+      }
+    }
+
+    if (!_dirty) {
+      go();
+      return;
+    }
+    await leaveFormIfConfirmed(context, go);
   }
 
   Future<void> _save() async {
@@ -156,6 +206,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
     result.fold(
       (f) => showAppMessageDialog(context, title: 'Menu', message: f.message),
       (_) {
+        _dirty = false;
         if (context.canPop()) {
           context.pop();
         } else {
@@ -193,6 +244,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
     result.fold(
       (f) => showAppMessageDialog(context, title: 'Menu', message: f.message),
       (_) {
+        _dirty = false;
         if (context.canPop()) {
           context.pop();
         } else {
@@ -231,32 +283,30 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
     return CafePosBackdrop(
       child: Column(
         children: [
+          if (widget.isEditing)
+            Padding(
+              padding: CafePosSpace.page(context).copyWith(bottom: 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: 'Delete',
+                  onPressed: _delete,
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.background,
+                    side: const BorderSide(color: AppColors.border),
+                  ),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: ListView(
               padding: CafePosSpace.page(context),
               children: [
-                CafePosPageHeader(
-                  title: widget.isEditing ? 'Edit item' : 'New item',
-                  subtitle: widget.isEditing
-                      ? 'Update price, category, or availability'
-                      : 'Add a product to the menu',
-                  trailing: widget.isEditing
-                      ? IconButton(
-                          tooltip: 'Delete',
-                          onPressed: _delete,
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.background,
-                            side: const BorderSide(color: AppColors.border),
-                          ),
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: AppColors.error,
-                            size: 20,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 20),
                 AppTextField(
                   label: 'Name',
                   controller: _name,
@@ -272,16 +322,20 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
                         ),
                   )
                 else
-                  DropdownButtonFormField<String>(
-                    // ignore: deprecated_member_use
+                  AppDropdown<String>(
+                    label: 'Category',
+                    items: [for (final c in _categories) c.id],
+                    itemLabel: (id) {
+                      for (final c in _categories) {
+                        if (c.id == id) return c.name;
+                      }
+                      return id;
+                    },
                     value: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: [
-                      for (final c in _categories)
-                        DropdownMenuItem(value: c.id, child: Text(c.name)),
-                    ],
                     onChanged: (v) {
-                      if (v != null) setState(() => _categoryId = v);
+                      if (v == null) return;
+                      setState(() => _categoryId = v);
+                      _markDirty();
                     },
                   ),
                 const SizedBox(height: 14),
@@ -306,7 +360,10 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Available'),
                   value: _available,
-                  onChanged: (v) => setState(() => _available = v),
+                  onChanged: (v) {
+                    setState(() => _available = v);
+                    _markDirty();
+                  },
                 ),
               ],
             ),
@@ -321,13 +378,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go(AppRoutes.posMenu(widget.cafeId));
-                          }
-                        },
+                        onPressed: _leave,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),
                           foregroundColor: AppColors.text,

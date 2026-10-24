@@ -231,13 +231,6 @@ class _CafeQrPrintPageState extends State<CafeQrPrintPage> {
       child: ListView(
         padding: CafePosSpace.page(context),
         children: [
-          CafePosPageHeader(
-            title: 'Guest menu QR',
-            subtitle:
-                'Customers scan to open the phone menu'
-                '${cafe.tableCount > 0 ? ' — optional table number in the link' : ''}.',
-          ),
-          const SizedBox(height: 20),
           if (_baseUrl.isEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -250,75 +243,43 @@ class _CafeQrPrintPageState extends State<CafeQrPrintPage> {
                     ),
               ),
             ),
-          Material(
-            color: AppColors.background,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(CafePosSpace.radius),
-              side: const BorderSide(color: AppColors.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Link style',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(
-                        value: true,
-                        label: Text('Per table'),
-                      ),
-                      ButtonSegment(
-                        value: false,
-                        label: Text('Whole cafe'),
-                      ),
-                    ],
-                    selected: {_perTable},
-                    onSelectionChanged: (s) =>
-                        setState(() => _perTable = s.first),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _perTable
-                        ? 'Prints one QR per table (1–${cafe.tableCount}). '
-                            'Orders land on that table.'
-                        : 'One QR for the cafe. Guests order without a table '
-                            '(takeaway-style).',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontSize: 12,
-                          color: AppColors.textLight,
-                        ),
-                  ),
-                ],
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: true,
+                label: Text('Per table'),
               ),
-            ),
+              ButtonSegment(
+                value: false,
+                label: Text('Whole cafe'),
+              ),
+            ],
+            selected: {_perTable},
+            onSelectionChanged: (s) => setState(() => _perTable = s.first),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              _QrPreviewCard(
-                title: _perTable ? 'Table $previewTable' : 'Cafe menu',
-                url: _perTable ? tableUrl : cafeUrl,
-                cafeName: cafe.name,
-                onCopy: () => _copy(_perTable ? tableUrl : cafeUrl),
-              ),
-              if (_perTable)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 _QrPreviewCard(
-                  title: 'Cafe (no table)',
-                  url: cafeUrl,
+                  title: _perTable ? 'Table $previewTable' : 'Cafe menu',
+                  url: _perTable ? tableUrl : cafeUrl,
                   cafeName: cafe.name,
-                  onCopy: () => _copy(cafeUrl),
+                  onCopy: () => _copy(_perTable ? tableUrl : cafeUrl),
                 ),
-            ],
+                if (_perTable) ...[
+                  const SizedBox(width: 16),
+                  _QrPreviewCard(
+                    title: 'Cafe (no table)',
+                    url: cafeUrl,
+                    cafeName: cafe.name,
+                    onCopy: () => _copy(cafeUrl),
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           AppButton(
@@ -327,15 +288,6 @@ class _CafeQrPrintPageState extends State<CafeQrPrintPage> {
                 : 'Print cafe QR',
             enabled: _baseUrl.isNotEmpty,
             onPressed: _printSheet,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Tip: laminate table codes and stick them at each seat. '
-            'Guest menu is mobile-only at /m/${widget.cafeId}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: 12,
-                  color: AppColors.textLight,
-                ),
           ),
         ],
       ),

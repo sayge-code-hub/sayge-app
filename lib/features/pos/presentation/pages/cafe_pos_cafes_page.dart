@@ -152,11 +152,7 @@ class _CafePosCafesPageState extends State<CafePosCafesPage> {
             if (!stickyBottom)
               Padding(
                 padding: CafePosSpace.page(context).copyWith(bottom: 0),
-                child: CafePosPageHeader(
-                  title: 'Your cafes',
-                  subtitle: 'Open a cafe to run menu, terminal, and kitchen.',
-                  trailing: addCafe,
-                ),
+                child: Align(alignment: Alignment.centerRight, child: addCafe),
               ),
             const Expanded(
               child: CafePosEmptyState(
@@ -180,21 +176,20 @@ class _CafePosCafesPageState extends State<CafePosCafesPage> {
           Expanded(
             child: CustomScrollView(
               slivers: [
-                SliverPadding(
-                  padding: CafePosSpace.page(context).copyWith(bottom: 8),
-                  sliver: SliverToBoxAdapter(
-                    child: CafePosPageHeader(
-                      title: 'Your cafes',
-                      subtitle:
-                          'Open a cafe to run menu, terminal, and kitchen.',
-                      trailing: stickyBottom ? null : addCafe,
+                if (!stickyBottom)
+                  SliverPadding(
+                    padding: CafePosSpace.page(context).copyWith(bottom: 8),
+                    sliver: SliverToBoxAdapter(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: addCafe,
+                      ),
                     ),
                   ),
-                ),
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     CafePosSpace.page(context).left,
-                    8,
+                    stickyBottom ? CafePosSpace.page(context).top : 8,
                     CafePosSpace.page(context).right,
                     stickyBottom ? 16 : 24,
                   ),
@@ -273,14 +268,6 @@ class _CafeTile extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                       height: 1.2,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Tap to open',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontSize: 12,
-                      color: AppColors.textLight,
                     ),
               ),
             ],

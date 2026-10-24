@@ -27,6 +27,8 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
   bool _loading = true;
   String? _error;
   Timer? _timer;
+  int _reloadToken = 0;
+  final Set<String> _advancing = {};
 
   static const _active = [
     CafePrepStatus.neu,
@@ -48,15 +50,17 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
   }
 
   Future<void> _reload() async {
+    final token = ++_reloadToken;
     final result = await sl<GetCafeOrders>()(
       widget.cafeId,
+      day: DateTime.now(),
       prepStatuses: _active,
     );
-    if (!mounted) return;
+    if (!mounted || token != _reloadToken) return;
     result.fold(
       (f) => setState(() {
         _loading = false;
-        _error = f.message;
+        if (_orders.isEmpty) _error = f.message;
       }),
       (list) => setState(() {
         _orders = list;
@@ -77,12 +81,14 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
 
   Future<void> _advance(CafeOrder order) async {
     final next = _next(order.prepStatus);
-    if (next == null) return;
+    if (next == null || _advancing.contains(order.id)) return;
+    setState(() => _advancing.add(order.id));
     final result = await sl<UpdateCafePrepStatus>()(
       orderId: order.id,
       status: next,
     );
     if (!mounted) return;
+    setState(() => _advancing.remove(order.id));
     result.fold(
       (f) => showAppMessageDialog(context, title: 'Kitchen', message: f.message),
       (_) => _reload(),
@@ -96,6 +102,154 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
       CafePrepStatus.ready => AppColors.success,
       _ => AppColors.textLight,
     };
+  }
+
+  List<CafeOrder> _col(CafePrepStatus s) =>
+      _orders.where((o) => o.prepStatus == s).toList();
+
+  Widget _columnBody(
+    String title,
+    CafePrepStatus status, {
+    EdgeInsets inset = EdgeInsets.zero,
+  }) {
+    final list = _col(status);
+    final tint = _tintFor(status);
+    return Padding(
+      padding: inset,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: tint.withValues(alpha: 0.28)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                Text(
+                  '${list.length}',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: tint,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: list.isEmpty
+                ? Center(
+                    child: Text(
+                      'Quiet here',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textLight,
+                            fontSize: 13,
+                          ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final order = list[index];
+                      final next = _next(order.prepStatus);
+                      final busy = _advancing.contains(order.id);
+                      return Material(
+                        color: AppColors.background,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(CafePosSpace.radius),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    order.orderNo,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    [
+                                      if (order.tableNo.trim().isNotEmpty)
+                                        'Table ${order.tableNo.trim()}',
+                                      order.orderType.label,
+                                    ].join(' · '),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.textLight,
+                                          fontSize: 12,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              for (final item in order.items)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    '${item.quantity.toStringAsFixed(0)} × ${item.itemName}'
+                                    '${item.notes.trim().isEmpty ? '' : ' (${item.notes})'}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontSize: 13, height: 1.35),
+                                  ),
+                                ),
+                              if (next != null) ...[
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: AppButton(
+                                    label: next.label,
+                                    expand: false,
+                                    enabled: !busy,
+                                    isLoading: busy,
+                                    onPressed: () => _advance(order),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -126,158 +280,18 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
       );
     }
 
-    List<CafeOrder> col(CafePrepStatus s) =>
-        _orders.where((o) => o.prepStatus == s).toList();
-
-    Widget column(String title, CafePrepStatus status, {EdgeInsets? inset}) {
-      final list = col(status);
-      final tint = _tintFor(status);
-      final hPad = inset ?? EdgeInsets.zero;
-      return Expanded(
-        child: Padding(
-          padding: hPad,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: tint.withValues(alpha: 0.28)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: tint,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                      ),
-                    ),
-                    Text(
-                      '${list.length}',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: tint,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: list.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Quiet here',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.textLight,
-                                    fontSize: 13,
-                                  ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        itemCount: list.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final order = list[index];
-                          final next = _next(order.prepStatus);
-                          return Material(
-                            color: AppColors.background,
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(CafePosSpace.radius),
-                              side: const BorderSide(color: AppColors.border),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        order.orderNo,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        [
-                                          if (order.tableNo.trim().isNotEmpty)
-                                            'Table ${order.tableNo.trim()}',
-                                          order.orderType.label,
-                                        ].join(' · '),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: AppColors.textLight,
-                                              fontSize: 12,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  for (final item in order.items)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        '${item.quantity.toStringAsFixed(0)} × ${item.itemName}'
-                                        '${item.notes.trim().isEmpty ? '' : ' (${item.notes})'}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontSize: 13,
-                                              height: 1.35,
-                                            ),
-                                      ),
-                                    ),
-                                  if (next != null) ...[
-                                    const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: AppButton(
-                                        label: next.label,
-                                        expand: false,
-                                        onPressed: () => _advance(order),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+    final refresh = Align(
+      alignment: Alignment.centerRight,
+      child: IconButton(
+        tooltip: 'Refresh',
+        onPressed: _reload,
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.background,
+          side: const BorderSide(color: AppColors.border),
         ),
-      );
-    }
+        icon: const Icon(Icons.refresh_rounded, size: 20),
+      ),
+    );
 
     final board = isDesktop
         ? Padding(
@@ -290,11 +304,17 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                column('New', CafePrepStatus.neu),
+                Expanded(
+                  child: _columnBody('New', CafePrepStatus.neu),
+                ),
                 const SizedBox(width: 16),
-                column('Preparing', CafePrepStatus.preparing),
+                Expanded(
+                  child: _columnBody('Preparing', CafePrepStatus.preparing),
+                ),
                 const SizedBox(width: 16),
-                column('Ready', CafePrepStatus.ready),
+                Expanded(
+                  child: _columnBody('Ready', CafePrepStatus.ready),
+                ),
               ],
             ),
           )
@@ -309,19 +329,21 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
                     unselectedLabelColor: AppColors.textLight,
                     indicatorColor: AppColors.highlight,
                     tabs: [
-                      Tab(text: 'New (${col(CafePrepStatus.neu).length})'),
+                      Tab(text: 'New (${_col(CafePrepStatus.neu).length})'),
                       Tab(
                         text:
-                            'Preparing (${col(CafePrepStatus.preparing).length})',
+                            'Prep (${_col(CafePrepStatus.preparing).length})',
                       ),
-                      Tab(text: 'Ready (${col(CafePrepStatus.ready).length})'),
+                      Tab(
+                        text: 'Ready (${_col(CafePrepStatus.ready).length})',
+                      ),
                     ],
                   ),
                 ),
                 Expanded(
                   child: TabBarView(
                     children: [
-                      column(
+                      _columnBody(
                         'New',
                         CafePrepStatus.neu,
                         inset: EdgeInsets.fromLTRB(
@@ -331,7 +353,7 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
                           pagePad.bottom,
                         ),
                       ),
-                      column(
+                      _columnBody(
                         'Preparing',
                         CafePrepStatus.preparing,
                         inset: EdgeInsets.fromLTRB(
@@ -341,7 +363,7 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
                           pagePad.bottom,
                         ),
                       ),
-                      column(
+                      _columnBody(
                         'Ready',
                         CafePrepStatus.ready,
                         inset: EdgeInsets.fromLTRB(
@@ -362,20 +384,8 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
       child: Column(
         children: [
           Padding(
-            padding: pagePad.copyWith(bottom: 12),
-            child: CafePosPageHeader(
-              title: 'Kitchen',
-              subtitle: 'Advance tickets as you prep',
-              trailing: IconButton(
-                tooltip: 'Refresh',
-                onPressed: _reload,
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.background,
-                  side: const BorderSide(color: AppColors.border),
-                ),
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-              ),
-            ),
+            padding: pagePad.copyWith(bottom: 8),
+            child: refresh,
           ),
           Expanded(child: board),
         ],

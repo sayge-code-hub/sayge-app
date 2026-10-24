@@ -166,11 +166,6 @@ class _CafeCategoriesPageState extends State<CafeCategoriesPage> {
                 : ListView(
                     padding: CafePosSpace.page(context),
                     children: [
-                      CafePosPageHeader(
-                        title: 'Categories',
-                        subtitle: 'Edit names or remove unused ones',
-                      ),
-                      const SizedBox(height: 16),
                       for (final c in _categories) ...[
                         Material(
                           color: AppColors.background,

@@ -8,7 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../injection_container.dart';
 import '../widgets/cafe_pos_chrome.dart';
 
-/// Cafe-scoped POS settings hub (coupons, tax, future options).
+/// Cafe-scoped POS settings hub (coupons, tax, floor, QR).
 class CafePosSettingsPage extends StatelessWidget {
   const CafePosSettingsPage({super.key, required this.cafeId});
 
@@ -27,29 +27,27 @@ class CafePosSettingsPage extends StatelessWidget {
       child: ListView(
         padding: CafePosSpace.page(context),
         children: [
-          const CafePosPageHeader(
-            title: 'POS settings',
-            subtitle: 'Coupons, tax, QR menu, and cafe options',
-          ),
-          const SizedBox(height: 20),
           _SettingsTile(
             icon: Icons.local_offer_outlined,
             title: 'Coupon codes',
-            subtitle: 'Discounts cashiers can apply at checkout',
             onTap: () => context.push(AppRoutes.posCoupons(cafeId)),
           ),
           const SizedBox(height: 10),
           _SettingsTile(
             icon: Icons.receipt_long_outlined,
-            title: 'Tax & floor',
-            subtitle: 'GST on bill and number of dine-in tables',
+            title: 'Tax configuration',
             onTap: () => context.push(AppRoutes.posTax(cafeId)),
+          ),
+          const SizedBox(height: 10),
+          _SettingsTile(
+            icon: Icons.table_restaurant_outlined,
+            title: 'Floor & tables',
+            onTap: () => context.push(AppRoutes.posFloor(cafeId)),
           ),
           const SizedBox(height: 10),
           _SettingsTile(
             icon: Icons.qr_code_2_rounded,
             title: 'Guest menu QR',
-            subtitle: 'Print table codes so guests order on their phone',
             onTap: () => context.push(AppRoutes.posQr(cafeId)),
           ),
         ],
@@ -62,13 +60,11 @@ class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
@@ -98,25 +94,12 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontSize: 12,
-                            color: AppColors.textLight,
-                          ),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                 ),
               ),
               Icon(

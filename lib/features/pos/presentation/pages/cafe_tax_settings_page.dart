@@ -27,20 +27,17 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
   bool _saving = false;
   String? _error;
   late final TextEditingController _gstLabel;
-  late final TextEditingController _tableCount;
 
   @override
   void initState() {
     super.initState();
     _gstLabel = TextEditingController(text: 'GST');
-    _tableCount = TextEditingController(text: '16');
     _load();
   }
 
   @override
   void dispose() {
     _gstLabel.dispose();
-    _tableCount.dispose();
     super.dispose();
   }
 
@@ -72,7 +69,6 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
           return;
         }
         _gstLabel.text = found.gstLabel;
-        _tableCount.text = '${found.tableCount}';
         setState(() {
           _cafe = found;
           _loading = false;
@@ -84,13 +80,9 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
   Future<void> _save() async {
     final cafe = _cafe;
     if (cafe == null || _saving) return;
-    final tables = int.tryParse(_tableCount.text.trim()) ?? cafe.tableCount;
     setState(() => _saving = true);
     final result = await sl<UpsertCafe>()(
-      cafe.copyWith(
-        gstLabel: _gstLabel.text.trim(),
-        tableCount: tables.clamp(1, 100),
-      ),
+      cafe.copyWith(gstLabel: _gstLabel.text.trim()),
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -144,11 +136,6 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
             child: ListView(
               padding: CafePosSpace.page(context),
               children: [
-                const CafePosPageHeader(
-                  title: 'Tax & floor',
-                  subtitle: 'GST on the bill and dine-in table count',
-                ),
-                const SizedBox(height: 20),
                 Material(
                   color: AppColors.background,
                   shape: RoundedRectangleBorder(
@@ -160,24 +147,6 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'GST on bill',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Uses each menu item’s tax %. Run cafe_pos_gst_settings.sql if save fails.',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 12,
-                                    color: AppColors.textLight,
-                                  ),
-                        ),
-                        const SizedBox(height: 8),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Show GST on bill'),
@@ -210,46 +179,6 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Material(
-                  color: AppColors.background,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(CafePosSpace.radius),
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Dine-in tables',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'How many table numbers the terminal shows. '
-                          'Run cafe_pos_tables.sql if save fails.',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 12,
-                                    color: AppColors.textLight,
-                                  ),
-                        ),
-                        const SizedBox(height: 12),
-                        AppTextField(
-                          label: 'Number of tables',
-                          controller: _tableCount,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -260,7 +189,7 @@ class _CafeTaxSettingsPageState extends State<CafeTaxSettingsPage> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                 child: AppButton(
-                  label: _saving ? 'Saving…' : 'Save settings',
+                  label: _saving ? 'Saving…' : 'Save',
                   isLoading: _saving,
                   onPressed: _save,
                 ),
