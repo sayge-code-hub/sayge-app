@@ -9,14 +9,19 @@ concurrency:
   group: netlify-production
   cancel-in-progress: true
 
-# Skip re-entry when the version-bump commit is pushed ([skip ci] in message).
+# Skip re-entry for version-bump merges (those PRs only sync pubspec after deploy).
 jobs:
   deploy:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: >-
+      ${{
+        !contains(github.event.head_commit.message, '[skip ci]')
+        && !startsWith(github.event.head_commit.message, 'chore: bump version')
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -58,15 +63,8 @@ jobs:
           echo "Bumped version to ${next}"
           grep -E '^version:' pubspec.yaml
 
-      - name: Commit version bump
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]"
-          git push origin HEAD:main
-
+      # Build/deploy must not depend on pushing to protected main. Version bump
+      # lands via PR after deploy (branch rules require Analyze & test).
       - name: Build web (CanvasKit from CDN)
         run: |
           flutter build web --release --base-href / --web-resources-cdn --no-wasm-dry-run --no-tree-shake-icons
@@ -140,3 +138,24 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Open version-bump PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ steps.bump.outputs.version }}"
+          branch="chore/bump-${version}-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add pubspec.yaml
+          # Do not put [skip ci] here — main requires Analyze & test to merge.
+          git commit -m "chore: bump version to ${version}"
+          git push -u origin "HEAD:${branch}"
+          pr_url="$(gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: bump version to ${version}" \
+            --body "Automated post-deploy version bump from Deploy to Netlify.")"
+          gh pr merge "$pr_url" --auto --merge || true
