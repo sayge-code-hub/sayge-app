@@ -9,7 +9,7 @@ class User extends Equatable {
     required this.roleLabel,
     this.name,
     this.employeeId,
-    this.clientId,
+    this.cafeId,
     this.avatarPath,
     this.avatarUrl,
   });
@@ -23,7 +23,7 @@ class User extends Equatable {
   final String? employeeId;
 
   /// Cafe POS tenant — required for cafe_admin / cashier / kitchen.
-  final String? clientId;
+  final String? cafeId;
 
   /// Storage object path in the `user-avatars` bucket.
   final String? avatarPath;
@@ -45,7 +45,7 @@ class User extends Equatable {
     String? roleLabel,
     String? name,
     String? employeeId,
-    String? clientId,
+    String? cafeId,
     String? avatarPath,
     String? avatarUrl,
     bool clearAvatar = false,
@@ -58,7 +58,7 @@ class User extends Equatable {
       roleLabel: roleLabel ?? this.roleLabel,
       name: name ?? this.name,
       employeeId: employeeId ?? this.employeeId,
-      clientId: clientId ?? this.clientId,
+      cafeId: cafeId ?? this.cafeId,
       avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
       avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
     );
@@ -73,7 +73,7 @@ class User extends Equatable {
         roleLabel,
         name,
         employeeId,
-        clientId,
+        cafeId,
         avatarPath,
         avatarUrl,
       ];

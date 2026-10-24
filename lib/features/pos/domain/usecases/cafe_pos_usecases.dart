@@ -4,11 +4,23 @@ import '../../../../core/error/failures.dart';
 import '../entities/cafe_entities.dart';
 import '../repositories/cafe_pos_repository.dart';
 
+class GetCafes {
+  const GetCafes(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, List<Cafe>>> call() => _repo.getCafes();
+}
+
+class UpsertCafe {
+  const UpsertCafe(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, Cafe>> call(Cafe cafe) => _repo.upsertCafe(cafe);
+}
+
 class GetCafeCategories {
   const GetCafeCategories(this._repo);
   final CafePosRepository _repo;
-  Future<Either<Failure, List<CafeCategory>>> call(String clientId) =>
-      _repo.getCategories(clientId);
+  Future<Either<Failure, List<CafeCategory>>> call(String cafeId) =>
+      _repo.getCategories(cafeId);
 }
 
 class UpsertCafeCategory {
@@ -28,10 +40,10 @@ class GetCafeMenuItems {
   const GetCafeMenuItems(this._repo);
   final CafePosRepository _repo;
   Future<Either<Failure, List<CafeMenuItem>>> call(
-    String clientId, {
+    String cafeId, {
     bool availableOnly = false,
   }) =>
-      _repo.getMenuItems(clientId, availableOnly: availableOnly);
+      _repo.getMenuItems(cafeId, availableOnly: availableOnly);
 }
 
 class UpsertCafeMenuItem {
@@ -51,24 +63,24 @@ class GetCafeOrders {
   const GetCafeOrders(this._repo);
   final CafePosRepository _repo;
   Future<Either<Failure, List<CafeOrder>>> call(
-    String clientId, {
+    String cafeId, {
     DateTime? day,
     List<CafePrepStatus>? prepStatuses,
   }) =>
-      _repo.getOrders(clientId, day: day, prepStatuses: prepStatuses);
+      _repo.getOrders(cafeId, day: day, prepStatuses: prepStatuses);
 }
 
 class CreateCafeOrder {
   const CreateCafeOrder(this._repo);
   final CafePosRepository _repo;
   Future<Either<Failure, CafeOrder>> call({
-    required String clientId,
+    required String cafeId,
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
   }) =>
       _repo.createOrder(
-        clientId: clientId,
+        cafeId: cafeId,
         orderType: orderType,
         lines: lines,
         discountAmount: discountAmount,
@@ -114,8 +126,8 @@ class GetCafeDailyReport {
   const GetCafeDailyReport(this._repo);
   final CafePosRepository _repo;
   Future<Either<Failure, CafeDailyReport>> call({
-    required String clientId,
+    required String cafeId,
     required DateTime day,
   }) =>
-      _repo.getDailyReport(clientId: clientId, day: day);
+      _repo.getDailyReport(cafeId: cafeId, day: day);
 }

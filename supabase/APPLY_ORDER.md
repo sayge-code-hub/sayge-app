@@ -15,7 +15,7 @@ Always finish with `security_hardening.sql`, then run `security_verification.sql
    - `dms_entities_subtitle.sql`
    - `lock_signup_provisioning.sql`
    - `pos.sql`, then `pos_product_commerce.sql` (legacy retail catalog; optional)
-   - `cafe_pos.sql` (Client-scoped Cafe POS MVP — preferred)
+   - `cafe_pos.sql` (Cafe-scoped POS MVP — create cafes in POS, not Settings clients)
 3. `security_hardening.sql` (**last**)
 4. `security_verification.sql` — checks 1–3, 7–9, 14 must be empty
 5. Deploy edge function: `supabase functions deploy invite-employee --no-verify-jwt`
@@ -33,12 +33,17 @@ expense_categories.sql
 proposals_status_lifecycle.sql
 invoices_payment_status_sent.sql
 lock_signup_provisioning.sql
+cafe_pos_reset_to_cafes.sql   # only if you already applied the old client-scoped cafe_pos.sql
 cafe_pos.sql
 security_hardening.sql
 security_verification.sql
 ```
 
 After `lock_signup_provisioning.sql`: Dashboard → **Authentication → Providers → Email** → turn **off** “Allow new users to sign up”.
+
+### Cafe POS already installed against Clients?
+
+If you ran the first Cafe POS pack (tables used `client_id` → `clients`), run **`cafe_pos_reset_to_cafes.sql`** then **`cafe_pos.sql`** then **`security_hardening.sql`**. That wipes cafe menu/orders so tenants become POS cafes instead of Mahindra-style Settings clients.
 
 ## Do not run on production
 

@@ -12,9 +12,9 @@ import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
 
 class CafeReportsPage extends StatefulWidget {
-  const CafeReportsPage({super.key, required this.clientId});
+  const CafeReportsPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafeReportsPage> createState() => _CafeReportsPageState();
@@ -38,7 +38,7 @@ class _CafeReportsPageState extends State<CafeReportsPage> {
       _error = null;
     });
     final result = await sl<GetCafeDailyReport>()(
-      clientId: widget.clientId,
+      cafeId: widget.cafeId,
       day: _day,
     );
     if (!mounted) return;
@@ -69,7 +69,7 @@ class _CafeReportsPageState extends State<CafeReportsPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    if (!AppAccess.canViewCafeReports(user, widget.clientId)) {
+    if (!AppAccess.canViewCafeReports(user, widget.cafeId)) {
       return const Center(child: Text('Reports access denied.'));
     }
     final isDesktop = Breakpoints.isDesktop(context);

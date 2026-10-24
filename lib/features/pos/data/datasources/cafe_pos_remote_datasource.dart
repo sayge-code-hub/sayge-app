@@ -5,14 +5,18 @@ import '../../domain/entities/cafe_entities.dart';
 import '../models/cafe_models.dart';
 
 abstract class CafePosRemoteDataSource {
-  Future<List<CafeCategoryModel>> getCategories(String clientId);
+  Future<List<CafeModel>> getCafes();
+
+  Future<CafeModel> upsertCafe(Cafe cafe);
+
+  Future<List<CafeCategoryModel>> getCategories(String cafeId);
 
   Future<CafeCategoryModel> upsertCategory(CafeCategory category);
 
   Future<void> deleteCategory(String id);
 
   Future<List<CafeMenuItemModel>> getMenuItems(
-    String clientId, {
+    String cafeId, {
     bool availableOnly = false,
   });
 
@@ -21,7 +25,7 @@ abstract class CafePosRemoteDataSource {
   Future<void> deleteMenuItem(String id);
 
   Future<List<CafeOrderModel>> getOrders(
-    String clientId, {
+    String cafeId, {
     DateTime? day,
     List<CafePrepStatus>? prepStatuses,
   });
@@ -29,7 +33,7 @@ abstract class CafePosRemoteDataSource {
   Future<CafeOrderModel> getOrder(String orderId);
 
   Future<CafeOrderModel> createOrder({
-    required String clientId,
+    required String cafeId,
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
@@ -52,7 +56,7 @@ abstract class CafePosRemoteDataSource {
   });
 
   Future<CafeDailyReport> getDailyReport({
-    required String clientId,
+    required String cafeId,
     required DateTime day,
   });
 }
@@ -75,20 +79,61 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         e.code == '42P01' ||
         e.code == 'PGRST205') {
       throw const ServerException(
-        'Cafe POS tables are missing. Run supabase/cafe_pos.sql then '
-        'supabase/security_hardening.sql in the Supabase SQL editor.',
+        'Cafe POS tables are missing. If you previously installed the '
+        'client-scoped pack, run cafe_pos_reset_to_cafes.sql, then '
+        'cafe_pos.sql, then security_hardening.sql.',
       );
     }
     throw ServerException(e.message);
   }
 
   @override
-  Future<List<CafeCategoryModel>> getCategories(String clientId) async {
+  Future<List<CafeModel>> getCafes() async {
+    try {
+      final rows = await _client
+          .from('cafes')
+          .select()
+          .order('name');
+      return (rows as List)
+          .map((r) => CafeModel.fromJson(r as Map<String, dynamic>))
+          .toList();
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to load cafes.');
+    }
+  }
+
+  @override
+  Future<CafeModel> upsertCafe(Cafe cafe) async {
+    final id = cafe.id.trim().isEmpty ? _id('cafe') : cafe.id.trim();
+    try {
+      final row = await _client
+          .from('cafes')
+          .upsert({
+            'id': id,
+            'name': cafe.name.trim(),
+            'is_active': cafe.isActive,
+          })
+          .select()
+          .single();
+      return CafeModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to save cafe.');
+    }
+  }
+
+  @override
+  Future<List<CafeCategoryModel>> getCategories(String cafeId) async {
     try {
       final rows = await _client
           .from('cafe_categories')
           .select()
-          .eq('client_id', clientId)
+          .eq('cafe_id', cafeId)
           .order('sort_order')
           .order('name');
       return (rows as List)
@@ -110,7 +155,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
           .from('cafe_categories')
           .upsert({
             'id': id,
-            'client_id': category.clientId,
+            'cafe_id': category.cafeId,
             'name': category.name.trim(),
             'sort_order': category.sortOrder,
             'is_active': category.isActive,
@@ -140,14 +185,14 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
   @override
   Future<List<CafeMenuItemModel>> getMenuItems(
-    String clientId, {
+    String cafeId, {
     bool availableOnly = false,
   }) async {
     try {
       var query = _client
           .from('cafe_menu_items')
           .select('*, cafe_categories(name)')
-          .eq('client_id', clientId)
+          .eq('cafe_id', cafeId)
           .eq('is_active', true);
       if (availableOnly) {
         query = query.eq('is_available', true);
@@ -172,7 +217,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
           .from('cafe_menu_items')
           .upsert({
             'id': id,
-            'client_id': item.clientId,
+            'cafe_id': item.cafeId,
             'category_id': item.categoryId,
             'name': item.name.trim(),
             'price': item.price,
@@ -209,7 +254,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
   @override
   Future<List<CafeOrderModel>> getOrders(
-    String clientId, {
+    String cafeId, {
     DateTime? day,
     List<CafePrepStatus>? prepStatuses,
   }) async {
@@ -217,7 +262,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       var query = _client
           .from('cafe_orders')
           .select(_orderSelect)
-          .eq('client_id', clientId);
+          .eq('cafe_id', cafeId);
 
       if (day != null) {
         final start = DateTime(day.year, day.month, day.day).toUtc();
@@ -262,7 +307,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     }
   }
 
-  Future<String> _nextOrderNo(String clientId) async {
+  Future<String> _nextOrderNo(String cafeId) async {
     final now = DateTime.now();
     final prefix =
         'C${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
@@ -271,7 +316,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     final rows = await _client
         .from('cafe_orders')
         .select('order_no')
-        .eq('client_id', clientId)
+        .eq('cafe_id', cafeId)
         .gte('created_at', start.toIso8601String())
         .lt('created_at', end.toIso8601String());
     final count = (rows as List).length + 1;
@@ -280,7 +325,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
   @override
   Future<CafeOrderModel> createOrder({
-    required String clientId,
+    required String cafeId,
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
@@ -315,7 +360,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       final discount = discountAmount < 0 ? 0.0 : discountAmount;
       final total = (subtotal + tax - discount).clamp(0.0, double.infinity);
       final orderId = _id('cord');
-      final orderNo = await _nextOrderNo(clientId);
+      final orderNo = await _nextOrderNo(cafeId);
       final uid = _client.auth.currentUser?.id;
 
       for (final row in itemRows) {
@@ -324,7 +369,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
       await _client.from('cafe_orders').insert({
         'id': orderId,
-        'client_id': clientId,
+        'cafe_id': cafeId,
         'order_no': orderNo,
         'order_type': orderType.dbValue,
         'prep_status': CafePrepStatus.neu.dbValue,
@@ -378,7 +423,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       await _client.from('cafe_payments').insert({
         'id': _id('cpay'),
         'order_id': orderId,
-        'client_id': existing.clientId,
+        'cafe_id': existing.cafeId,
         'method': method.dbValue,
         'amount': amount,
         'recorded_by': uid,
@@ -423,11 +468,11 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
   @override
   Future<CafeDailyReport> getDailyReport({
-    required String clientId,
+    required String cafeId,
     required DateTime day,
   }) async {
     try {
-      final orders = await getOrders(clientId, day: day);
+      final orders = await getOrders(cafeId, day: day);
       final paid = orders
           .where(
             (o) =>
@@ -441,7 +486,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
       final payRows = await _client
           .from('cafe_payments')
           .select()
-          .eq('client_id', clientId)
+          .eq('cafe_id', cafeId)
           .gte('recorded_at', start.toIso8601String())
           .lt('recorded_at', end.toIso8601String());
 

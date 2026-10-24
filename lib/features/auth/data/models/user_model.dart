@@ -9,7 +9,7 @@ class UserModel extends User {
     required super.roleLabel,
     super.name,
     super.employeeId,
-    super.clientId,
+    super.cafeId,
     super.avatarPath,
     super.avatarUrl,
   });
@@ -21,7 +21,7 @@ class UserModel extends User {
     final role = json['roles'];
     final roleMap = role is Map<String, dynamic> ? role : <String, dynamic>{};
     final path = (json['avatar_path'] ?? '').toString().trim();
-    final clientId = (json['client_id'] ?? '').toString().trim();
+    final cafeId = (json['cafe_id'] ?? '').toString().trim();
 
     return UserModel(
       id: json['id'] as String,
@@ -33,7 +33,7 @@ class UserModel extends User {
       roleCode: (roleMap['code'] as String?) ?? 'employee',
       roleLabel: (roleMap['label'] as String?) ?? 'Employee',
       employeeId: json['employee_id'] as String?,
-      clientId: clientId.isEmpty ? null : clientId,
+      cafeId: cafeId.isEmpty ? null : cafeId,
       avatarPath: path.isEmpty ? null : path,
       avatarUrl: avatarUrl?.trim().isNotEmpty == true ? avatarUrl!.trim() : null,
     );
@@ -48,7 +48,7 @@ class UserModel extends User {
       'role_code': roleCode,
       'role_label': roleLabel,
       'employee_id': employeeId,
-      'client_id': clientId,
+      'cafe_id': cafeId,
       'avatar_path': avatarPath,
       'avatar_url': avatarUrl,
     };
@@ -59,7 +59,7 @@ class UserModel extends User {
   factory UserModel.fromStorage(Map<String, dynamic> json) {
     final path = (json['avatar_path'] ?? '').toString().trim();
     final url = (json['avatar_url'] ?? '').toString().trim();
-    final clientId = (json['client_id'] ?? '').toString().trim();
+    final cafeId = (json['cafe_id'] ?? '').toString().trim();
     return UserModel(
       id: (json['id'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
@@ -70,7 +70,7 @@ class UserModel extends User {
       roleCode: (json['role_code'] as String?) ?? 'employee',
       roleLabel: (json['role_label'] as String?) ?? 'Employee',
       employeeId: json['employee_id'] as String?,
-      clientId: clientId.isEmpty ? null : clientId,
+      cafeId: cafeId.isEmpty ? null : cafeId,
       avatarPath: path.isEmpty ? null : path,
       avatarUrl: url.isEmpty ? null : url,
     );
@@ -85,7 +85,7 @@ class UserModel extends User {
       roleLabel: user.roleLabel,
       name: user.name,
       employeeId: user.employeeId,
-      clientId: user.clientId,
+      cafeId: user.cafeId,
       avatarPath: user.avatarPath,
       avatarUrl: user.avatarUrl,
     );

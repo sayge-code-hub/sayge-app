@@ -14,9 +14,9 @@ import '../../../../injection_container.dart';
 import '../../../hrms/domain/entities/employee.dart';
 import '../../../hrms/domain/usecases/get_employees.dart';
 import '../../data/datasources/invite_employee_remote_datasource.dart';
-import '../../domain/entities/client.dart';
+import '../../../pos/domain/entities/cafe_entities.dart';
+import '../../../pos/domain/usecases/cafe_pos_usecases.dart';
 import '../../domain/entities/settings_entities.dart';
-import '../../domain/usecases/get_clients.dart';
 import '../bloc/roles/roles_bloc.dart';
 
 class InviteEmployeePage extends StatelessWidget {
@@ -47,11 +47,11 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   final _fullName = TextEditingController();
   String? _roleId = 'role_employee';
   String? _employeeId;
-  String? _clientId;
+  String? _cafeId;
   List<Employee> _employees = const [];
-  List<Client> _clients = const [];
+  List<Cafe> _cafes = const [];
   bool _loadingEmployees = true;
-  bool _loadingClients = true;
+  bool _loadingCafes = true;
   bool _sending = false;
   String? _error;
 
@@ -59,7 +59,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   void initState() {
     super.initState();
     _loadEmployees();
-    _loadClients();
+    _loadCafes();
   }
 
   Future<void> _loadEmployees() async {
@@ -77,17 +77,17 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     );
   }
 
-  Future<void> _loadClients() async {
-    final result = await sl<GetClientsUseCase>()();
+  Future<void> _loadCafes() async {
+    final result = await sl<GetCafes>()();
     if (!mounted) return;
     result.fold(
       (_) => setState(() {
-        _clients = const [];
-        _loadingClients = false;
+        _cafes = const [];
+        _loadingCafes = false;
       }),
       (list) => setState(() {
-        _clients = list.where((c) => c.isActive).toList();
-        _loadingClients = false;
+        _cafes = list.where((c) => c.isActive).toList();
+        _loadingCafes = false;
       }),
     );
   }
@@ -100,7 +100,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     return null;
   }
 
-  bool _roleNeedsClient(List<AppRole> roles, [String? roleId]) {
+  bool _roleNeedsCafe(List<AppRole> roles, [String? roleId]) {
     final code = _roleCode(roles, roleId);
     return code != null && AppAccess.cafeRoleCodes.contains(code);
   }
@@ -150,15 +150,15 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
     }
 
     final needsLink = _roleNeedsEmployeeLink(roles);
-    final needsClient = _roleNeedsClient(roles);
+    final needsCafe = _roleNeedsCafe(roles);
     if (needsLink &&
         (_employeeId == null || _employeeId!.trim().isEmpty)) {
       setState(() => _error = 'Select the HRMS employee to link');
       return;
     }
-    if (needsClient &&
-        (_clientId == null || _clientId!.trim().isEmpty)) {
-      setState(() => _error = 'Select the cafe client for this POS role');
+    if (needsCafe &&
+        (_cafeId == null || _cafeId!.trim().isEmpty)) {
+      setState(() => _error = 'Select the cafe for this POS role');
       return;
     }
 
@@ -173,7 +173,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
         fullName: _fullName.text.trim(),
         roleId: _roleId ?? 'role_employee',
         employeeId: needsLink ? (_employeeId ?? '') : '',
-        clientId: needsClient ? (_clientId ?? '') : '',
+        cafeId: needsCafe ? (_cafeId ?? '') : '',
       );
       if (!mounted) return;
       await showAppMessageDialog(
@@ -187,7 +187,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
       setState(() {
         _roleId = 'role_employee';
         _employeeId = null;
-        _clientId = null;
+        _cafeId = null;
       });
     } catch (e) {
       final raw = e.toString();
@@ -216,8 +216,8 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
             ? _roleId!
             : roles.first.id;
         final needsLink = _roleNeedsEmployeeLink(roles, roleValue);
-        final needsClient = _roleNeedsClient(roles, roleValue);
-        final clientIds = _clients.map((c) => c.id).toList();
+        final needsCafe = _roleNeedsCafe(roles, roleValue);
+        final cafeIds = _cafes.map((c) => c.id).toList();
 
         return Column(
           children: [
@@ -226,9 +226,9 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
                 children: [
                   Text(
-                    needsClient
+                    needsCafe
                         ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
-                            'Cafe POS roles must be bound to one Client. '
+                            'Cafe POS roles must be bound to one cafe. '
                             'They set their own password from the email.'
                         : needsLink
                             ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
@@ -285,16 +285,16 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                         if (!_roleNeedsEmployeeLink(roles, id)) {
                           _employeeId = null;
                         }
-                        if (!_roleNeedsClient(roles, id)) {
-                          _clientId = null;
+                        if (!_roleNeedsCafe(roles, id)) {
+                          _cafeId = null;
                         }
                         _error = null;
                       });
                     },
                   ),
-                  if (needsClient) ...[
+                  if (needsCafe) ...[
                     const SizedBox(height: 12),
-                    if (_loadingClients)
+                    if (_loadingCafes)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Center(
@@ -310,16 +310,16 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                       )
                     else
                       AppDropdown<String>(
-                        label: 'Cafe client',
-                        value: clientIds.contains(_clientId) ? _clientId : null,
-                        items: clientIds,
+                        label: 'Cafe',
+                        value: cafeIds.contains(_cafeId) ? _cafeId : null,
+                        items: cafeIds,
                         itemLabel: (id) {
-                          final match = _clients.where((c) => c.id == id);
+                          final match = _cafes.where((c) => c.id == id);
                           return match.isEmpty ? id : match.first.name;
                         },
-                        enabled: !_sending && clientIds.isNotEmpty,
+                        enabled: !_sending && cafeIds.isNotEmpty,
                         onChanged: (id) {
-                          setState(() => _clientId = id);
+                          setState(() => _cafeId = id);
                         },
                       ),
                   ],

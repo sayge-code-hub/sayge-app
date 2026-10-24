@@ -4,7 +4,7 @@ import '../router/app_routes.dart';
 /// Role-based access for Sayge.
 ///
 /// Staff = owner or admin (full platform access).
-/// Cafe roles = cafe_admin / cashier / kitchen (scoped to users.clientId).
+/// Cafe roles = cafe_admin / cashier / kitchen (scoped to users.cafeId).
 abstract final class AppAccess {
   static const staffRoleCodes = {'owner', 'admin'};
   static const cafeRoleCodes = {'cafe_admin', 'cashier', 'kitchen'};
@@ -31,35 +31,35 @@ abstract final class AppAccess {
   static bool isEmployeeOnly(User? user) =>
       user != null && !isStaff(user) && !isCafeRole(user);
 
-  static String? cafeClientId(User? user) {
-    final id = user?.clientId?.trim() ?? '';
+  static String? cafeIdOf(User? user) {
+    final id = user?.cafeId?.trim() ?? '';
     return id.isEmpty ? null : id;
   }
 
-  static bool canAccessCafeClient(User? user, String clientId) {
+  static bool canAccessCafe(User? user, String cafeId) {
     if (user == null) return false;
     if (isStaff(user)) return true;
-    final scoped = cafeClientId(user);
-    return isCafeRole(user) && scoped != null && scoped == clientId;
+    final scoped = cafeIdOf(user);
+    return isCafeRole(user) && scoped != null && scoped == cafeId;
   }
 
-  static bool canManageCafeMenu(User? user, String clientId) {
-    if (!canAccessCafeClient(user, clientId)) return false;
+  static bool canManageCafeMenu(User? user, String cafeId) {
+    if (!canAccessCafe(user, cafeId)) return false;
     return isStaff(user) || isCafeAdmin(user);
   }
 
-  static bool canRunCafeTerminal(User? user, String clientId) {
-    if (!canAccessCafeClient(user, clientId)) return false;
+  static bool canRunCafeTerminal(User? user, String cafeId) {
+    if (!canAccessCafe(user, cafeId)) return false;
     return isStaff(user) || isCafeAdmin(user) || isCashier(user);
   }
 
-  static bool canRunCafeKitchen(User? user, String clientId) {
-    if (!canAccessCafeClient(user, clientId)) return false;
+  static bool canRunCafeKitchen(User? user, String cafeId) {
+    if (!canAccessCafe(user, cafeId)) return false;
     return isStaff(user) || isCafeAdmin(user) || isKitchen(user);
   }
 
-  static bool canViewCafeReports(User? user, String clientId) {
-    if (!canAccessCafeClient(user, clientId)) return false;
+  static bool canViewCafeReports(User? user, String cafeId) {
+    if (!canAccessCafe(user, cafeId)) return false;
     return isStaff(user) || isCafeAdmin(user);
   }
 
@@ -67,18 +67,18 @@ abstract final class AppAccess {
   static String homeRoute(User user) {
     if (isStaff(user)) return AppRoutes.hrms;
     if (isKitchen(user)) {
-      final clientId = cafeClientId(user);
-      if (clientId != null) return AppRoutes.posKitchen(clientId);
+      final cafeId = cafeIdOf(user);
+      if (cafeId != null) return AppRoutes.posKitchen(cafeId);
       return AppRoutes.pos;
     }
     if (isCashier(user)) {
-      final clientId = cafeClientId(user);
-      if (clientId != null) return AppRoutes.posTerminal(clientId);
+      final cafeId = cafeIdOf(user);
+      if (cafeId != null) return AppRoutes.posTerminal(cafeId);
       return AppRoutes.pos;
     }
     if (isCafeAdmin(user)) {
-      final clientId = cafeClientId(user);
-      if (clientId != null) return AppRoutes.posClient(clientId);
+      final cafeId = cafeIdOf(user);
+      if (cafeId != null) return AppRoutes.posCafe(cafeId);
       return AppRoutes.pos;
     }
     return AppRoutes.dashboard;
@@ -90,26 +90,26 @@ abstract final class AppAccess {
 
     if (isCafeRole(user)) {
       if (location == AppRoutes.pos || location.startsWith('${AppRoutes.pos}/')) {
-        final clientId = cafeClientId(user);
-        if (clientId == null) return location == AppRoutes.pos;
+        final cafeId = cafeIdOf(user);
+        if (cafeId == null) return location == AppRoutes.pos;
         if (location == AppRoutes.pos) return true;
-        if (!location.startsWith('${AppRoutes.pos}/$clientId')) {
+        if (!location.startsWith('${AppRoutes.pos}/$cafeId')) {
           return false;
         }
         if (location.contains('/menu')) {
-          return canManageCafeMenu(user, clientId);
+          return canManageCafeMenu(user, cafeId);
         }
         if (location.contains('/reports')) {
-          return canViewCafeReports(user, clientId);
+          return canViewCafeReports(user, cafeId);
         }
         if (location.contains('/terminal') || location.contains('/orders')) {
-          return canRunCafeTerminal(user, clientId) ||
-              canRunCafeKitchen(user, clientId);
+          return canRunCafeTerminal(user, cafeId) ||
+              canRunCafeKitchen(user, cafeId);
         }
         if (location.contains('/kitchen')) {
-          return canRunCafeKitchen(user, clientId);
+          return canRunCafeKitchen(user, cafeId);
         }
-        return canAccessCafeClient(user, clientId);
+        return canAccessCafe(user, cafeId);
       }
       return false;
     }

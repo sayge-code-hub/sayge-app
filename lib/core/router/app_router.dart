@@ -24,7 +24,7 @@ import '../../features/profitability/presentation/pages/profitability_projection
 import '../../features/pos/presentation/pages/cafe_kitchen_page.dart';
 import '../../features/pos/presentation/pages/cafe_menu_page.dart';
 import '../../features/pos/presentation/pages/cafe_orders_page.dart';
-import '../../features/pos/presentation/pages/cafe_pos_clients_page.dart';
+import '../../features/pos/presentation/pages/cafe_pos_cafes_page.dart';
 import '../../features/pos/presentation/pages/cafe_pos_hub_page.dart';
 import '../../features/pos/presentation/pages/cafe_reports_page.dart';
 import '../../features/pos/presentation/pages/cafe_terminal_page.dart';
@@ -331,54 +331,54 @@ GoRouter createAppRouter(AuthSession authSession) {
             path: AppRoutes.expenses,
             pageBuilder: (context, state) => _page(state, const ExpensesPage()),
           ),
-          // Cafe POS — client-scoped menu / terminal / kitchen / reports.
+          // Cafe POS — cafe-scoped menu / terminal / kitchen / reports.
           GoRoute(
             path: AppRoutes.pos,
             pageBuilder: (context, state) => _page(
               state,
-              CafePosClientsPage(key: ValueKey('pos-hub-${state.uri}')),
+              CafePosCafesPage(key: ValueKey('pos-hub-${state.uri}')),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId/menu',
+            path: '/pos/:cafeId/menu',
             pageBuilder: (context, state) => _page(
               state,
-              CafeMenuPage(clientId: state.pathParameters['clientId']!),
+              CafeMenuPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId/terminal',
+            path: '/pos/:cafeId/terminal',
             pageBuilder: (context, state) => _page(
               state,
-              CafeTerminalPage(clientId: state.pathParameters['clientId']!),
+              CafeTerminalPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId/kitchen',
+            path: '/pos/:cafeId/kitchen',
             pageBuilder: (context, state) => _page(
               state,
-              CafeKitchenPage(clientId: state.pathParameters['clientId']!),
+              CafeKitchenPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId/orders',
+            path: '/pos/:cafeId/orders',
             pageBuilder: (context, state) => _page(
               state,
-              CafeOrdersPage(clientId: state.pathParameters['clientId']!),
+              CafeOrdersPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId/reports',
+            path: '/pos/:cafeId/reports',
             pageBuilder: (context, state) => _page(
               state,
-              CafeReportsPage(clientId: state.pathParameters['clientId']!),
+              CafeReportsPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(
-            path: '/pos/:clientId',
+            path: '/pos/:cafeId',
             pageBuilder: (context, state) => _page(
               state,
-              CafePosHubPage(clientId: state.pathParameters['clientId']!),
+              CafePosHubPage(cafeId: state.pathParameters['cafeId']!),
             ),
           ),
           GoRoute(

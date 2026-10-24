@@ -289,11 +289,11 @@ class _HomeShellState extends State<HomeShell> {
     final path = Uri.tryParse(location)?.path ?? location;
 
     if (_isCafeRole) {
-      final clientId = AppAccess.cafeClientId(widget.user);
+      final clientId = AppAccess.cafeIdOf(widget.user);
       if (clientId != null &&
           path.startsWith('${AppRoutes.pos}/$clientId/') &&
-          path != AppRoutes.posClient(clientId)) {
-        return () => _goBack(AppRoutes.posClient(clientId));
+          path != AppRoutes.posCafe(clientId)) {
+        return () => _goBack(AppRoutes.posCafe(clientId));
       }
       return null;
     }
@@ -382,7 +382,7 @@ class _HomeShellState extends State<HomeShell> {
             path.endsWith('/reports'))) {
       final segments = Uri.parse(path).pathSegments;
       if (segments.length >= 2) {
-        return () => _goBack(AppRoutes.posClient(segments[1]));
+        return () => _goBack(AppRoutes.posCafe(segments[1]));
       }
     }
     if (RegExp(r'^/pos/[^/]+$').hasMatch(path)) {

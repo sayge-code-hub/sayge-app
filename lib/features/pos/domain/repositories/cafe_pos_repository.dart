@@ -4,14 +4,18 @@ import '../../../../core/error/failures.dart';
 import '../entities/cafe_entities.dart';
 
 abstract class CafePosRepository {
-  Future<Either<Failure, List<CafeCategory>>> getCategories(String clientId);
+  Future<Either<Failure, List<Cafe>>> getCafes();
+
+  Future<Either<Failure, Cafe>> upsertCafe(Cafe cafe);
+
+  Future<Either<Failure, List<CafeCategory>>> getCategories(String cafeId);
 
   Future<Either<Failure, CafeCategory>> upsertCategory(CafeCategory category);
 
   Future<Either<Failure, void>> deleteCategory(String id);
 
   Future<Either<Failure, List<CafeMenuItem>>> getMenuItems(
-    String clientId, {
+    String cafeId, {
     bool availableOnly = false,
   });
 
@@ -20,7 +24,7 @@ abstract class CafePosRepository {
   Future<Either<Failure, void>> deleteMenuItem(String id);
 
   Future<Either<Failure, List<CafeOrder>>> getOrders(
-    String clientId, {
+    String cafeId, {
     DateTime? day,
     List<CafePrepStatus>? prepStatuses,
   });
@@ -28,7 +32,7 @@ abstract class CafePosRepository {
   Future<Either<Failure, CafeOrder>> getOrder(String orderId);
 
   Future<Either<Failure, CafeOrder>> createOrder({
-    required String clientId,
+    required String cafeId,
     required CafeOrderType orderType,
     required List<CafeCartLine> lines,
     double discountAmount = 0,
@@ -51,7 +55,7 @@ abstract class CafePosRepository {
   });
 
   Future<Either<Failure, CafeDailyReport>> getDailyReport({
-    required String clientId,
+    required String cafeId,
     required DateTime day,
   });
 }

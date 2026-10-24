@@ -14,9 +14,9 @@ import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
 
 class CafeKitchenPage extends StatefulWidget {
-  const CafeKitchenPage({super.key, required this.clientId});
+  const CafeKitchenPage({super.key, required this.cafeId});
 
-  final String clientId;
+  final String cafeId;
 
   @override
   State<CafeKitchenPage> createState() => _CafeKitchenPageState();
@@ -49,7 +49,7 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
 
   Future<void> _reload() async {
     final result = await sl<GetCafeOrders>()(
-      widget.clientId,
+      widget.cafeId,
       prepStatuses: _active,
     );
     if (!mounted) return;
@@ -92,7 +92,7 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
   @override
   Widget build(BuildContext context) {
     final user = sl<AuthSession>().user;
-    if (!AppAccess.canRunCafeKitchen(user, widget.clientId)) {
+    if (!AppAccess.canRunCafeKitchen(user, widget.cafeId)) {
       return const Center(child: Text('Kitchen access denied.'));
     }
     final isDesktop = Breakpoints.isDesktop(context);

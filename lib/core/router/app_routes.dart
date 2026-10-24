@@ -18,11 +18,11 @@ abstract final class AppRoutes {
   static const payroll = '/payroll';
   static const profitability = '/profitability';
 
-  static String profitabilityClient(String clientId) =>
-      '/profitability/$clientId';
+  static String profitabilityClient(String cafeId) =>
+      '/profitability/$cafeId';
 
-  static String profitabilityProjections(String clientId) =>
-      '/profitability/$clientId/projections';
+  static String profitabilityProjections(String cafeId) =>
+      '/profitability/$cafeId/projections';
 
   static const proposals = '/proposals';
   static const invoices = '/invoices';
@@ -40,10 +40,10 @@ abstract final class AppRoutes {
   static const setPassword = '/set-password';
   static const pos = '/pos';
 
-  static String clientDetail(String clientId) => '/settings/clients/$clientId';
+  static String clientDetail(String cafeId) => '/settings/clients/$cafeId';
 
-  static String clientEdit(String clientId) =>
-      '/settings/clients/$clientId/edit';
+  static String clientEdit(String cafeId) =>
+      '/settings/clients/$cafeId/edit';
 
   static String employeeDetail(String id) => '/hrms/employees/$id';
 
@@ -52,15 +52,15 @@ abstract final class AppRoutes {
   static String employeeCompensation(String id) =>
       '/hrms/employees/$id/compensation';
 
-  static String posClient(String clientId) => '/pos/$clientId';
+  static String posCafe(String cafeId) => '/pos/$cafeId';
 
-  static String posMenu(String clientId) => '/pos/$clientId/menu';
+  static String posMenu(String cafeId) => '/pos/$cafeId/menu';
 
-  static String posTerminal(String clientId) => '/pos/$clientId/terminal';
+  static String posTerminal(String cafeId) => '/pos/$cafeId/terminal';
 
-  static String posKitchen(String clientId) => '/pos/$clientId/kitchen';
+  static String posKitchen(String cafeId) => '/pos/$cafeId/kitchen';
 
-  static String posOrders(String clientId) => '/pos/$clientId/orders';
+  static String posOrders(String cafeId) => '/pos/$cafeId/orders';
 
-  static String posReports(String clientId) => '/pos/$clientId/reports';
+  static String posReports(String cafeId) => '/pos/$cafeId/reports';
 }

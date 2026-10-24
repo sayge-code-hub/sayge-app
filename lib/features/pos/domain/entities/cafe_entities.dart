@@ -105,29 +105,45 @@ extension CafePaymentMethodX on CafePaymentMethod {
   }
 }
 
+/// POS tenant — created in Cafe POS, independent of Settings clients.
+class Cafe extends Equatable {
+  const Cafe({
+    required this.id,
+    required this.name,
+    this.isActive = true,
+  });
+
+  final String id;
+  final String name;
+  final bool isActive;
+
+  @override
+  List<Object?> get props => [id, name, isActive];
+}
+
 class CafeCategory extends Equatable {
   const CafeCategory({
     required this.id,
-    required this.clientId,
+    required this.cafeId,
     required this.name,
     this.sortOrder = 0,
     this.isActive = true,
   });
 
   final String id;
-  final String clientId;
+  final String cafeId;
   final String name;
   final int sortOrder;
   final bool isActive;
 
   @override
-  List<Object?> get props => [id, clientId, name, sortOrder, isActive];
+  List<Object?> get props => [id, cafeId, name, sortOrder, isActive];
 }
 
 class CafeMenuItem extends Equatable {
   const CafeMenuItem({
     required this.id,
-    required this.clientId,
+    required this.cafeId,
     required this.categoryId,
     required this.name,
     required this.price,
@@ -139,7 +155,7 @@ class CafeMenuItem extends Equatable {
   });
 
   final String id;
-  final String clientId;
+  final String cafeId;
   final String categoryId;
   final String name;
   final double price;
@@ -152,7 +168,7 @@ class CafeMenuItem extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        clientId,
+        cafeId,
         categoryId,
         name,
         price,
@@ -204,7 +220,7 @@ class CafeOrderItem extends Equatable {
 class CafeOrder extends Equatable {
   const CafeOrder({
     required this.id,
-    required this.clientId,
+    required this.cafeId,
     required this.orderNo,
     required this.orderType,
     required this.prepStatus,
@@ -220,7 +236,7 @@ class CafeOrder extends Equatable {
   });
 
   final String id;
-  final String clientId;
+  final String cafeId;
   final String orderNo;
   final CafeOrderType orderType;
   final CafePrepStatus prepStatus;
@@ -237,7 +253,7 @@ class CafeOrder extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        clientId,
+        cafeId,
         orderNo,
         orderType,
         prepStatus,
@@ -257,7 +273,7 @@ class CafePayment extends Equatable {
   const CafePayment({
     required this.id,
     required this.orderId,
-    required this.clientId,
+    required this.cafeId,
     required this.method,
     required this.amount,
     required this.recordedAt,
@@ -265,14 +281,14 @@ class CafePayment extends Equatable {
 
   final String id;
   final String orderId;
-  final String clientId;
+  final String cafeId;
   final CafePaymentMethod method;
   final double amount;
   final DateTime recordedAt;
 
   @override
   List<Object?> get props =>
-      [id, orderId, clientId, method, amount, recordedAt];
+      [id, orderId, cafeId, method, amount, recordedAt];
 }
 
 class CafeDailyReport extends Equatable {

@@ -164,7 +164,7 @@ async function inviteUser(
   const fullName = String(body.fullName ?? body.full_name ?? '').trim()
   const roleId = String(body.roleId ?? body.role_id ?? 'role_employee').trim()
   const employeeId = String(body.employeeId ?? body.employee_id ?? '').trim()
-  const clientId = String(body.clientId ?? body.client_id ?? '').trim()
+  const cafeId = String(body.cafeId ?? body.cafe_id ?? '').trim()
   const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
 
   if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -205,7 +205,7 @@ async function inviteUser(
     if (fullName) patch.full_name = fullName
     if (roleId) patch.role_id = roleId
     if (employeeId) patch.employee_id = employeeId
-    if (clientId) patch.client_id = clientId
+    if (cafeId) patch.cafe_id = cafeId
 
     // Profile row is created by on_auth_user_created; update extras.
     // Retry briefly — the trigger may race the first update.
