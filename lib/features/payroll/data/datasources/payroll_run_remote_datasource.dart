@@ -52,7 +52,7 @@ class PayrollRunRemoteDataSourceImpl implements PayrollRunRemoteDataSource {
       'period_year': periodYear,
       'period_month': periodMonth,
       'generated_at': DateTime.now().toUtc().toIso8601String(),
-      if (uid != null) 'generated_by': uid,
+      'generated_by': ?uid,
       'employee_count': slips.length,
       'notes': notes,
     };

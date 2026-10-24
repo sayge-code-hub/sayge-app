@@ -83,7 +83,7 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
         await _client.from(_lines).insert(rows);
       }
 
-      return getProposal(proposal.id);
+      return await getProposal(proposal.id);
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Proposal reference already exists.');
@@ -120,7 +120,7 @@ class ProposalRemoteDataSourceImpl implements ProposalRemoteDataSource {
         await _client.from(_lines).insert(rows);
       }
 
-      return getProposal(proposal.id);
+      return await getProposal(proposal.id);
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         throw const ServerException('Proposal reference already exists.');

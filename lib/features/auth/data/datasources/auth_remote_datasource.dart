@@ -54,7 +54,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const core.AuthException('Invalid email or password.');
       }
 
-      return _fetchProfile(authUser.id);
+      return await _fetchProfile(authUser.id);
     } on core.AuthException {
       rethrow;
     } on AuthException catch (e) {
@@ -174,7 +174,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           await _client.storage.from(_bucket).remove([previous]);
         } catch (_) {}
       }
-      return _fetchProfile(authUser.id);
+      return await _fetchProfile(authUser.id);
     } on StorageException catch (e) {
       throw core.ServerException(e.message);
     } on PostgrestException catch (e) {

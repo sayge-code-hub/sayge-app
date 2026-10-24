@@ -30,7 +30,8 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze
+        # Fail the gate on analyzer findings (infos/warnings/errors).
+        run: flutter analyze --fatal-infos
 
       - name: Test
         run: flutter test

@@ -36,7 +36,7 @@ jobs:
 
       # Gate production: never bump/deploy if analyze or tests fail.
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --fatal-infos
 
       - name: Test
         run: flutter test

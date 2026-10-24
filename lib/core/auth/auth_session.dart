@@ -8,12 +8,10 @@ import 'auth_local_storage.dart';
 /// Profile is persisted via [AuthLocalStorage] (SharedPreferences).
 class AuthSession extends ChangeNotifier {
   AuthSession({
-    required AuthLocalStorage storage,
+    required this._storage,
     User? initialUser,
-    bool needsPasswordSetup = false,
-  })  : _storage = storage,
-        _user = initialUser,
-        _needsPasswordSetup = needsPasswordSetup;
+    this._needsPasswordSetup = false,
+  }) : _user = initialUser;
 
   final AuthLocalStorage _storage;
   User? _user;

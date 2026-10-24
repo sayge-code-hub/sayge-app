@@ -495,7 +495,7 @@ class PosRemoteDataSourceImpl implements PosRemoteDataSource {
         );
       }
 
-      return getProduct(id);
+      return await getProduct(id);
     } on StorageException catch (e) {
       throw ServerException(e.message);
     } on PostgrestException catch (e) {
