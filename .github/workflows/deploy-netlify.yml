@@ -139,7 +139,10 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
+      # Optional: sync pubspec on main. Fails soft if the repo disallows
+      # Actions-created PRs (Settings → Actions → Workflow permissions).
       - name: Open version-bump PR
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
