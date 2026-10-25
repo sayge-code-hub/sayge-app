@@ -51,7 +51,10 @@ cafe_pos_guest_brand.sql
 ```
 
 `cafe_pos_guest_brand.sql` adds logo/layout/accent columns and refreshes
-`get_guest_cafe_menu` so `/m/:cafeId` receives the chosen look (Fresh / Gallery).
+`get_guest_cafe_menu` so `/m/:cafeId` receives the chosen look (Fresh / Gallery /
+Detailed). If branding was applied earlier, also run
+`cafe_pos_guest_layout_detailed.sql` so `detailed` is allowed on
+`cafes.guest_layout`.
 
 ### Demo cafe for client walkthroughs
 

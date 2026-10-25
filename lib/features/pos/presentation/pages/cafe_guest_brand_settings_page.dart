@@ -534,10 +534,54 @@ class _LayoutThumb extends StatelessWidget {
         color: switch (layout) {
           GuestMenuLayout.fresh => const Color(0xFFF7F7F5),
           GuestMenuLayout.gallery => const Color(0xFFF0EEEA),
+          GuestMenuLayout.detailed => const Color(0xFFF2FBF6),
         },
       ),
       padding: const EdgeInsets.all(6),
       child: switch (layout) {
+        GuestMenuLayout.detailed => Column(
+            children: [
+              Container(
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3DDC84).withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3DDC84).withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3DDC84).withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3DDC84),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ],
+          ),
         GuestMenuLayout.fresh => Column(
             children: [
               Row(
