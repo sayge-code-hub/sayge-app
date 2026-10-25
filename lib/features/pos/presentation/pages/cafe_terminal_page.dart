@@ -18,6 +18,7 @@ import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
 import '../widgets/cafe_pos_catalog.dart';
 import '../widgets/cafe_pos_chrome.dart';
+import '../widgets/cafe_settle_success_dialog.dart';
 
 class CafeTerminalPage extends StatefulWidget {
   const CafeTerminalPage({super.key, required this.cafeId});
@@ -563,15 +564,117 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
     if (!ok || !mounted) return;
     final cart = _session?.lines;
     if (cart == null) return;
+
+    var selected = <CafeMenuAddon>[];
+    if (item.addons.isNotEmpty) {
+      final picked = await _pickAddons(item);
+      if (picked == null || !mounted) return;
+      selected = picked;
+    }
+
     setState(() {
-      final existing = cart.where((l) => l.menuItem.id == item.id);
-      if (existing.isNotEmpty) {
-        existing.first.quantity += 1;
+      CafeCartLine? match;
+      for (final line in cart) {
+        if (line.matches(item, selected)) {
+          match = line;
+          break;
+        }
+      }
+      if (match != null) {
+        match.quantity += 1;
       } else {
-        cart.add(CafeCartLine(menuItem: item));
+        cart.add(CafeCartLine(menuItem: item, addons: selected));
       }
     });
     await _persistSessions();
+  }
+
+  Future<List<CafeMenuAddon>?> _pickAddons(CafeMenuItem item) async {
+    final selected = <String>{};
+    return showModalBottomSheet<List<CafeMenuAddon>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      item.name,
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Optional add-ons',
+                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textLight,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final a in item.addons)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: selected.contains(a.id),
+                        onChanged: (v) {
+                          setSheet(() {
+                            if (v == true) {
+                              selected.add(a.id);
+                            } else {
+                              selected.remove(a.id);
+                            }
+                          });
+                        },
+                        title: Text(a.name),
+                        secondary: Text(
+                          '+ ${MoneyFormat.format(a.price)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.highlight,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    AppButton(
+                      label: 'Add to order',
+                      onPressed: () {
+                        Navigator.pop(
+                          ctx,
+                          item.addons
+                              .where((a) => selected.contains(a.id))
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _removeOne(CafeMenuItem item) async {
@@ -715,17 +818,8 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
     return list;
   }
 
-  Future<void> _checkout() async {
-    if (_cart.isEmpty || _busy) return;
-    final session = _session;
-    if (session == null) return;
-    if (session.orderType == CafeOrderType.dineIn &&
-        session.tableNo.trim().isEmpty) {
-      final picked = await _pickTable();
-      if (!picked || !mounted) return;
-      if (_session?.tableNo.trim().isEmpty ?? true) return;
-    }
-    final method = await showModalBottomSheet<CafePaymentMethod>(
+  Future<CafePaymentMethod?> _pickPaymentMethod() {
+    return showModalBottomSheet<CafePaymentMethod>(
       context: context,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
@@ -748,7 +842,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
               ),
               ListTile(
                 title: Text(
-                  'Charge ${MoneyFormat.format(_total)}',
+                  'Collect ${MoneyFormat.format(_total)}',
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -758,8 +852,8 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
               for (final m in CafePaymentMethod.values)
                 ListTile(
                   leading: Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: AppColors.highlight.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
@@ -771,7 +865,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
                         CafePaymentMethod.upi => Icons.qr_code_2_outlined,
                         CafePaymentMethod.card => Icons.credit_card_outlined,
                       },
-                      size: 20,
+                      size: 22,
                       color: AppColors.highlight,
                     ),
                   ),
@@ -784,9 +878,32 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
         ),
       ),
     );
-    if (method == null || !mounted) return;
+  }
 
-    // Re-validate coupon against current cart before charging.
+  Future<void> _checkout({required bool pay}) async {
+    if (_cart.isEmpty || _busy) return;
+    final session = _session;
+    if (session == null) return;
+    if (session.orderType == CafeOrderType.dineIn &&
+        session.tableNo.trim().isEmpty) {
+      final picked = await _pickTable();
+      if (!picked || !mounted) return;
+      if (_session?.tableNo.trim().isEmpty ?? true) return;
+    }
+
+    CafePaymentMethod? method;
+    if (pay) {
+      method = await _pickPaymentMethod();
+      if (method == null || !mounted) return;
+      if (method == CafePaymentMethod.cash) {
+        final tendered = await showCafeCashTenderDialog(
+          context,
+          due: _total,
+        );
+        if (tendered == null || !mounted) return;
+      }
+    }
+
     final applied = _coupon;
     if (applied != null) {
       final err = applied.validationError(subtotal: _subtotal);
@@ -821,6 +938,24 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
         );
       },
       (order) async {
+        if (!pay || method == null) {
+          setState(() {
+            _busy = false;
+            _sessions.remove(settleKey);
+            if (_activeKey == settleKey) _activeKey = null;
+            _couponCode.clear();
+          });
+          await _persistSessions();
+          if (!mounted) return;
+          await showAppMessageDialog(
+            context,
+            title: 'KOT sent',
+            message:
+                'Order ${order.orderNo} is with the kitchen. Collect payment later from Orders.',
+          );
+          return;
+        }
+
         final paid = await sl<RecordCafePayment>()(
           orderId: order.id,
           method: method,
@@ -843,40 +978,15 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
               _couponCode.clear();
             });
             await _persistSessions();
-            await _showReceipt(paidOrder);
+            await _showSettleSuccess(paidOrder);
           },
         );
       },
     );
   }
 
-  Future<void> _showReceipt(CafeOrder order) async {
-    final action = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.background,
-        title: Text('Order ${order.orderNo}'),
-        content: Text(
-          [
-            if (order.tableNo.trim().isNotEmpty)
-              'Table ${order.tableNo.trim()}.',
-            'Paid ${MoneyFormat.format(order.totalAmount)}.',
-            'Kitchen has the ticket.',
-          ].join(' '),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'ok'),
-            child: const Text('Done'),
-          ),
-          AppButton(
-            label: 'Receipt PDF',
-            expand: false,
-            onPressed: () => Navigator.pop(ctx, 'pdf'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _showSettleSuccess(CafeOrder order) async {
+    final action = await showCafeSettleSuccessDialog(context, order: order);
     if (action == 'pdf' && mounted) {
       try {
         final doc = await CafeReceiptPdf.build(order, cafeName: _cafeName);
@@ -885,7 +995,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
           bytes: bytes,
           filename: 'Receipt_${order.orderNo}.pdf',
         );
-      } catch (e) {
+      } catch (_) {
         if (!mounted) return;
         await showAppMessageDialog(
           context,
@@ -912,9 +1022,11 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
               setSheet(() {});
             }
 
+            final lineCount = _cart.length;
+            final initial = (0.42 + lineCount * 0.06).clamp(0.45, 0.92);
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.72,
+              initialChildSize: initial,
               minChildSize: 0.4,
               maxChildSize: 0.95,
               builder: (_, scrollController) {
@@ -969,9 +1081,13 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
                   onClearCoupon: () {
                     sync(_clearCoupon);
                   },
+                  onKot: () {
+                    Navigator.pop(ctx);
+                    _checkout(pay: false);
+                  },
                   onPay: () {
                     Navigator.pop(ctx);
-                    _checkout();
+                    _checkout(pay: true);
                   },
                 );
               },
@@ -1073,7 +1189,8 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
                 onApplyCoupon: _applyCoupon,
                 onPickCoupon: _pickCoupon,
                 onClearCoupon: _clearCoupon,
-                onPay: _checkout,
+                onKot: () => _checkout(pay: false),
+                onPay: () => _checkout(pay: true),
               ),
             ),
           ],
@@ -1210,14 +1327,16 @@ class _CatalogPane extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _OpenTabsDropdown(
-          tabs: openTabs,
-          activeKey: activeKey,
-          onSelect: onSelectTab,
-          onPickTable: onNewTable,
-          onClearTables: onClearTables,
-        ),
-        const SizedBox(height: 12),
+        if (openTabs.isNotEmpty) ...[
+          _OpenTabsDropdown(
+            tabs: openTabs,
+            activeKey: activeKey,
+            onSelect: onSelectTab,
+            onPickTable: onNewTable,
+            onClearTables: onClearTables,
+          ),
+          const SizedBox(height: 12),
+        ],
         CafePosCategoryBar(
           categories: categories,
           selectedId: categoryFilter,
@@ -1337,6 +1456,7 @@ class _OrderPanel extends StatelessWidget {
     required this.onApplyCoupon,
     required this.onPickCoupon,
     required this.onClearCoupon,
+    required this.onKot,
     required this.onPay,
     this.scrollController,
   });
@@ -1364,6 +1484,7 @@ class _OrderPanel extends StatelessWidget {
   final Future<void> Function() onApplyCoupon;
   final Future<void> Function() onPickCoupon;
   final VoidCallback onClearCoupon;
+  final VoidCallback onKot;
   final VoidCallback onPay;
   final ScrollController? scrollController;
 
@@ -1618,42 +1739,64 @@ class _OrderPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: cart.isEmpty || busy ? null : onPay,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.highlight,
-                    foregroundColor: AppColors.background,
-                    disabledBackgroundColor:
-                        AppColors.textLight.withValues(alpha: 0.35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: cart.isEmpty || busy ? null : onKot,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.text,
+                          side: BorderSide(
+                            color: AppColors.textLight.withValues(alpha: 0.45),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        child: const Text('KOT'),
+                      ),
                     ),
                   ),
-                  child: busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.background,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: cart.isEmpty || busy ? null : onPay,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.highlight,
+                          foregroundColor: AppColors.background,
+                          disabledBackgroundColor:
+                              AppColors.textLight.withValues(alpha: 0.35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Charge ${MoneyFormat.format(total)}'),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_rounded, size: 18),
-                          ],
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                ),
+                        child: busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.background,
+                                ),
+                              )
+                            : Text('PAY ${MoneyFormat.format(total)}'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1748,8 +1891,8 @@ class _CartRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      line.menuItem.name,
-                      maxLines: 1,
+                      line.displayName,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
@@ -1758,7 +1901,7 @@ class _CartRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      MoneyFormat.format(line.lineTotal),
+                      '${MoneyFormat.format(line.unitPrice)} × ${line.quantity.round()}  ·  ${MoneyFormat.format(line.lineTotal)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.highlight,
                             fontWeight: FontWeight.w700,

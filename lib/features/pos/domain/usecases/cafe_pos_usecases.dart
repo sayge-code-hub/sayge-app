@@ -85,6 +85,26 @@ class DeleteCafeMenuItem {
   Future<Either<Failure, void>> call(String id) => _repo.deleteMenuItem(id);
 }
 
+class GetCafeMenuAddons {
+  const GetCafeMenuAddons(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, List<CafeMenuAddon>>> call(String menuItemId) =>
+      _repo.getMenuAddons(menuItemId);
+}
+
+class UpsertCafeMenuAddon {
+  const UpsertCafeMenuAddon(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, CafeMenuAddon>> call(CafeMenuAddon addon) =>
+      _repo.upsertMenuAddon(addon);
+}
+
+class DeleteCafeMenuAddon {
+  const DeleteCafeMenuAddon(this._repo);
+  final CafePosRepository _repo;
+  Future<Either<Failure, void>> call(String id) => _repo.deleteMenuAddon(id);
+}
+
 class GetCafeOrders {
   const GetCafeOrders(this._repo);
   final CafePosRepository _repo;

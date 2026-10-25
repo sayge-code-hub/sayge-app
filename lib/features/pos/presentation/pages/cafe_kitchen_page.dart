@@ -39,14 +39,21 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
   @override
   void initState() {
     super.initState();
+    CafePosListChrome.refreshTick.addListener(_onChromeRefresh);
     _reload();
     _timer = Timer.periodic(const Duration(seconds: 8), (_) => _reload());
   }
 
   @override
   void dispose() {
+    CafePosListChrome.refreshTick.removeListener(_onChromeRefresh);
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _onChromeRefresh() {
+    if (!mounted) return;
+    _reload();
   }
 
   Future<void> _reload() async {
@@ -280,16 +287,6 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
       );
     }
 
-    final refresh = Align(
-      alignment: Alignment.centerRight,
-      child: IconButton(
-        tooltip: 'Refresh',
-        onPressed: _reload,
-        style: CafePosHeaderActions.iconButtonStyle(),
-        icon: const Icon(Icons.refresh_rounded, size: 20),
-      ),
-    );
-
     final board = isDesktop
         ? Padding(
             padding: EdgeInsets.fromLTRB(
@@ -377,16 +374,6 @@ class _CafeKitchenPageState extends State<CafeKitchenPage> {
             ),
           );
 
-    return CafePosBackdrop(
-      child: Column(
-        children: [
-          Padding(
-            padding: pagePad.copyWith(bottom: 8),
-            child: refresh,
-          ),
-          Expanded(child: board),
-        ],
-      ),
-    );
+    return CafePosBackdrop(child: board);
   }
 }

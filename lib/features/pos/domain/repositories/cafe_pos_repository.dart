@@ -34,6 +34,12 @@ abstract class CafePosRepository {
 
   Future<Either<Failure, void>> deleteMenuItem(String id);
 
+  Future<Either<Failure, List<CafeMenuAddon>>> getMenuAddons(String menuItemId);
+
+  Future<Either<Failure, CafeMenuAddon>> upsertMenuAddon(CafeMenuAddon addon);
+
+  Future<Either<Failure, void>> deleteMenuAddon(String id);
+
   Future<Either<Failure, List<CafeOrder>>> getOrders(
     String cafeId, {
     DateTime? day,

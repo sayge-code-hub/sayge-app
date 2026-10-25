@@ -369,6 +369,9 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetCafeMenuItems(sl()));
   sl.registerLazySingleton(() => UpsertCafeMenuItem(sl()));
   sl.registerLazySingleton(() => DeleteCafeMenuItem(sl()));
+  sl.registerLazySingleton(() => GetCafeMenuAddons(sl()));
+  sl.registerLazySingleton(() => UpsertCafeMenuAddon(sl()));
+  sl.registerLazySingleton(() => DeleteCafeMenuAddon(sl()));
   sl.registerLazySingleton(() => GetCafeOrders(sl()));
   sl.registerLazySingleton(() => CreateCafeOrder(sl()));
   sl.registerLazySingleton(() => UpdateCafePrepStatus(sl()));

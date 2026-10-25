@@ -60,6 +60,7 @@ class CafePosCategoryBar extends StatelessWidget {
             selected: selectedId == c.id,
             onSelected: () => onSelected(c.id),
           ),
+
       ],
     );
   }
@@ -84,10 +85,10 @@ class _CategoryChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onSelected(),
       showCheckmark: false,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: const VisualDensity(horizontal: 0, vertical: 0.5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
       ),
@@ -95,8 +96,9 @@ class _CategoryChip extends StatelessWidget {
       backgroundColor: AppColors.background,
       side: const BorderSide(color: AppColors.border),
       labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontSize: 12,
-            height: 1,
+            fontSize: 13,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
             color: selected ? AppColors.background : AppColors.text,
           ),
     );
@@ -195,40 +197,40 @@ class CafePosProductCard extends StatelessWidget {
                       color: AppColors.highlight,
                     ),
               ),
-              const SizedBox(height: 8),
               if (mode == CafePosProductCardMode.edit)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _roundIcon(Icons.edit_rounded),
-                )
-              else if (qty <= 0)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _roundIcon(Icons.add_rounded),
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Absorb tap so parent card doesn't also +1 when pressing −.
-                    GestureDetector(
-                      onTap: onRemove,
-                      behavior: HitTestBehavior.opaque,
-                      child: _roundIcon(
-                        Icons.remove_rounded,
-                        filled: false,
+                const SizedBox(height: 4)
+              else ...[
+                const SizedBox(height: 8),
+                if (qty <= 0)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _roundIcon(Icons.add_rounded),
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Absorb tap so parent card doesn't also +1 when pressing −.
+                      GestureDetector(
+                        onTap: onRemove,
+                        behavior: HitTestBehavior.opaque,
+                        child: _roundIcon(
+                          Icons.remove_rounded,
+                          filled: false,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '$qty',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    _roundIcon(Icons.add_rounded),
-                  ],
-                ),
+                      Text(
+                        '$qty',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                      _roundIcon(Icons.add_rounded),
+                    ],
+                  ),
+              ],
               if (unavailable) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -263,9 +265,9 @@ class CafePosProductCard extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         child: SizedBox(
-          width: 28,
-          height: 28,
-          child: Icon(icon, size: 16, color: AppColors.highlight),
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 20, color: AppColors.highlight),
         ),
       ),
     );
@@ -368,12 +370,12 @@ class CafePosQtyStepper extends StatelessWidget {
       children: [
         _btn(Icons.remove_rounded, () => onChanged(quantity - 1)),
         SizedBox(
-          width: 28,
+          width: 32,
           child: Text(
             '$quantity',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -394,9 +396,9 @@ class CafePosQtyStepper extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          width: 30,
-          height: 30,
-          child: Icon(icon, size: 16, color: AppColors.text),
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 18, color: AppColors.text),
         ),
       ),
     );
@@ -425,7 +427,7 @@ class CafePosStickyAction extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 48,
             child: ElevatedButton(
               onPressed: onPressed,
               style: ElevatedButton.styleFrom(

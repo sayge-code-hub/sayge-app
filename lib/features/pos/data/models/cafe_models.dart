@@ -83,6 +83,40 @@ class CafeCategoryModel extends CafeCategory {
       };
 }
 
+class CafeMenuAddonModel extends CafeMenuAddon {
+  const CafeMenuAddonModel({
+    required super.id,
+    required super.cafeId,
+    required super.menuItemId,
+    required super.name,
+    required super.price,
+    super.isActive,
+    super.sortOrder,
+  });
+
+  factory CafeMenuAddonModel.fromJson(Map<String, dynamic> json) {
+    return CafeMenuAddonModel(
+      id: (json['id'] ?? '').toString(),
+      cafeId: (json['cafe_id'] ?? '').toString(),
+      menuItemId: (json['menu_item_id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      isActive: json['is_active'] != false,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'cafe_id': cafeId,
+        'menu_item_id': menuItemId,
+        'name': name.trim(),
+        'price': price,
+        'is_active': isActive,
+        'sort_order': sortOrder,
+      };
+}
+
 class CafeMenuItemModel extends CafeMenuItem {
   const CafeMenuItemModel({
     required super.id,
@@ -95,11 +129,15 @@ class CafeMenuItemModel extends CafeMenuItem {
     super.isActive,
     super.sortOrder,
     super.categoryName,
+    super.addons,
   });
 
-  factory CafeMenuItemModel.fromJson(Map<String, dynamic> json) {
+  factory CafeMenuItemModel.fromJson(
+    Map<String, dynamic> json, {
+    List<CafeMenuAddon> addons = const [],
+  }) {
     final cat = json['cafe_categories'];
-    final catMap = cat is Map<String, dynamic> ? cat : null;
+    final catMap = cat is Map ? Map<String, dynamic>.from(cat) : null;
     return CafeMenuItemModel(
       id: (json['id'] ?? '').toString(),
       cafeId: (json['cafe_id'] ?? '').toString(),
@@ -111,6 +149,7 @@ class CafeMenuItemModel extends CafeMenuItem {
       isActive: json['is_active'] != false,
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       categoryName: (catMap?['name'] ?? '').toString(),
+      addons: addons,
     );
   }
 

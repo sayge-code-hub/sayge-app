@@ -35,6 +35,12 @@ abstract class CafePosRemoteDataSource {
 
   Future<void> deleteMenuItem(String id);
 
+  Future<List<CafeMenuAddonModel>> getMenuAddons(String menuItemId);
+
+  Future<CafeMenuAddonModel> upsertMenuAddon(CafeMenuAddon addon);
+
+  Future<void> deleteMenuAddon(String id);
+
   Future<List<CafeOrderModel>> getOrders(
     String cafeId, {
     DateTime? day,
@@ -411,14 +417,129 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         query = query.eq('is_available', true);
       }
       final rows = await query.order('sort_order').order('name');
-      return (rows as List)
-          .map((r) => CafeMenuItemModel.fromJson(r as Map<String, dynamic>))
-          .toList();
+      final addonsByItem = await _addonsByMenuItem(cafeId);
+      return (rows as List).map((r) {
+        final map = Map<String, dynamic>.from(r as Map);
+        final id = (map['id'] ?? '').toString();
+        return CafeMenuItemModel.fromJson(
+          map,
+          addons: addonsByItem[id] ?? const [],
+        );
+      }).toList();
     } on PostgrestException catch (e) {
       _schemaHint(e);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw const NetworkException('Failed to load menu.');
+    }
+  }
+
+  Future<Map<String, List<CafeMenuAddon>>> _addonsByMenuItem(
+    String cafeId,
+  ) async {
+    try {
+      final rows = await _client
+          .from('cafe_menu_addons')
+          .select()
+          .eq('cafe_id', cafeId)
+          .eq('is_active', true)
+          .order('sort_order')
+          .order('name');
+      final map = <String, List<CafeMenuAddon>>{};
+      for (final row in rows as List) {
+        if (row is! Map) continue;
+        final addon =
+            CafeMenuAddonModel.fromJson(Map<String, dynamic>.from(row));
+        map.putIfAbsent(addon.menuItemId, () => []).add(addon);
+      }
+      return map;
+    } on PostgrestException {
+      // Add-ons table optional until cafe_pos_menu_addons.sql is applied.
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  @override
+  Future<List<CafeMenuAddonModel>> getMenuAddons(String menuItemId) async {
+    try {
+      final rows = await _client
+          .from('cafe_menu_addons')
+          .select()
+          .eq('menu_item_id', menuItemId)
+          .eq('is_active', true)
+          .order('sort_order')
+          .order('name');
+      return (rows as List)
+          .map(
+            (r) => CafeMenuAddonModel.fromJson(
+              Map<String, dynamic>.from(r as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('cafe_menu_addons') || msg.contains('schema cache')) {
+        return const [];
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to load add-ons.');
+    }
+  }
+
+  @override
+  Future<CafeMenuAddonModel> upsertMenuAddon(CafeMenuAddon addon) async {
+    final id = addon.id.trim().isEmpty ? _id('cadd') : addon.id.trim();
+    try {
+      final row = await _client
+          .from('cafe_menu_addons')
+          .upsert({
+            'id': id,
+            'cafe_id': addon.cafeId,
+            'menu_item_id': addon.menuItemId,
+            'name': addon.name.trim(),
+            'price': addon.price,
+            'is_active': addon.isActive,
+            'sort_order': addon.sortOrder,
+          })
+          .select()
+          .single();
+      return CafeMenuAddonModel.fromJson(row);
+    } on PostgrestException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('cafe_menu_addons') || msg.contains('schema cache')) {
+        throw const ServerException(
+          'Add-ons are not set up. Run cafe_pos_menu_addons.sql in Supabase.',
+        );
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to save add-on.');
+    }
+  }
+
+  @override
+  Future<void> deleteMenuAddon(String id) async {
+    try {
+      await _client
+          .from('cafe_menu_addons')
+          .update({'is_active': false})
+          .eq('id', id);
+    } on PostgrestException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('cafe_menu_addons') || msg.contains('schema cache')) {
+        throw const ServerException(
+          'Add-ons are not set up. Run cafe_pos_menu_addons.sql in Supabase.',
+        );
+      }
+      _schemaHint(e);
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw const NetworkException('Failed to remove add-on.');
     }
   }
 
@@ -524,16 +645,20 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
     final now = DateTime.now();
     final prefix =
         'C${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final start = DateTime(now.year, now.month, now.day).toUtc();
-    final end = start.add(const Duration(days: 1));
     final rows = await _client
         .from('cafe_orders')
         .select('order_no')
         .eq('cafe_id', cafeId)
-        .gte('created_at', start.toIso8601String())
-        .lt('created_at', end.toIso8601String());
-    final count = (rows as List).length + 1;
-    return '$prefix-${count.toString().padLeft(3, '0')}';
+        .like('order_no', '$prefix-%');
+    var maxSeq = 0;
+    for (final row in rows as List) {
+      final no = (row as Map)['order_no']?.toString() ?? '';
+      final parts = no.split('-');
+      if (parts.length != 2) continue;
+      final seq = int.tryParse(parts[1]) ?? 0;
+      if (seq > maxSeq) maxSeq = seq;
+    }
+    return '$prefix-${(maxSeq + 1).toString().padLeft(3, '0')}';
   }
 
   @override
@@ -561,16 +686,21 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
         final lineTax = lineTotal * (line.menuItem.taxRate / 100);
         subtotal += lineTotal;
         tax += lineTax;
+        final noteParts = <String>[
+          if (line.notes.trim().isNotEmpty) line.notes.trim(),
+          if (line.addons.isNotEmpty)
+            'Add-ons: ${line.addons.map((a) => a.name).join(', ')}',
+        ];
         itemRows.add(
           CafeOrderItemModel(
             id: _id('coli'),
             menuItemId: line.menuItem.id,
-            itemName: line.menuItem.name,
-            unitPrice: line.menuItem.price,
+            itemName: line.displayName,
+            unitPrice: line.unitPrice,
             taxRate: line.menuItem.taxRate,
             quantity: line.quantity,
             lineTotal: lineTotal,
-            notes: line.notes.trim(),
+            notes: noteParts.join(' · '),
             sortOrder: i,
           ).toJson(orderId: 'pending'),
         );

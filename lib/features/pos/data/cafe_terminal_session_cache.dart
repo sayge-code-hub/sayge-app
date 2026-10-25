@@ -59,6 +59,7 @@ class CafeTerminalSession {
               'menuItemId': l.menuItem.id,
               'quantity': l.quantity,
               'notes': l.notes,
+              'addonIds': [for (final a in l.addons) a.id],
             },
         ],
       };
@@ -81,11 +82,23 @@ class CafeTerminalSession {
         if (item == null) continue;
         final qty = (row['quantity'] as num?)?.toDouble() ?? 0;
         if (qty <= 0) continue;
+        final addonIds = <String>{};
+        final rawAddons = row['addonIds'];
+        if (rawAddons is List) {
+          for (final idRaw in rawAddons) {
+            final aid = idRaw.toString().trim();
+            if (aid.isNotEmpty) addonIds.add(aid);
+          }
+        }
+        final selectedAddons = item.addons
+            .where((a) => addonIds.contains(a.id))
+            .toList(growable: false);
         lines.add(
           CafeCartLine(
             menuItem: item,
             quantity: qty,
             notes: (row['notes'] ?? '').toString(),
+            addons: selectedAddons,
           ),
         );
       }

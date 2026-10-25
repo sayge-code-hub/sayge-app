@@ -1,10 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
@@ -12,6 +8,13 @@ import '../../../../injection_container.dart';
 import '../../data/cafe_guest_menu_api.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../guest/guest_menu_theme.dart';
+
+const _kInk = Color(0xFF141210);
+const _kMuted = Color(0xFF6B7280);
+const _kSoft = Color(0xFF8B8B86);
+const _kLine = Color(0xFFE8E8E4);
+const _kBgFresh = Color(0xFFFAFAF8);
+const _kBgGallery = Color(0xFFF5F4F1);
 
 String _guestItemInitials(String name) {
   final words = name
@@ -195,11 +198,25 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     }
   }
 
+  Map<String, int> get _categoryCounts {
+    final menu = _menu;
+    if (menu == null) return const {};
+    final counts = <String, int>{};
+    for (final item in menu.items) {
+      final id = item.categoryId;
+      if (id.isEmpty) continue;
+      counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   Future<void> _openCart() async {
+    final accent = _theme.accent;
+    final initial = (0.4 + _cart.length * 0.07).clamp(0.48, 0.9);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF141210),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -213,8 +230,8 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
 
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.72,
-              minChildSize: 0.42,
+              initialChildSize: initial,
+              minChildSize: 0.4,
               maxChildSize: 0.94,
               builder: (_, scroll) {
                 return _GuestCartSheet(
@@ -222,6 +239,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                   tableNo: _tableNo,
                   subtotal: _subtotal,
                   placing: _placing,
+                  accent: accent,
                   scrollController: scroll,
                   onAdd: (item) => sync(() => _add(item)),
                   onRemove: (item) => sync(() => _remove(item)),
@@ -238,49 +256,61 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     );
   }
 
+  Widget _phoneShell({required Color bg, required Widget child}) {
+    return Scaffold(
+      backgroundColor: bg,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 560) {
-      return _DesktopGate(
-        cafeName: _menu?.cafeName,
-        cafeId: widget.cafeId,
-        tableNo: _tableNo,
-      );
-    }
+    final theme = _theme;
+    final accent = theme.accent;
+    final isGallery = theme.layout == GuestMenuLayout.gallery;
+    final bg = isGallery ? _kBgGallery : _kBgFresh;
 
     if (_placed != null) {
-      return _OrderPlacedView(
-        result: _placed!,
-        onNewOrder: () => setState(() => _placed = null),
+      return _phoneShell(
+        bg: _kBgFresh,
+        child: _OrderPlacedView(
+          result: _placed!,
+          accent: accent,
+          onNewOrder: () => setState(() => _placed = null),
+        ),
       );
     }
 
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFAFAF8),
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF141210)),
+      return _phoneShell(
+        bg: _kBgFresh,
+        child: const Center(
+          child: CircularProgressIndicator(color: _kInk),
         ),
       );
     }
 
     if (_error != null || _menu == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFAFAF8),
-        body: SafeArea(
+      return _phoneShell(
+        bg: _kBgFresh,
+        child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.wifi_off_rounded,
-                    color: Color(0xFFFF6B4A), size: 40),
+                Icon(Icons.wifi_off_rounded, color: accent, size: 40),
                 const SizedBox(height: 16),
                 Text(
                   'Menu unavailable',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: const Color(0xFF141210),
+                        color: _kInk,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -288,14 +318,15 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                 Text(
                   _error ?? 'Unknown error',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF6B7280), height: 1.4),
+                  style: const TextStyle(color: _kMuted, height: 1.4),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _load,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B4A),
+                    backgroundColor: accent,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(160, 48),
                   ),
                   child: const Text('Try again'),
                 ),
@@ -307,15 +338,11 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     }
 
     final menu = _menu!;
-    final theme = _theme;
-    final accent = theme.accent;
-    final isGallery = theme.layout == GuestMenuLayout.gallery;
-    final bg =
-        isGallery ? const Color(0xFFF5F4F1) : const Color(0xFFFAFAF8);
+    final counts = _categoryCounts;
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: Stack(
+    return _phoneShell(
+      bg: bg,
+      child: Stack(
         children: [
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -353,6 +380,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                   pinned: true,
                   delegate: _CategoryHeaderDelegate(
                     categories: menu.categories,
+                    counts: counts,
                     selectedId: _categoryId,
                     onSelected: _selectCategory,
                     accent: accent,
@@ -370,10 +398,10 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
-                        'Nothing on the menu in this category yet.',
+                        'Nothing in this category yet.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF6B7280),
+                          color: _kMuted,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -459,7 +487,6 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
                       total: _subtotal,
                       accent: accent,
                       onTap: _openCart,
-                      pill: true,
                     ),
                   ),
                 ),
@@ -509,7 +536,7 @@ class _GuestHero extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E2DF)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF141210).withValues(alpha: 0.06),
+            color: _kInk.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -551,7 +578,7 @@ class _GuestHero extends StatelessWidget {
                           Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: -0.8,
-                                color: const Color(0xFF141210),
+                                color: _kInk,
                                 fontSize: isGallery ? 28 : 26,
                                 height: 1.1,
                               ),
@@ -560,7 +587,7 @@ class _GuestHero extends StatelessWidget {
                     Text(
                       tagline,
                       style: TextStyle(
-                        color: const Color(0xFF6B7280),
+                        color: _kMuted,
                         fontSize: isGallery ? 16 : 14,
                         height: 1.35,
                         fontWeight:
@@ -574,15 +601,15 @@ class _GuestHero extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(left: 10, top: 4),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'T$tableNo',
+                    'Table $tableNo',
                     style: TextStyle(
                       color: accent,
                       fontWeight: FontWeight.w800,
@@ -601,6 +628,7 @@ class _GuestHero extends StatelessWidget {
 class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   _CategoryHeaderDelegate({
     required this.categories,
+    required this.counts,
     required this.selectedId,
     required this.onSelected,
     required this.accent,
@@ -609,6 +637,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   final List<CafeCategory> categories;
+  final Map<String, int> counts;
   final String? selectedId;
   final ValueChanged<String?> onSelected;
   final Color accent;
@@ -616,10 +645,10 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   final GuestChipStyle chipStyle;
 
   @override
-  double get minExtent => 58;
+  double get minExtent => 62;
 
   @override
-  double get maxExtent => 58;
+  double get maxExtent => 62;
 
   @override
   Widget build(
@@ -632,9 +661,9 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Material(
       color: background,
       elevation: overlapsContent ? 1.5 : 0,
-      shadowColor: const Color(0xFF141210).withValues(alpha: 0.12),
+      shadowColor: _kInk.withValues(alpha: 0.12),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -651,6 +680,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
               for (final c in categories) ...[
                 _CatChip(
                   label: c.name,
+                  count: counts[c.id],
                   selected: selectedId == c.id,
                   accent: accent,
                   style: chipStyle,
@@ -669,6 +699,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
     return oldDelegate.selectedId != selectedId ||
         oldDelegate.categories != categories ||
+        oldDelegate.counts != counts ||
         oldDelegate.chipStyle != chipStyle ||
         oldDelegate.accent != accent ||
         oldDelegate.background != background;
@@ -681,10 +712,12 @@ class _CatChip extends StatelessWidget {
     required this.selected,
     required this.accent,
     required this.onTap,
+    this.count,
     this.style = GuestChipStyle.ink,
   });
 
   final String label;
+  final int? count;
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
@@ -696,31 +729,49 @@ class _CatChip extends StatelessWidget {
         ? Colors.white
         : style == GuestChipStyle.accent
             ? accent
-            : const Color(0xFF141210);
+            : _kInk;
     final border = !selected
         ? const Color(0xFFE2E2DF)
         : style == GuestChipStyle.accent
             ? accent
-            : const Color(0xFF141210);
+            : _kInk;
+    final text = selected ? Colors.white : const Color(0xFF2A221C);
+    final countLabel = count == null ? null : '$count';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(AppFilterDropdown.radius),
           border: Border.all(color: border),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : const Color(0xFF2A221C),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: text,
+              ),
+            ),
+            if (countLabel != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                countLabel,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: text.withValues(alpha: selected ? 0.85 : 0.55),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -733,39 +784,36 @@ class _CartBar extends StatelessWidget {
     required this.total,
     required this.accent,
     required this.onTap,
-    this.pill = false,
   });
 
   final int count;
   final double total;
   final Color accent;
   final VoidCallback onTap;
-  final bool pill;
 
   @override
   Widget build(BuildContext context) {
-    final radius = pill ? 28.0 : 18.0;
     return Material(
-      color: pill ? accent : const Color(0xFF141210),
-      borderRadius: BorderRadius.circular(radius),
-      elevation: 12,
-      shadowColor: Colors.black54,
+      color: accent,
+      borderRadius: BorderRadius.circular(28),
+      elevation: 10,
+      shadowColor: accent.withValues(alpha: 0.45),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(28),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           child: Row(
             children: [
               Icon(
                 Icons.shopping_bag_outlined,
-                color: Colors.white.withValues(alpha: 0.9),
-                size: 20,
+                color: Colors.white.withValues(alpha: 0.95),
+                size: 22,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'View cart ($count)',
+                  'View cart · $count',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -798,6 +846,7 @@ class _GuestCartSheet extends StatelessWidget {
     required this.tableNo,
     required this.subtotal,
     required this.placing,
+    required this.accent,
     required this.scrollController,
     required this.onAdd,
     required this.onRemove,
@@ -808,6 +857,7 @@ class _GuestCartSheet extends StatelessWidget {
   final String tableNo;
   final double subtotal;
   final bool placing;
+  final Color accent;
   final ScrollController scrollController;
   final ValueChanged<CafeMenuItem> onAdd;
   final ValueChanged<CafeMenuItem> onRemove;
@@ -822,7 +872,7 @@ class _GuestCartSheet extends StatelessWidget {
           width: 36,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.white24,
+            color: _kLine,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -834,7 +884,7 @@ class _GuestCartSheet extends StatelessWidget {
                 child: Text(
                   'Your order',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: _kInk,
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
                     letterSpacing: -0.3,
@@ -845,7 +895,7 @@ class _GuestCartSheet extends StatelessWidget {
                 Text(
                   'Table $tableNo',
                   style: TextStyle(
-                    color: AppColors.highlight,
+                    color: accent,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -861,47 +911,54 @@ class _GuestCartSheet extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final line = cart[i];
-              return Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      line.menuItem.name,
+              return Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                decoration: BoxDecoration(
+                  color: _kBgFresh,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _kLine),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        line.menuItem.name,
+                        style: const TextStyle(
+                          color: _kInk,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => onRemove(line.menuItem),
+                      icon: Icon(Icons.remove_rounded, color: accent),
+                    ),
+                    Text(
+                      '${line.quantity.round()}',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
+                        color: _kInk,
+                        fontWeight: FontWeight.w800,
                         fontSize: 15,
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => onRemove(line.menuItem),
-                    icon: const Icon(Icons.remove_circle_outline,
-                        color: Colors.white54),
-                  ),
-                  Text(
-                    '${line.quantity.round()}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                    IconButton(
+                      onPressed: () => onAdd(line.menuItem),
+                      icon: Icon(Icons.add_rounded, color: accent),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => onAdd(line.menuItem),
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: Colors.white54),
-                  ),
-                  SizedBox(
-                    width: 72,
-                    child: Text(
-                      MoneyFormat.format(line.lineTotal),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                    SizedBox(
+                      width: 72,
+                      child: Text(
+                        MoneyFormat.format(line.lineTotal),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: _kInk,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           ),
@@ -915,13 +972,13 @@ class _GuestCartSheet extends StatelessWidget {
                 children: [
                   const Text(
                     'Subtotal',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: _kMuted, fontSize: 14),
                   ),
                   const Spacer(),
                   Text(
                     MoneyFormat.format(subtotal),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: _kInk,
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
@@ -931,15 +988,15 @@ class _GuestCartSheet extends StatelessWidget {
               const SizedBox(height: 6),
               const Text(
                 'Pay at the counter when you’re ready. Kitchen gets this now.',
-                style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.3),
+                style: TextStyle(color: _kSoft, fontSize: 12, height: 1.3),
               ),
               const SizedBox(height: 14),
               FilledButton(
                 onPressed: placing || cart.isEmpty ? null : onPlace,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.highlight,
+                  backgroundColor: accent,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.white24,
+                  disabledBackgroundColor: accent.withValues(alpha: 0.35),
                   minimumSize: const Size.fromHeight(52),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -962,10 +1019,12 @@ class _GuestCartSheet extends StatelessWidget {
 class _OrderPlacedView extends StatefulWidget {
   const _OrderPlacedView({
     required this.result,
+    required this.accent,
     required this.onNewOrder,
   });
 
   final GuestOrderResult result;
+  final Color accent;
   final VoidCallback onNewOrder;
 
   @override
@@ -994,174 +1053,84 @@ class _OrderPlacedViewState extends State<_OrderPlacedView>
   @override
   Widget build(BuildContext context) {
     final r = widget.result;
-    return Scaffold(
-      backgroundColor: const Color(0xFF141210),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              ScaleTransition(
-                scale: CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
-                child: Container(
-                  width: 88,
-                  height: 88,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.highlight.withValues(alpha: 0.18),
-                    border: Border.all(color: AppColors.highlight, width: 2),
-                  ),
-                  child: Icon(
-                    Icons.check_rounded,
-                    size: 44,
-                    color: AppColors.highlight,
-                  ),
+    final accent = widget.accent;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Spacer(),
+            ScaleTransition(
+              scale: CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
+              child: Container(
+                width: 88,
+                height: 88,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.14),
+                  border: Border.all(color: accent, width: 2),
+                ),
+                child: Icon(
+                  Icons.check_rounded,
+                  size: 44,
+                  color: accent,
                 ),
               ),
-              const SizedBox(height: 28),
-              const Text(
-                'Order sent',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 32,
-                  letterSpacing: -0.8,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                [
-                  r.orderNo,
-                  if (r.tableNo.trim().isNotEmpty) 'Table ${r.tableNo.trim()}',
-                ].join(' · '),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.highlight,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Kitchen’s on it. Pay ${MoneyFormat.format(r.totalAmount)} at the counter.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFFB0A8A0),
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: widget.onNewOrder,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF141210),
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  textStyle: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                child: const Text('Order more'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DesktopGate extends StatelessWidget {
-  const _DesktopGate({
-    required this.cafeName,
-    required this.cafeId,
-    required this.tableNo,
-  });
-
-  final String? cafeName;
-  final String cafeId;
-  final String tableNo;
-
-  @override
-  Widget build(BuildContext context) {
-    final origin = AppConfig.appPublicUrl.isNotEmpty
-        ? AppConfig.appPublicUrl
-        : Uri.base.origin;
-    final url = tableNo.isEmpty
-        ? '$origin/m/$cafeId'
-        : '$origin/m/$cafeId?t=${Uri.encodeQueryComponent(tableNo)}';
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF141210),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Transform.rotate(
-                  angle: -math.pi / 28,
-                  child: const Icon(
-                    Icons.smartphone_rounded,
-                    size: 56,
-                    color: Color(0xFFFF6B4A),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  cafeName ?? 'This menu',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 28,
-                    letterSpacing: -0.6,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Guest ordering is built for phones. Scan this QR or open the link on mobile.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFB0A8A0),
-                    fontSize: 15,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: QrImageView(
-                    data: url,
-                    size: 180,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF141210),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF141210),
-                    ),
-                  ),
-                ),
-              ],
             ),
-          ),
+            const SizedBox(height: 28),
+            const Text(
+              'Order sent',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _kInk,
+                fontWeight: FontWeight.w800,
+                fontSize: 32,
+                letterSpacing: -0.8,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              [
+                r.orderNo,
+                if (r.tableNo.trim().isNotEmpty) 'Table ${r.tableNo.trim()}',
+              ].join(' · '),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Kitchen’s on it. Pay ${MoneyFormat.format(r.totalAmount)} at the counter.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _kMuted,
+                fontSize: 15,
+                height: 1.4,
+              ),
+            ),
+            const Spacer(),
+            FilledButton(
+              onPressed: widget.onNewOrder,
+              style: FilledButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+              child: const Text('Order more'),
+            ),
+          ],
         ),
       ),
     );
@@ -1187,7 +1156,7 @@ class _GuestSearchField extends StatelessWidget {
       style: const TextStyle(
         fontWeight: FontWeight.w600,
         fontSize: 14,
-        color: Color(0xFF141210),
+        color: _kInk,
       ),
       decoration: InputDecoration(
         hintText: 'Search menu',
@@ -1198,7 +1167,7 @@ class _GuestSearchField extends StatelessWidget {
         prefixIcon: Icon(Icons.search_rounded, color: accent, size: 22),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFFE2E2DF)),
@@ -1240,7 +1209,7 @@ class _FreshMenuRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8E8E4)),
+        border: Border.all(color: _kLine),
       ),
       child: Row(
         children: [
@@ -1278,7 +1247,7 @@ class _FreshMenuRow extends StatelessWidget {
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
-                    color: Color(0xFF141210),
+                    color: _kInk,
                     height: 1.2,
                   ),
                 ),
@@ -1289,7 +1258,7 @@ class _FreshMenuRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF8B8B86),
+                      color: _kSoft,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1303,7 +1272,7 @@ class _FreshMenuRow extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
-                        color: Color(0xFF141210),
+                        color: _kInk,
                       ),
                     ),
                     const Spacer(),
@@ -1342,18 +1311,18 @@ class _QtyPill extends StatelessWidget {
     if (qty == 0) {
       return Material(
         color: accent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: onAdd,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 11),
             child: Text(
               'Add',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 13,
+                fontSize: 14,
               ),
             ),
           ),
@@ -1363,29 +1332,29 @@ class _QtyPill extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: accent.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            visualDensity: VisualDensity.compact,
             onPressed: onRemove,
-            icon: Icon(Icons.remove_rounded, size: 18, color: accent),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: Icon(Icons.remove_rounded, size: 20, color: accent),
           ),
           Text(
             '$qty',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              fontSize: 14,
+              fontSize: 15,
               color: accent,
             ),
           ),
           IconButton(
-            visualDensity: VisualDensity.compact,
             onPressed: onAdd,
-            icon: Icon(Icons.add_rounded, size: 18, color: accent),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: Icon(Icons.add_rounded, size: 20, color: accent),
           ),
         ],
       ),
@@ -1459,12 +1428,12 @@ class _GalleryCard extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         onTap: onAdd,
                         child: const SizedBox(
-                          width: 34,
-                          height: 34,
+                          width: 40,
+                          height: 40,
                           child: Icon(
                             Icons.add_rounded,
                             color: Colors.white,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
                       ),
@@ -1480,7 +1449,7 @@ class _GalleryCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF141210),
+                          color: accent,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1511,7 +1480,7 @@ class _GalleryCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
                         height: 1.15,
-                        color: Color(0xFF141210),
+                        color: _kInk,
                       ),
                     ),
                     const Spacer(),

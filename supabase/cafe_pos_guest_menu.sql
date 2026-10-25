@@ -131,10 +131,9 @@ declare
   v_cafe public.cafes%rowtype;
   v_order_type text;
   v_table_no text;
-  v_day_start timestamptz;
-  v_day_end timestamptz;
   v_prefix text;
   v_count int;
+  v_attempt int;
   v_order_no text;
   v_order_id text;
   v_subtotal numeric(12, 2) := 0;
@@ -222,27 +221,47 @@ begin
 
   v_total := round(v_subtotal + v_tax, 2);
 
-  v_day_start := date_trunc('day', now());
-  v_day_end := v_day_start + interval '1 day';
   v_prefix := 'C' || to_char(now(), 'YYMMDD');
-  select count(*)::int into v_count
+  -- Next seq from existing order_no for today (not row count — seed/backfill
+  -- and clock skew can collide with count(*) + 1).
+  select coalesce(
+    max(
+      nullif(
+        regexp_replace(order_no, '^' || v_prefix || '-', ''),
+        ''
+      )::int
+    ),
+    0
+  )::int
+  into v_count
   from public.cafe_orders
   where cafe_id = v_cafe.id
-    and created_at >= v_day_start
-    and created_at < v_day_end;
-  v_order_no := v_prefix || '-' || lpad((v_count + 1)::text, 3, '0');
+    and order_no ~ ('^' || v_prefix || '-[0-9]+$');
+
   v_order_id := 'cord_' || replace(gen_random_uuid()::text, '-', '');
 
   -- Requires cafe_pos_tables.sql (table_no column).
-  insert into public.cafe_orders (
-    id, cafe_id, order_no, order_type, prep_status, payment_status,
-    subtotal, tax_amount, discount_amount, total_amount,
-    created_by, table_no
-  ) values (
-    v_order_id, v_cafe.id, v_order_no, v_order_type, 'new', 'pending',
-    v_subtotal, v_tax, 0, v_total,
-    null, v_table_no
-  );
+  -- Retry a few times if another concurrent insert races the same seq.
+  for v_attempt in 1..8 loop
+    v_order_no := v_prefix || '-' || lpad((v_count + v_attempt)::text, 3, '0');
+    begin
+      insert into public.cafe_orders (
+        id, cafe_id, order_no, order_type, prep_status, payment_status,
+        subtotal, tax_amount, discount_amount, total_amount,
+        created_by, table_no
+      ) values (
+        v_order_id, v_cafe.id, v_order_no, v_order_type, 'new', 'pending',
+        v_subtotal, v_tax, 0, v_total,
+        null, v_table_no
+      );
+      exit;
+    exception
+      when unique_violation then
+        if v_attempt = 8 then
+          raise;
+        end if;
+    end;
+  end loop;
 
   insert into public.cafe_order_items (
     id, order_id, menu_item_id, item_name, unit_price, tax_rate,
