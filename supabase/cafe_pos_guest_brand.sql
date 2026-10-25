@@ -1,5 +1,6 @@
 -- Guest QR menu branding / layout (safe to re-run).
--- Requires cafes table. Re-run cafe_pos_guest_menu.sql after this so the RPC returns brand fields.
+-- Layouts: fresh | gallery (night removed).
+-- Also refreshes get_guest_cafe_menu so the public /m menu receives brand fields.
 
 alter table public.cafes
   add column if not exists guest_logo_path text not null default '';
@@ -14,26 +15,35 @@ alter table public.cafes
   add column if not exists guest_accent_hex text not null default '';
 
 alter table public.cafes
-  add column if not exists guest_layout text not null default 'night';
+  add column if not exists guest_layout text not null default 'fresh';
+
+alter table public.cafes
+  add column if not exists guest_show_search boolean not null default false;
+
+-- Migrate legacy night → fresh before tightening the check.
+update public.cafes
+set guest_layout = 'fresh'
+where guest_layout is null
+   or guest_layout = ''
+   or guest_layout = 'night';
 
 alter table public.cafes
   drop constraint if exists cafes_guest_layout_check;
 
 alter table public.cafes
   add constraint cafes_guest_layout_check
-  check (guest_layout in ('night', 'fresh', 'gallery'));
+  check (guest_layout in ('fresh', 'gallery'));
 
 alter table public.cafes
-  add column if not exists guest_show_search boolean not null default false;
+  alter column guest_layout set default 'fresh';
 
 comment on column public.cafes.guest_logo_path is
   'Storage path in brand-logos for guest QR menu logo.';
 comment on column public.cafes.guest_layout is
-  'Guest menu layout: night | fresh | gallery.';
+  'Guest menu layout: fresh | gallery.';
 comment on column public.cafes.guest_accent_hex is
   'Optional #RRGGBB accent for guest menu; empty uses default.';
 
--- Refresh public menu RPC with brand fields.
 create or replace function public.get_guest_cafe_menu(p_cafe_id text)
 returns jsonb
 language plpgsql
@@ -45,12 +55,12 @@ declare
   v_cafe public.cafes%rowtype;
   v_categories jsonb;
   v_items jsonb;
-  v_logo text;
-  v_tagline text;
-  v_accent text;
-  v_layout text;
-  v_show_logo boolean;
-  v_show_search boolean;
+  v_logo text := '';
+  v_tagline text := '';
+  v_accent text := '';
+  v_layout text := 'fresh';
+  v_show_logo boolean := true;
+  v_show_search boolean := false;
 begin
   if p_cafe_id is null or length(trim(p_cafe_id)) = 0 then
     raise exception 'Cafe id required';
@@ -69,7 +79,10 @@ begin
     v_logo := coalesce(v_cafe.guest_logo_path, '');
     v_tagline := coalesce(v_cafe.guest_tagline, '');
     v_accent := coalesce(v_cafe.guest_accent_hex, '');
-    v_layout := coalesce(nullif(v_cafe.guest_layout, ''), 'night');
+    v_layout := coalesce(nullif(v_cafe.guest_layout, ''), 'fresh');
+    if v_layout = 'night' then
+      v_layout := 'fresh';
+    end if;
     v_show_logo := coalesce(v_cafe.guest_show_logo, true);
     v_show_search := coalesce(v_cafe.guest_show_search, false);
   exception
@@ -77,7 +90,7 @@ begin
       v_logo := '';
       v_tagline := '';
       v_accent := '';
-      v_layout := 'night';
+      v_layout := 'fresh';
       v_show_logo := true;
       v_show_search := false;
   end;
@@ -133,3 +146,6 @@ $$;
 
 revoke all on function public.get_guest_cafe_menu(text) from public;
 grant execute on function public.get_guest_cafe_menu(text) to anon, authenticated;
+
+comment on function public.get_guest_cafe_menu(text) is
+  'Public QR menu: cafe brand/layout + categories + available items.';

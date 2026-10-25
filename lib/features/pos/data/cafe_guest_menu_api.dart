@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/error/exceptions.dart';
@@ -11,7 +13,7 @@ class GuestCafeBrand {
     this.showLogo = true,
     this.tagline = '',
     this.accentHex = '',
-    this.layout = GuestMenuLayout.night,
+    this.layout = GuestMenuLayout.fresh,
     this.showSearch = false,
   });
 
@@ -75,11 +77,11 @@ class CafeGuestMenuApi {
         'get_guest_cafe_menu',
         params: {'p_cafe_id': cafeId},
       );
-      if (raw is! Map) {
+      final map = _asStringKeyedMap(raw);
+      if (map == null) {
         throw const ServerException('Could not load menu.');
       }
-      final map = Map<String, dynamic>.from(raw);
-      final cafe = Map<String, dynamic>.from(map['cafe'] as Map? ?? {});
+      final cafe = _asStringKeyedMap(map['cafe']) ?? <String, dynamic>{};
       final catsRaw = map['categories'];
       final itemsRaw = map['items'];
       final categories = <CafeCategory>[];
@@ -134,11 +136,11 @@ class CafeGuestMenuApi {
         brand: GuestCafeBrand(
           logoPath: logoPath,
           logoUrl: logoUrl,
-          showLogo: cafe['guest_show_logo'] != false,
+          showLogo: _asBool(cafe['guest_show_logo'], defaultValue: true),
           tagline: (cafe['guest_tagline'] ?? '').toString(),
           accentHex: (cafe['guest_accent_hex'] ?? '').toString().trim(),
           layout: GuestMenuLayoutX.fromDb(cafe['guest_layout']?.toString()),
-          showSearch: cafe['guest_show_search'] == true,
+          showSearch: _asBool(cafe['guest_show_search'], defaultValue: false),
         ),
       );
     } on PostgrestException catch (e) {
@@ -214,4 +216,29 @@ class CafeGuestMenuApi {
       throw const NetworkException('Failed to place order.');
     }
   }
+}
+
+Map<String, dynamic>? _asStringKeyedMap(Object? raw) {
+  if (raw == null) return null;
+  if (raw is Map) {
+    return Map<String, dynamic>.from(raw);
+  }
+  if (raw is String) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+  }
+  return null;
+}
+
+bool _asBool(Object? raw, {required bool defaultValue}) {
+  if (raw == null) return defaultValue;
+  if (raw is bool) return raw;
+  final s = raw.toString().trim().toLowerCase();
+  if (s == 'true' || s == '1' || s == 't' || s == 'yes') return true;
+  if (s == 'false' || s == '0' || s == 'f' || s == 'no') return false;
+  return defaultValue;
 }

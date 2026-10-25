@@ -41,6 +41,18 @@ security_verification.sql
 
 After `lock_signup_provisioning.sql`: Dashboard → **Authentication → Providers → Email** → turn **off** “Allow new users to sign up”.
 
+### Cafe POS guest QR menu (branding)
+
+After `cafe_pos.sql` / guest menu RPCs:
+
+```text
+cafe_pos_guest_menu.sql
+cafe_pos_guest_brand.sql
+```
+
+`cafe_pos_guest_brand.sql` adds logo/layout/accent columns and refreshes
+`get_guest_cafe_menu` so `/m/:cafeId` receives the chosen look (Fresh / Gallery).
+
 ### Demo cafe for client walkthroughs
 
 After Cafe POS SQL is applied:

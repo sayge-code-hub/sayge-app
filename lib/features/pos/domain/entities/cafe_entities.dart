@@ -107,10 +107,7 @@ extension CafePaymentMethodX on CafePaymentMethod {
 
 /// Guest QR menu layout presets.
 enum GuestMenuLayout {
-  /// Dark espresso hero + list rows (default).
-  night,
-
-  /// Light list with accent chips and qty pills.
+  /// Light list with accent chips and qty pills (default).
   fresh,
 
   /// Two-column gallery cards with + buttons.
@@ -121,25 +118,23 @@ extension GuestMenuLayoutX on GuestMenuLayout {
   String get dbValue => name;
 
   String get label => switch (this) {
-        GuestMenuLayout.night => 'Night',
         GuestMenuLayout.fresh => 'Fresh',
         GuestMenuLayout.gallery => 'Gallery',
       };
 
   String get blurb => switch (this) {
-        GuestMenuLayout.night => 'Bold dark hero, clean list',
         GuestMenuLayout.fresh => 'Bright chips, menu rows',
         GuestMenuLayout.gallery => 'Photo-style grid cards',
       };
 
   static GuestMenuLayout fromDb(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
-      case 'fresh':
-        return GuestMenuLayout.fresh;
       case 'gallery':
         return GuestMenuLayout.gallery;
+      case 'fresh':
+      case 'night': // legacy → fresh
       default:
-        return GuestMenuLayout.night;
+        return GuestMenuLayout.fresh;
     }
   }
 }
@@ -158,7 +153,7 @@ class Cafe extends Equatable {
     this.guestShowLogo = true,
     this.guestTagline = '',
     this.guestAccentHex = '',
-    this.guestLayout = GuestMenuLayout.night,
+    this.guestLayout = GuestMenuLayout.fresh,
     this.guestShowSearch = false,
   });
 
