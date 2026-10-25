@@ -169,6 +169,7 @@ create table if not exists public.cafe_menu_items (
   cafe_id text not null references public.cafes (id) on delete cascade,
   category_id text not null references public.cafe_categories (id) on delete restrict,
   name text not null,
+  description text not null default '',
   price numeric(12, 2) not null check (price >= 0),
   tax_rate numeric(5, 2) not null default 0 check (tax_rate >= 0),
   is_available boolean not null default true,

@@ -38,6 +38,10 @@ abstract final class AppRoutes {
   static const inviteEmployee = '/settings/invite';
   static const manageInvites = '/settings/invites';
   static const setPassword = '/set-password';
+
+  /// Curated release notes (tap the version label).
+  static const whatsNew = '/whats-new';
+
   static const pos = '/pos';
 
   /// Public guest QR menu (no auth). Optional `?t=` table number.

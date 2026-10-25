@@ -26,24 +26,28 @@ class CafePosHubPage extends StatelessWidget {
         CafePosNavTile(
           icon: Icons.restaurant_menu_outlined,
           title: 'Menu',
+          subtitle: 'Items & prices',
           onTap: () => context.go(AppRoutes.posMenu(cafeId)),
         ),
       if (AppAccess.canManageCafeMenu(user, cafeId))
         CafePosNavTile(
           icon: Icons.category_outlined,
           title: 'Categories',
+          subtitle: 'Coffee, tea…',
           onTap: () => context.go(AppRoutes.posCategories(cafeId)),
         ),
       if (AppAccess.canRunCafeTerminal(user, cafeId))
         CafePosNavTile(
           icon: Icons.point_of_sale_outlined,
           title: 'Terminal',
+          subtitle: 'Take orders',
           onTap: () => context.go(AppRoutes.posTerminal(cafeId)),
         ),
       if (AppAccess.canRunCafeKitchen(user, cafeId))
         CafePosNavTile(
           icon: Icons.soup_kitchen_outlined,
           title: 'Kitchen',
+          subtitle: 'Prep tickets',
           onTap: () => context.go(AppRoutes.posKitchen(cafeId)),
         ),
       if (AppAccess.canRunCafeTerminal(user, cafeId) ||
@@ -51,18 +55,21 @@ class CafePosHubPage extends StatelessWidget {
         CafePosNavTile(
           icon: Icons.receipt_long_outlined,
           title: 'Orders',
+          subtitle: 'History',
           onTap: () => context.go(AppRoutes.posOrders(cafeId)),
         ),
       if (AppAccess.canViewCafeReports(user, cafeId))
         CafePosNavTile(
           icon: Icons.bar_chart_outlined,
           title: 'Reports',
+          subtitle: 'Sales snapshot',
           onTap: () => context.go(AppRoutes.posReports(cafeId)),
         ),
       if (AppAccess.canManageCafeMenu(user, cafeId))
         CafePosNavTile(
           icon: Icons.settings_outlined,
           title: 'Settings',
+          subtitle: 'QR & branding',
           onTap: () => context.go(AppRoutes.posSettings(cafeId)),
         ),
     ];
@@ -75,9 +82,9 @@ class CafePosHubPage extends StatelessWidget {
             builder: (context, constraints) {
               final w = constraints.maxWidth;
               final cross = w >= 1100
-                  ? 4
+                  ? 5
                   : w >= 820
-                      ? 3
+                      ? 4
                       : w >= 560
                           ? 3
                           : 2;
@@ -85,9 +92,9 @@ class CafePosHubPage extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: cross,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.05,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.55,
                 children: tiles,
               );
             },

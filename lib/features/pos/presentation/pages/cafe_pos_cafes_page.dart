@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/storage/app_storage_urls.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_message_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -196,19 +199,19 @@ class _CafePosCafesPageState extends State<CafePosCafesPage> {
                   sliver: SliverLayoutBuilder(
                     builder: (context, constraints) {
                       final w = constraints.crossAxisExtent;
-                      final cross = w >= 900
-                          ? 5
-                          : w >= 600
-                              ? 4
-                              : Breakpoints.isDesktop(context)
-                                  ? 4
-                                  : 3;
+                      final cross = w >= 1100
+                          ? 4
+                          : w >= 780
+                              ? 3
+                              : w >= 480
+                                  ? 2
+                                  : 1;
                       return SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: cross,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 1.45,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          mainAxisExtent: 116,
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
@@ -242,33 +245,97 @@ class _CafeTile extends StatelessWidget {
   final Cafe cafe;
   final VoidCallback onTap;
 
+  String? get _logoUrl {
+    final path = cafe.guestLogoPath.trim();
+    if (path.isEmpty || !cafe.guestShowLogo) return null;
+    return AppStorageUrls.publicUrl(
+      Supabase.instance.client,
+      bucket: 'brand-logos',
+      path: path,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final started = cafe.createdAt;
+    final meta = <String>[
+      if (started != null) 'Started ${AppDates.medium.format(started)}',
+      '${cafe.tableCount} tables',
+      if (cafe.showGstOnBill) cafe.gstLabel,
+    ];
+
     return Material(
       color: AppColors.background,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
             children: [
-              CafePosMonogram(label: cafe.name, size: 36),
-              const Spacer(),
-              Text(
-                cafe.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      height: 1.2,
+              CafePosLogoMark(
+                name: cafe.name,
+                logoUrl: _logoUrl,
+                size: 56,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      cafe.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            height: 1.2,
+                            color: AppColors.text,
+                          ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta.join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontSize: 11.5,
+                            height: 1.3,
+                            color: AppColors.textLight,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.highlight.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        cafe.isActive ? 'Active' : 'Inactive',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.highlight,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textLight.withValues(alpha: 0.7),
+                size: 20,
               ),
             ],
           ),

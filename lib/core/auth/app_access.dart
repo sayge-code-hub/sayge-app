@@ -86,6 +86,10 @@ abstract final class AppAccess {
 
   /// Whether [location] is allowed for [user].
   static bool canAccessPath(User user, String location) {
+    if (location == AppRoutes.whatsNew ||
+        location.startsWith('${AppRoutes.whatsNew}/')) {
+      return true;
+    }
     if (isStaff(user)) return true;
 
     if (isCafeRole(user)) {
