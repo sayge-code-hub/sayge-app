@@ -143,12 +143,21 @@ class _CashTenderSheet extends StatefulWidget {
 class _CashTenderSheetState extends State<_CashTenderSheet> {
   String _digits = '';
 
-  double get _tendered {
+  /// Whole-rupee due matching [MoneyFormat] (0 decimal places).
+  int get _dueRupees => widget.due.round();
+
+  int get _tenderedRupees {
     if (_digits.isEmpty) return 0;
-    return double.tryParse(_digits) ?? 0;
+    final parsed = double.tryParse(_digits) ?? 0;
+    return parsed.round();
   }
 
-  double get _change => (_tendered - widget.due).clamp(0.0, double.infinity);
+  double get _tendered => _tenderedRupees.toDouble();
+
+  int get _changeRupees =>
+      (_tenderedRupees - _dueRupees).clamp(0, 1 << 30);
+
+  double get _change => _changeRupees.toDouble();
 
   void _press(String key) {
     setState(() {
@@ -170,16 +179,17 @@ class _CashTenderSheetState extends State<_CashTenderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final enough = _tendered + 0.001 >= widget.due;
+    final enough = _tenderedRupees >= _dueRupees;
     final keys = [
       ['1', '2', '3'],
       ['4', '5', '6'],
       ['7', '8', '9'],
       ['.', '0', '⌫'],
     ];
+    final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPad),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -200,7 +210,7 @@ class _CashTenderSheetState extends State<_CashTenderSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Due ${MoneyFormat.format(widget.due)}',
+              'Due ${MoneyFormat.format(_dueRupees)}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textLight,
                   ),

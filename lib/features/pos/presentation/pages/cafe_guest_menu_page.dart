@@ -171,13 +171,12 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
     if (_cart.isEmpty || _placing) return;
     setState(() => _placing = true);
     try {
+      // Guest QR is always in-cafe — dine-in (table optional on cafe-wide QR).
       final result = await sl<CafeGuestMenuApi>().placeOrder(
         cafeId: widget.cafeId,
         lines: List.of(_cart),
         tableNo: _tableNo,
-        orderType: _tableNo.isEmpty
-            ? CafeOrderType.takeaway
-            : CafeOrderType.dineIn,
+        orderType: CafeOrderType.dineIn,
       );
       if (!mounted) return;
       HapticFeedback.mediumImpact();

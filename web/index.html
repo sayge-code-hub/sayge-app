@@ -37,6 +37,15 @@
 
   <title>Saasify</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Netlify "Powered by" badge overlaps Flutter bottom CTAs on mobile. */
+    a[href*="netlify.com"][style*="position: fixed"],
+    a[href*="netlify.app"][style*="position: fixed"],
+    #netlify-badge,
+    .netlify-badge {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
   <!--

@@ -109,10 +109,15 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
 
   Never _schemaHint(PostgrestException e) {
     final msg = e.message.toLowerCase();
-    if (msg.contains('cafe_') ||
+    // Only map real missing-relation errors — do not treat every cafe_*
+    // RLS / check / column error as "tables missing".
+    final missingRelation = e.code == '42P01' ||
+        e.code == 'PGRST205' ||
         msg.contains('schema cache') ||
-        e.code == '42P01' ||
-        e.code == 'PGRST205') {
+        msg.contains('could not find the table') ||
+        (msg.contains('relation') && msg.contains('does not exist')) ||
+        (msg.contains('could not find the') && msg.contains('in the schema cache'));
+    if (missingRelation) {
       throw const ServerException(
         'Cafe POS tables are missing. Run cafe_pos.sql (and '
         'cafe_pos_coupons.sql / cafe_pos_tables.sql / '

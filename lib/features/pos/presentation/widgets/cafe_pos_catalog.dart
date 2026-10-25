@@ -158,7 +158,7 @@ class CafePosProductCard extends StatelessWidget {
         // Edit mode: open item. Terminal: tap card to add / bump qty; use − to remove.
         onTap: mode == CafePosProductCardMode.edit ? onTap : onAdd,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -166,41 +166,41 @@ class CafePosProductCard extends StatelessWidget {
                 child: Opacity(
                   opacity: unavailable ? 0.45 : 1,
                   child: Center(
-                    child: CafePosProductThumb(name: item.name, size: 48),
+                    child: CafePosProductThumb(name: item.name, size: 36),
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      height: 1.2,
+                      height: 1.15,
                       color: unavailable
                           ? AppColors.textLight
                           : AppColors.text,
                     ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 MoneyFormat.format(item.price),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: AppColors.highlight,
                     ),
               ),
               if (mode == CafePosProductCardMode.edit)
-                const SizedBox(height: 4)
+                const SizedBox(height: 2)
               else ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 if (qty <= 0)
                   Align(
                     alignment: Alignment.centerRight,
@@ -223,7 +223,7 @@ class CafePosProductCard extends StatelessWidget {
                         '$qty',
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
                       ),
@@ -265,9 +265,9 @@ class CafePosProductCard extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(icon, size: 20, color: AppColors.highlight),
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 18, color: AppColors.highlight),
         ),
       ),
     );
@@ -315,6 +315,7 @@ class CafePosProductGrid extends StatelessWidget {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         // Denser on large screens so tiles stay compact.
+        // Prefer denser tiles so more products fit on phone screens.
         final cross = w >= 1400
             ? 6
             : w >= 1100
@@ -328,9 +329,10 @@ class CafePosProductGrid extends StatelessWidget {
           padding: padding ?? const EdgeInsets.fromLTRB(0, 4, 0, 16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cross,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: cross >= 5 ? 0.95 : (cross >= 4 ? 0.9 : 0.82),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio:
+                cross >= 5 ? 1.05 : (cross >= 4 ? 1.0 : (cross >= 3 ? 0.95 : 1.05)),
           ),
           itemCount: items.length,
           itemBuilder: (context, index) {
