@@ -74,7 +74,15 @@ void main() {
 
     test('order type and payment method labels', () {
       expect(CafeOrderType.dineIn.dbValue, 'dine_in');
-      expect(CafePaymentMethod.upi.label, 'UPI');
+      expect(CafePaymentMethod.upi.label, 'UPI/Card');
+      expect(CafePaymentMethod.cash.label, 'Cash');
+      expect(CafePaymentMethod.upi.dbValue, 'upi');
+      expect(CafePaymentMethod.card.dbValue, 'upi');
+      expect(CafePaymentMethodX.fromDb('card'), CafePaymentMethod.upi);
+      expect(CafePaymentMethodX.checkoutOptions, [
+        CafePaymentMethod.upi,
+        CafePaymentMethod.cash,
+      ]);
     });
   });
 }
