@@ -15,12 +15,14 @@ class CafeModel extends Cafe {
     super.guestAccentHex,
     super.guestLayout,
     super.guestShowSearch,
+    super.createdAt,
   });
 
   factory CafeModel.fromJson(Map<String, dynamic> json) {
     final label = (json['gst_label'] ?? 'GST').toString().trim();
     final tables = (json['table_count'] as num?)?.toInt() ?? 16;
     final accent = (json['guest_accent_hex'] ?? '').toString().trim();
+    final createdRaw = json['created_at']?.toString();
     return CafeModel(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -35,6 +37,9 @@ class CafeModel extends Cafe {
       guestAccentHex: accent,
       guestLayout: GuestMenuLayoutX.fromDb(json['guest_layout']?.toString()),
       guestShowSearch: json['guest_show_search'] == true,
+      createdAt: createdRaw == null || createdRaw.isEmpty
+          ? null
+          : DateTime.tryParse(createdRaw)?.toLocal(),
     );
   }
 
@@ -124,6 +129,7 @@ class CafeMenuItemModel extends CafeMenuItem {
     required super.categoryId,
     required super.name,
     required super.price,
+    super.description,
     super.taxRate,
     super.isAvailable,
     super.isActive,
@@ -144,6 +150,7 @@ class CafeMenuItemModel extends CafeMenuItem {
       categoryId: (json['category_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       price: (json['price'] as num?)?.toDouble() ?? 0,
+      description: (json['description'] ?? '').toString(),
       taxRate: (json['tax_rate'] as num?)?.toDouble() ?? 0,
       isAvailable: json['is_available'] != false,
       isActive: json['is_active'] != false,
@@ -159,6 +166,7 @@ class CafeMenuItemModel extends CafeMenuItem {
         'category_id': categoryId,
         'name': name,
         'price': price,
+        'description': description,
         'tax_rate': taxRate,
         'is_available': isAvailable,
         'is_active': isActive,

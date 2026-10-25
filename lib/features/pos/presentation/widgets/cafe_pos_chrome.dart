@@ -205,6 +205,43 @@ class CafePosMonogram extends StatelessWidget {
   }
 }
 
+/// Cafe logo when uploaded; otherwise monogram.
+class CafePosLogoMark extends StatelessWidget {
+  const CafePosLogoMark({
+    super.key,
+    required this.name,
+    this.logoUrl,
+    this.size = 44,
+  });
+
+  final String name;
+  final String? logoUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = logoUrl?.trim() ?? '';
+    if (url.isEmpty) {
+      return CafePosMonogram(label: name, size: size);
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F3F1),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => CafePosMonogram(label: name, size: size),
+      ),
+    );
+  }
+}
+
 /// Tappable nav tile for Cafe POS hub.
 class CafePosNavTile extends StatelessWidget {
   const CafePosNavTile({
@@ -227,26 +264,26 @@ class CafePosNavTile extends StatelessWidget {
       color: AppColors.background,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(CafePosSpace.radius),
+        borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: AppColors.highlight.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 22, color: AppColors.highlight),
+                child: Icon(icon, size: 18, color: AppColors.highlight),
               ),
               const Spacer(),
               Text(
@@ -255,19 +292,19 @@ class CafePosNavTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                  fontSize: 13,
                   color: AppColors.text,
                 ),
               ),
               if (subtitle.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
-                    fontSize: 12,
-                    height: 1.25,
+                    fontSize: 11,
+                    height: 1.2,
                     color: AppColors.textLight,
                   ),
                 ),

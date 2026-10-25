@@ -34,6 +34,7 @@ class CafeMenuItemPage extends StatefulWidget {
 
 class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
   final _name = TextEditingController();
+  final _description = TextEditingController();
   final _price = TextEditingController();
   final _tax = TextEditingController(text: '0');
   List<CafeCategory> _categories = const [];
@@ -49,6 +50,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
   CafeMenuItem? _existing;
 
   String _baselineName = '';
+  String _baselineDescription = '';
   String _baselinePrice = '';
   String _baselineTax = '0';
   String? _baselineCategoryId;
@@ -59,6 +61,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
     super.initState();
     _editMode = !widget.isEditing;
     _name.addListener(_markDirty);
+    _description.addListener(_markDirty);
     _price.addListener(_markDirty);
     _tax.addListener(_markDirty);
     _load();
@@ -67,9 +70,11 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
   @override
   void dispose() {
     _name.removeListener(_markDirty);
+    _description.removeListener(_markDirty);
     _price.removeListener(_markDirty);
     _tax.removeListener(_markDirty);
     _name.dispose();
+    _description.dispose();
     _price.dispose();
     _tax.dispose();
     super.dispose();
@@ -77,6 +82,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
 
   void _markDirty() {
     final dirty = _name.text != _baselineName ||
+        _description.text != _baselineDescription ||
         _price.text != _baselinePrice ||
         _tax.text != _baselineTax ||
         _categoryId != _baselineCategoryId ||
@@ -86,6 +92,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
 
   void _captureBaseline() {
     _baselineName = _name.text;
+    _baselineDescription = _description.text;
     _baselinePrice = _price.text;
     _baselineTax = _tax.text;
     _baselineCategoryId = _categoryId;
@@ -140,6 +147,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
             }
             _existing = found;
             _name.text = found.name;
+            _description.text = found.description;
             _price.text = found.price.toStringAsFixed(2);
             _tax.text = found.taxRate.toStringAsFixed(0);
             _available = found.isAvailable;
@@ -288,6 +296,7 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
         cafeId: widget.cafeId,
         categoryId: _categoryId!,
         name: _name.text.trim(),
+        description: _description.text.trim(),
         price: p,
         taxRate: double.tryParse(_tax.text.trim()) ?? 0,
         isAvailable: _available,
@@ -447,11 +456,27 @@ class _CafeMenuItemPageState extends State<CafeMenuItemPage> {
                           color: AppColors.textLight,
                         ),
                   ),
+                  if (_description.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _description.text.trim(),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textLight,
+                            height: 1.4,
+                          ),
+                    ),
+                  ],
                 ] else ...[
                   AppTextField(
                     label: 'Name',
                     controller: _name,
                     autofocus: !widget.isEditing,
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: 'Description',
+                    controller: _description,
+                    maxLines: 3,
                   ),
                   const SizedBox(height: 14),
                   if (_categories.isEmpty)

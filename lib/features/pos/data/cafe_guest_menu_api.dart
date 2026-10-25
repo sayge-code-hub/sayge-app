@@ -13,8 +13,8 @@ class GuestCafeBrand {
     this.showLogo = true,
     this.tagline = '',
     this.accentHex = '',
-    this.layout = GuestMenuLayout.fresh,
-    this.showSearch = false,
+    this.layout = GuestMenuLayout.detailed,
+    this.showSearch = true,
   });
 
   final String logoPath;
@@ -104,6 +104,25 @@ class CafeGuestMenuApi {
         for (final row in itemsRaw) {
           if (row is! Map) continue;
           final m = Map<String, dynamic>.from(row);
+          final addonsRaw = m['addons'];
+          final addons = <CafeMenuAddon>[];
+          if (addonsRaw is List) {
+            for (final a in addonsRaw) {
+              if (a is! Map) continue;
+              final am = Map<String, dynamic>.from(a);
+              addons.add(
+                CafeMenuAddon(
+                  id: (am['id'] ?? '').toString(),
+                  cafeId: cafeId,
+                  menuItemId: (m['id'] ?? '').toString(),
+                  name: (am['name'] ?? '').toString(),
+                  price: (am['price'] as num?)?.toDouble() ?? 0,
+                  isActive: true,
+                  sortOrder: (am['sort_order'] as num?)?.toInt() ?? 0,
+                ),
+              );
+            }
+          }
           items.add(
             CafeMenuItem(
               id: (m['id'] ?? '').toString(),
@@ -111,9 +130,11 @@ class CafeGuestMenuApi {
               categoryId: (m['category_id'] ?? '').toString(),
               name: (m['name'] ?? '').toString(),
               price: (m['price'] as num?)?.toDouble() ?? 0,
+              description: (m['description'] ?? '').toString(),
               taxRate: (m['tax_rate'] as num?)?.toDouble() ?? 0,
               sortOrder: (m['sort_order'] as num?)?.toInt() ?? 0,
               categoryName: (m['category_name'] ?? '').toString(),
+              addons: addons,
               isAvailable: true,
               isActive: true,
             ),
@@ -175,7 +196,12 @@ class CafeGuestMenuApi {
           {
             'menu_item_id': line.menuItem.id,
             'quantity': line.quantity,
-            'notes': line.notes.trim(),
+            'notes': [
+              if (line.notes.trim().isNotEmpty) line.notes.trim(),
+              if (line.addons.isNotEmpty)
+                'Add-ons: ${line.addons.map((a) => a.name).join(', ')}',
+            ].join(' · '),
+            'addon_ids': [for (final a in line.addons) a.id],
           },
       ];
       final raw = await _client.rpc(

@@ -107,44 +107,26 @@ extension CafePaymentMethodX on CafePaymentMethod {
 
 /// Guest QR menu layout presets.
 enum GuestMenuLayout {
-  /// Light list with accent chips and qty pills (default).
+  /// Soft green grid + item detail (only guest QR layout).
+  detailed,
+
+  /// Legacy — mapped to [detailed].
   fresh,
 
-  /// Two-column gallery cards with + buttons.
+  /// Legacy — mapped to [detailed].
   gallery,
-
-  /// Soft green home + circular item detail (reference “Detailed View”).
-  detailed,
 }
 
 extension GuestMenuLayoutX on GuestMenuLayout {
-  String get dbValue => name;
+  String get dbValue => GuestMenuLayout.detailed.name;
 
-  String get label => switch (this) {
-        GuestMenuLayout.fresh => 'Fresh',
-        GuestMenuLayout.gallery => 'Gallery',
-        GuestMenuLayout.detailed => 'Detailed View',
-      };
+  String get label => 'Detailed View';
 
-  String get blurb => switch (this) {
-        GuestMenuLayout.fresh => 'Bright chips, menu rows',
-        GuestMenuLayout.gallery => 'Photo-style grid cards',
-        GuestMenuLayout.detailed => 'Recommended, grid, item detail',
-      };
+  String get blurb => 'Search, categories, item detail';
 
   static GuestMenuLayout fromDb(String? raw) {
-    switch ((raw ?? '').trim().toLowerCase()) {
-      case 'gallery':
-        return GuestMenuLayout.gallery;
-      case 'detailed':
-      case 'detailed_view':
-      case 'detail':
-        return GuestMenuLayout.detailed;
-      case 'fresh':
-      case 'night': // legacy → fresh
-      default:
-        return GuestMenuLayout.fresh;
-    }
+    // Fresh / Gallery retired — always Detailed View.
+    return GuestMenuLayout.detailed;
   }
 }
 
@@ -162,13 +144,15 @@ class Cafe extends Equatable {
     this.guestShowLogo = true,
     this.guestTagline = '',
     this.guestAccentHex = '',
-    this.guestLayout = GuestMenuLayout.fresh,
+    this.guestLayout = GuestMenuLayout.detailed,
     this.guestShowSearch = false,
+    this.createdAt,
   });
 
   final String id;
   final String name;
   final bool isActive;
+  final DateTime? createdAt;
 
   /// Show tax / GST lines on the terminal bill.
   final bool showGstOnBill;
@@ -208,6 +192,7 @@ class Cafe extends Equatable {
     String? guestAccentHex,
     GuestMenuLayout? guestLayout,
     bool? guestShowSearch,
+    DateTime? createdAt,
   }) {
     return Cafe(
       id: id ?? this.id,
@@ -223,6 +208,7 @@ class Cafe extends Equatable {
       guestAccentHex: guestAccentHex ?? this.guestAccentHex,
       guestLayout: guestLayout ?? this.guestLayout,
       guestShowSearch: guestShowSearch ?? this.guestShowSearch,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -241,6 +227,7 @@ class Cafe extends Equatable {
         guestAccentHex,
         guestLayout,
         guestShowSearch,
+        createdAt,
       ];
 }
 
@@ -294,6 +281,7 @@ class CafeMenuItem extends Equatable {
     required this.categoryId,
     required this.name,
     required this.price,
+    this.description = '',
     this.taxRate = 0,
     this.isAvailable = true,
     this.isActive = true,
@@ -307,6 +295,7 @@ class CafeMenuItem extends Equatable {
   final String categoryId;
   final String name;
   final double price;
+  final String description;
   final double taxRate;
   final bool isAvailable;
   final bool isActive;
@@ -317,6 +306,7 @@ class CafeMenuItem extends Equatable {
   CafeMenuItem copyWith({
     List<CafeMenuAddon>? addons,
     String? categoryName,
+    String? description,
   }) {
     return CafeMenuItem(
       id: id,
@@ -324,6 +314,7 @@ class CafeMenuItem extends Equatable {
       categoryId: categoryId,
       name: name,
       price: price,
+      description: description ?? this.description,
       taxRate: taxRate,
       isAvailable: isAvailable,
       isActive: isActive,
@@ -340,6 +331,7 @@ class CafeMenuItem extends Equatable {
         categoryId,
         name,
         price,
+        description,
         taxRate,
         isAvailable,
         isActive,

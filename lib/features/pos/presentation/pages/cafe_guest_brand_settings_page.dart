@@ -16,10 +16,9 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/cafe_entities.dart';
 import '../../domain/usecases/cafe_pos_usecases.dart';
-import '../guest/guest_menu_theme.dart';
 import '../widgets/cafe_pos_chrome.dart';
 
-/// Configure how guests see the QR menu: layout, accent, logo, tagline.
+/// Configure how guests see the QR menu: cafe name + logo.
 class CafeGuestBrandSettingsPage extends StatefulWidget {
   const CafeGuestBrandSettingsPage({super.key, required this.cafeId});
 
@@ -38,24 +37,20 @@ class _CafeGuestBrandSettingsPageState
   bool _uploading = false;
   String? _error;
 
-  late final TextEditingController _tagline;
-  late final TextEditingController _accentHex;
-  GuestMenuLayout _layout = GuestMenuLayout.fresh;
+  late final TextEditingController _name;
   bool _showLogo = true;
-  bool _showSearch = false;
+  bool _showSearch = true;
 
   @override
   void initState() {
     super.initState();
-    _tagline = TextEditingController();
-    _accentHex = TextEditingController();
+    _name = TextEditingController();
     _load();
   }
 
   @override
   void dispose() {
-    _tagline.dispose();
-    _accentHex.dispose();
+    _name.dispose();
     super.dispose();
   }
 
@@ -86,12 +81,10 @@ class _CafeGuestBrandSettingsPageState
           });
           return;
         }
-        _tagline.text = found.guestTagline;
-        _accentHex.text = found.guestAccentHex;
+        _name.text = found.name;
         setState(() {
           _cafe = found;
-          _layout = found!.guestLayout;
-          _showLogo = found.guestShowLogo;
+          _showLogo = found!.guestShowLogo;
           _showSearch = found.guestShowSearch;
           _loading = false;
         });
@@ -112,21 +105,22 @@ class _CafeGuestBrandSettingsPageState
   Future<void> _save() async {
     final cafe = _cafe;
     if (cafe == null || _saving) return;
-    final hex = _accentHex.text.trim();
-    if (hex.isNotEmpty && GuestMenuTheme.parseAccentHex(hex) == null) {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
       await showAppMessageDialog(
         context,
-        title: 'Accent color',
-        message: 'Use a hex like #1B7A4E or leave blank for the default.',
+        title: 'Cafe name',
+        message: 'Add a cafe name so guests know where they are ordering.',
       );
       return;
     }
     setState(() => _saving = true);
     final result = await sl<UpsertCafe>()(
       cafe.copyWith(
-        guestTagline: _tagline.text.trim(),
-        guestAccentHex: hex.startsWith('#') || hex.isEmpty ? hex : '#$hex',
-        guestLayout: _layout,
+        name: name,
+        guestTagline: '',
+        guestAccentHex: '',
+        guestLayout: GuestMenuLayout.detailed,
         guestShowLogo: _showLogo,
         guestShowSearch: _showSearch,
       ),
@@ -252,8 +246,6 @@ class _CafeGuestBrandSettingsPageState
     }
 
     final logoUrl = _logoUrl;
-    final previewAccent =
-        GuestMenuTheme.parseAccentHex(_accentHex.text) ?? AppColors.highlight;
 
     return CafePosBackdrop(
       child: ListView(
@@ -266,120 +258,11 @@ class _CafeGuestBrandSettingsPageState
                   fontSize: 18,
                 ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Pick Fresh or Gallery, brand color, and logo. After saving, '
-            'open Preview — if save fails, run cafe_pos_guest_brand.sql '
-            'in Supabase first.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textLight,
-                  height: 1.35,
-                ),
-          ),
           const SizedBox(height: 22),
-          Text(
-            'Layout',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 10),
-          ...GuestMenuLayout.values.map((layout) {
-            final selected = _layout == layout;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: selected
-                    ? previewAccent.withValues(alpha: 0.1)
-                    : AppColors.background,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(CafePosSpace.radius),
-                  side: BorderSide(
-                    color: selected ? previewAccent : AppColors.border,
-                    width: selected ? 1.5 : 1,
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => setState(() => _layout = layout),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-                    child: Row(
-                      children: [
-                        _LayoutThumb(layout: layout, accent: previewAccent),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                layout.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                layout.blurb,
-                                style: TextStyle(
-                                  color: AppColors.textLight.withValues(
-                                    alpha: 0.95,
-                                  ),
-                                  fontSize: 12,
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          selected
-                              ? Icons.check_circle_rounded
-                              : Icons.circle_outlined,
-                          color: selected
-                              ? previewAccent
-                              : AppColors.textLight.withValues(alpha: 0.5),
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 18),
-          Text(
-            'Accent color',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final preset in GuestMenuTheme.accentPresets)
-                _AccentChip(
-                  label: preset.$1,
-                  hex: preset.$2,
-                  selected: _accentHex.text.trim().toUpperCase() ==
-                          preset.$2.toUpperCase() ||
-                      (_accentHex.text.trim().isEmpty &&
-                          preset.$2 == '#FF6B4A' &&
-                          (_cafe?.guestAccentHex.isEmpty ?? true)),
-                  onTap: () => setState(() => _accentHex.text = preset.$2),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
           AppTextField(
-            controller: _accentHex,
-            label: 'Custom hex (optional)',
-            hintText: '#1B7A4E',
-            onChanged: (_) => setState(() {}),
+            controller: _name,
+            label: 'Cafe name',
+            hintText: 'e.g. Sayge Demo Cafe',
           ),
           const SizedBox(height: 18),
           Text(
@@ -390,83 +273,119 @@ class _CafeGuestBrandSettingsPageState
           ),
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(14),
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(CafePosSpace.radius),
               border: Border.all(color: AppColors.border),
             ),
-            child: Row(
+            child: Column(
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 96,
+                  height: 96,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F0EE),
-                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0xFFF3F3F1),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: logoUrl == null
-                      ? Icon(
+                      ? const Icon(
                           Icons.storefront_rounded,
-                          color: previewAccent,
-                          size: 28,
+                          color: AppColors.textLight,
+                          size: 36,
                         )
                       : Image.network(
                           logoUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Icon(
+                          errorBuilder: (_, _, _) => const Icon(
                             Icons.broken_image_outlined,
                             color: AppColors.textLight,
                           ),
                         ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Show logo on menu',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                const SizedBox(height: 16),
+                Text(
+                  logoUrl == null ? 'No logo yet' : 'Current logo',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Shown on the guest menu while it loads',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textLight.withValues(alpha: 0.95),
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _uploading ? null : _pickLogo,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.text,
+                          side: const BorderSide(color: AppColors.border),
+                          minimumSize: const Size.fromHeight(44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(CafePosSpace.radius),
                           ),
                         ),
-                        value: _showLogo,
-                        activeThumbColor: previewAccent,
-                        onChanged: (v) => setState(() => _showLogo = v),
+                        child: Text(
+                          _uploading
+                              ? 'Uploading…'
+                              : logoUrl == null
+                                  ? 'Upload logo'
+                                  : 'Replace logo',
+                        ),
                       ),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: _uploading ? null : _pickLogo,
-                            child: Text(
-                              logoUrl == null ? 'Upload logo' : 'Replace',
+                    ),
+                    if (logoUrl != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _uploading ? null : _removeLogo,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            side: BorderSide(
+                              color: AppColors.error.withValues(alpha: 0.35),
+                            ),
+                            minimumSize: const Size.fromHeight(44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(CafePosSpace.radius),
                             ),
                           ),
-                          if (logoUrl != null)
-                            TextButton(
-                              onPressed: _uploading ? null : _removeLogo,
-                              child: const Text('Remove'),
-                            ),
-                        ],
+                          child: const Text('Remove'),
+                        ),
                       ),
                     ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Show logo on menu',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
+                  value: _showLogo,
+                  activeThumbColor: AppColors.highlight,
+                  onChanged: (v) => setState(() => _showLogo = v),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 18),
-          AppTextField(
-            controller: _tagline,
-            label: 'Tagline',
-            hintText: 'What are you craving?',
-            maxLines: 2,
           ),
           const SizedBox(height: 8),
           SwitchListTile.adaptive(
@@ -475,15 +394,8 @@ class _CafeGuestBrandSettingsPageState
               'Show search on menu',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
-            subtitle: Text(
-              'Guests can filter items by name',
-              style: TextStyle(
-                color: AppColors.textLight.withValues(alpha: 0.9),
-                fontSize: 12,
-              ),
-            ),
             value: _showSearch,
-            activeThumbColor: previewAccent,
+            activeThumbColor: AppColors.highlight,
             onChanged: (v) => setState(() => _showSearch = v),
           ),
           const SizedBox(height: 24),
@@ -512,221 +424,6 @@ class _CafeGuestBrandSettingsPageState
           ),
           const SizedBox(height: 32),
         ],
-      ),
-    );
-  }
-}
-
-class _LayoutThumb extends StatelessWidget {
-  const _LayoutThumb({required this.layout, required this.accent});
-
-  final GuestMenuLayout layout;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 64,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-        color: switch (layout) {
-          GuestMenuLayout.fresh => const Color(0xFFF7F7F5),
-          GuestMenuLayout.gallery => const Color(0xFFF0EEEA),
-          GuestMenuLayout.detailed => const Color(0xFFF2FBF6),
-        },
-      ),
-      padding: const EdgeInsets.all(6),
-      child: switch (layout) {
-        GuestMenuLayout.detailed => Column(
-            children: [
-              Container(
-                height: 10,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3DDC84).withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3DDC84).withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3DDC84).withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 3),
-              Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3DDC84),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ],
-          ),
-        GuestMenuLayout.fresh => Column(
-            children: [
-              Row(
-                children: List.generate(
-                  3,
-                  (i) => Expanded(
-                    child: Container(
-                      height: 8,
-                      margin: EdgeInsets.only(right: i < 2 ? 3 : 0),
-                      decoration: BoxDecoration(
-                        color: i == 0
-                            ? accent
-                            : accent.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: Column(
-                  children: List.generate(
-                    3,
-                    (_) => Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE4E2DE),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        GuestMenuLayout.gallery => Column(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 3),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-      },
-    );
-  }
-}
-
-class _AccentChip extends StatelessWidget {
-  const _AccentChip({
-    required this.label,
-    required this.hex,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String hex;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = GuestMenuTheme.parseAccentHex(hex) ?? AppColors.highlight;
-    return Material(
-      color: selected ? color.withValues(alpha: 0.12) : AppColors.background,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected ? color : AppColors.border,
-          width: selected ? 1.5 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

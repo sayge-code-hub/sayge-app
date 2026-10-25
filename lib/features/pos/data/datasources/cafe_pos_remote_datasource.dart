@@ -551,23 +551,38 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
   @override
   Future<CafeMenuItemModel> upsertMenuItem(CafeMenuItem item) async {
     final id = item.id.trim().isEmpty ? _id('citem') : item.id.trim();
+    final base = <String, dynamic>{
+      'id': id,
+      'cafe_id': item.cafeId,
+      'category_id': item.categoryId,
+      'name': item.name.trim(),
+      'price': item.price,
+      'tax_rate': item.taxRate,
+      'is_available': item.isAvailable,
+      'is_active': item.isActive,
+      'sort_order': item.sortOrder,
+    };
     try {
-      final row = await _client
-          .from('cafe_menu_items')
-          .upsert({
-            'id': id,
-            'cafe_id': item.cafeId,
-            'category_id': item.categoryId,
-            'name': item.name.trim(),
-            'price': item.price,
-            'tax_rate': item.taxRate,
-            'is_available': item.isAvailable,
-            'is_active': item.isActive,
-            'sort_order': item.sortOrder,
-          })
-          .select('*, cafe_categories(name)')
-          .single();
-      return CafeMenuItemModel.fromJson(row);
+      try {
+        final row = await _client
+            .from('cafe_menu_items')
+            .upsert({
+              ...base,
+              'description': item.description.trim(),
+            })
+            .select('*, cafe_categories(name)')
+            .single();
+        return CafeMenuItemModel.fromJson(row);
+      } on PostgrestException catch (e) {
+        final msg = e.message.toLowerCase();
+        if (!msg.contains('description')) rethrow;
+        final row = await _client
+            .from('cafe_menu_items')
+            .upsert(base)
+            .select('*, cafe_categories(name)')
+            .single();
+        return CafeMenuItemModel.fromJson(row);
+      }
     } on PostgrestException catch (e) {
       _schemaHint(e);
     } catch (e) {

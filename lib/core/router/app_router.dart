@@ -53,7 +53,13 @@ import '../../features/settings/presentation/pages/theme_page.dart';
 import '../auth/app_access.dart';
 import '../auth/auth_session.dart';
 import '../theme/app_colors.dart';
+import '../widgets/release_notes_page.dart';
 import 'app_routes.dart';
+
+bool _isWhatsNewPath(String path) {
+  final p = path.trim();
+  return p == AppRoutes.whatsNew || p.startsWith('${AppRoutes.whatsNew}/');
+}
 
 void _goBack(BuildContext context, String fallback) {
   if (context.canPop()) {
@@ -133,6 +139,11 @@ GoRouter createAppRouter(AuthSession authSession) {
         return null;
       }
 
+      // Release notes easter egg — available logged out or in.
+      if (_isWhatsNewPath(location) || _isWhatsNewPath(uriPath)) {
+        return null;
+      }
+
       if (_isAuthHashDebris(location) || _isAuthHashDebris(uriPath)) {
         return AppRoutes.setPassword;
       }
@@ -166,6 +177,11 @@ GoRouter createAppRouter(AuthSession authSession) {
       GoRoute(
         path: AppRoutes.setPassword,
         pageBuilder: (context, state) => _page(state, const SetPasswordPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.whatsNew,
+        pageBuilder: (context, state) =>
+            _page(state, const ReleaseNotesPage()),
       ),
       GoRoute(
         path: '/m/:cafeId',
