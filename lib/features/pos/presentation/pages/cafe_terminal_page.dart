@@ -825,58 +825,61 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                title: Text(
-                  'Collect ${MoneyFormat.format(_total)}',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                subtitle: const Text('Choose a payment method'),
-              ),
-              for (final m in CafePaymentMethod.values)
-                ListTile(
-                  leading: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.highlight.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      switch (m) {
-                        CafePaymentMethod.cash => Icons.payments_outlined,
-                        CafePaymentMethod.upi => Icons.qr_code_2_outlined,
-                        CafePaymentMethod.card => Icons.credit_card_outlined,
-                      },
-                      size: 22,
-                      color: AppColors.highlight,
-                    ),
+      builder: (ctx) {
+        final bottomPad = MediaQuery.paddingOf(ctx).bottom + 28;
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(8, 8, 8, bottomPad),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  title: Text(m.label),
-                  trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                  onTap: () => Navigator.pop(ctx, m),
                 ),
-            ],
+                ListTile(
+                  title: Text(
+                    'Collect ${MoneyFormat.format(_total)}',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  subtitle: const Text('Choose a payment method'),
+                ),
+                for (final m in CafePaymentMethod.values)
+                  ListTile(
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.highlight.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        switch (m) {
+                          CafePaymentMethod.cash => Icons.payments_outlined,
+                          CafePaymentMethod.upi => Icons.qr_code_2_outlined,
+                          CafePaymentMethod.card => Icons.credit_card_outlined,
+                        },
+                        size: 22,
+                        color: AppColors.highlight,
+                      ),
+                    ),
+                    title: Text(m.label),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: () => Navigator.pop(ctx, m),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -916,10 +919,14 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
 
     final settleSession = _session!;
     final settleKey = settleSession.storageKey;
+    // Table tabs are always dine-in — never punch as takeaway.
+    final orderType = settleSession.tableNo.trim().isNotEmpty
+        ? CafeOrderType.dineIn
+        : settleSession.orderType;
     setState(() => _busy = true);
     final created = await sl<CreateCafeOrder>()(
       cafeId: widget.cafeId,
-      orderType: settleSession.orderType,
+      orderType: orderType,
       lines: List.of(settleSession.lines),
       discountAmount: _discount,
       couponId: applied?.id,
@@ -1527,11 +1534,23 @@ class _OrderPanel extends StatelessWidget {
             onSelectionChanged: (s) => onOrderType(s.first),
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.background;
+                }
+                return AppColors.text;
+              }),
               backgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return AppColors.highlight.withValues(alpha: 0.14);
+                  return AppColors.highlight;
                 }
                 return AppColors.background;
+              }),
+              side: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return BorderSide.none;
+                }
+                return const BorderSide(color: AppColors.border);
               }),
             ),
           ),
@@ -1591,7 +1610,12 @@ class _OrderPanel extends StatelessWidget {
         ),
         const Divider(height: 1, color: AppColors.border),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom + 20,
+          ),
           child: Column(
             children: [
               if (coupon == null) ...[
