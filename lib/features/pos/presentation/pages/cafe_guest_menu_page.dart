@@ -63,28 +63,36 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage> {
   }
 
   Future<void> _restoreSplash() async {
-    final prefs = sl<SharedPreferences>();
-    final name = prefs.getString(_cacheNameKey) ?? '';
-    final logo = prefs.getString(_cacheLogoKey);
-    final showLogo = prefs.getBool(_cacheShowLogoKey) ?? true;
-    if (!mounted) return;
-    setState(() {
-      _splashName = name;
-      _splashLogoUrl = (logo == null || logo.isEmpty) ? null : logo;
-      _splashShowLogo = showLogo;
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString(_cacheNameKey) ?? '';
+      final logo = prefs.getString(_cacheLogoKey);
+      final showLogo = prefs.getBool(_cacheShowLogoKey) ?? true;
+      if (!mounted) return;
+      setState(() {
+        _splashName = name;
+        _splashLogoUrl = (logo == null || logo.isEmpty) ? null : logo;
+        _splashShowLogo = showLogo;
+      });
+    } catch (_) {
+      // Splash cache is best-effort — never block the menu.
+    }
   }
 
   Future<void> _persistSplash(GuestCafeMenu menu) async {
-    final prefs = sl<SharedPreferences>();
-    await prefs.setString(_cacheNameKey, menu.cafeName.trim());
-    final url = menu.brand.logoUrl?.trim() ?? '';
-    if (url.isEmpty) {
-      await prefs.remove(_cacheLogoKey);
-    } else {
-      await prefs.setString(_cacheLogoKey, url);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheNameKey, menu.cafeName.trim());
+      final url = menu.brand.logoUrl?.trim() ?? '';
+      if (url.isEmpty) {
+        await prefs.remove(_cacheLogoKey);
+      } else {
+        await prefs.setString(_cacheLogoKey, url);
+      }
+      await prefs.setBool(_cacheShowLogoKey, menu.brand.showLogo);
+    } catch (_) {
+      // Ignore cache write failures.
     }
-    await prefs.setBool(_cacheShowLogoKey, menu.brand.showLogo);
   }
 
   Future<void> _load() async {

@@ -935,7 +935,7 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
           .lt('recorded_at', end.toIso8601String());
 
       final byMethod = <CafePaymentMethod, double>{
-        for (final m in CafePaymentMethod.values) m: 0,
+        for (final m in CafePaymentMethodX.checkoutOptions) m: 0,
       };
       for (final row in payRows as List) {
         final map = row as Map<String, dynamic>;

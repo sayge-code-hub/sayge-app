@@ -851,7 +851,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
                   ),
                   subtitle: const Text('Choose a payment method'),
                 ),
-                for (final m in CafePaymentMethod.values)
+                for (final m in CafePaymentMethodX.checkoutOptions)
                   ListTile(
                     leading: Container(
                       width: 44,
@@ -864,8 +864,9 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
                       child: Icon(
                         switch (m) {
                           CafePaymentMethod.cash => Icons.payments_outlined,
-                          CafePaymentMethod.upi => Icons.qr_code_2_outlined,
-                          CafePaymentMethod.card => Icons.credit_card_outlined,
+                          CafePaymentMethod.upi ||
+                          CafePaymentMethod.card =>
+                            Icons.qr_code_2_outlined,
                         },
                         size: 22,
                         color: AppColors.highlight,

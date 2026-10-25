@@ -22,9 +22,18 @@ class AppReleaseNote {
 
 /// Newest first. Keep in sync when shipping notable deploys.
 abstract final class AppReleaseNotes {
-  static const currentVersionHint = '1.0.20';
+  static const currentVersionHint = '1.0.21';
 
   static final List<AppReleaseNote> all = [
+    AppReleaseNote(
+      version: '1.0.21',
+      releasedAt: DateTime.utc(2026, 10, 25, 8, 45),
+      title: 'Checkout tender & guest menu fix',
+      highlights: [
+        'Pay sheet shows only UPI/Card and Cash',
+        'Guest QR menu no longer crashes on load (splash prefs)',
+      ],
+    ),
     AppReleaseNote(
       version: '1.0.20',
       releasedAt: DateTime.utc(2026, 10, 25, 8, 15),

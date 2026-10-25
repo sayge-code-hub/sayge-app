@@ -6,7 +6,14 @@ enum CafePrepStatus { neu, preparing, ready, completed, cancelled }
 
 enum CafePaymentStatus { pending, paid, refunded }
 
-enum CafePaymentMethod { cash, upi, card }
+/// Tender types shown at checkout. DB still accepts legacy `card` rows.
+enum CafePaymentMethod {
+  cash,
+  /// Digital: UPI or card — stored as `upi` in the DB.
+  upi,
+  /// Legacy only — mapped to [upi] when reading.
+  card,
+}
 
 extension CafeOrderTypeX on CafeOrderType {
   String get dbValue => switch (this) {
@@ -85,20 +92,28 @@ extension CafePaymentStatusX on CafePaymentStatus {
 }
 
 extension CafePaymentMethodX on CafePaymentMethod {
-  String get dbValue => name;
+  /// Values offered in the pay sheet (Cash + UPI/Card).
+  static const checkoutOptions = <CafePaymentMethod>[
+    CafePaymentMethod.upi,
+    CafePaymentMethod.cash,
+  ];
+
+  /// Persist digital tenders as `upi` (covers UPI and card).
+  String get dbValue => switch (this) {
+        CafePaymentMethod.cash => 'cash',
+        CafePaymentMethod.upi || CafePaymentMethod.card => 'upi',
+      };
 
   String get label => switch (this) {
         CafePaymentMethod.cash => 'Cash',
-        CafePaymentMethod.upi => 'UPI',
-        CafePaymentMethod.card => 'Card',
+        CafePaymentMethod.upi || CafePaymentMethod.card => 'UPI/Card',
       };
 
   static CafePaymentMethod fromDb(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
       case 'upi':
-        return CafePaymentMethod.upi;
       case 'card':
-        return CafePaymentMethod.card;
+        return CafePaymentMethod.upi;
       default:
         return CafePaymentMethod.cash;
     }
