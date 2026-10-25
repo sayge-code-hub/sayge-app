@@ -112,6 +112,9 @@ enum GuestMenuLayout {
 
   /// Two-column gallery cards with + buttons.
   gallery,
+
+  /// Soft green home + circular item detail (reference “Detailed View”).
+  detailed,
 }
 
 extension GuestMenuLayoutX on GuestMenuLayout {
@@ -120,17 +123,23 @@ extension GuestMenuLayoutX on GuestMenuLayout {
   String get label => switch (this) {
         GuestMenuLayout.fresh => 'Fresh',
         GuestMenuLayout.gallery => 'Gallery',
+        GuestMenuLayout.detailed => 'Detailed View',
       };
 
   String get blurb => switch (this) {
         GuestMenuLayout.fresh => 'Bright chips, menu rows',
         GuestMenuLayout.gallery => 'Photo-style grid cards',
+        GuestMenuLayout.detailed => 'Recommended, grid, item detail',
       };
 
   static GuestMenuLayout fromDb(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
       case 'gallery':
         return GuestMenuLayout.gallery;
+      case 'detailed':
+      case 'detailed_view':
+      case 'detail':
+        return GuestMenuLayout.detailed;
       case 'fresh':
       case 'night': // legacy → fresh
       default:

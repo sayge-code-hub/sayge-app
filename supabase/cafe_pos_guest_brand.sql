@@ -1,5 +1,5 @@
 -- Guest QR menu branding / layout (safe to re-run).
--- Layouts: fresh | gallery (night removed).
+-- Layouts: fresh | gallery | detailed (night removed).
 -- Also refreshes get_guest_cafe_menu so the public /m menu receives brand fields.
 
 alter table public.cafes
@@ -32,7 +32,7 @@ alter table public.cafes
 
 alter table public.cafes
   add constraint cafes_guest_layout_check
-  check (guest_layout in ('fresh', 'gallery'));
+  check (guest_layout in ('fresh', 'gallery', 'detailed'));
 
 alter table public.cafes
   alter column guest_layout set default 'fresh';
@@ -40,7 +40,7 @@ alter table public.cafes
 comment on column public.cafes.guest_logo_path is
   'Storage path in brand-logos for guest QR menu logo.';
 comment on column public.cafes.guest_layout is
-  'Guest menu layout: fresh | gallery.';
+  'Guest menu layout: fresh | gallery | detailed.';
 comment on column public.cafes.guest_accent_hex is
   'Optional #RRGGBB accent for guest menu; empty uses default.';
 

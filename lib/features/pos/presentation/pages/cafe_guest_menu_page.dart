@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../injection_container.dart';
 import '../../data/cafe_guest_menu_api.dart';
 import '../../domain/entities/cafe_entities.dart';
+import '../guest/cafe_guest_detailed_menu.dart';
 import '../guest/guest_menu_theme.dart';
 
 const _kInk = Color(0xFF141210);
@@ -338,6 +339,26 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage>
 
     final menu = _menu!;
     final counts = _categoryCounts;
+
+    if (theme.layout == GuestMenuLayout.detailed) {
+      return _phoneShell(
+        bg: DetailedMenuColors.bg,
+        child: CafeGuestDetailedMenu(
+          cafeName: menu.cafeName,
+          tableNo: _tableNo,
+          categories: menu.categories,
+          items: menu.items,
+          cart: _cart,
+          qtyFor: _qty,
+          onAdd: _add,
+          onRemove: _remove,
+          onOpenCart: _openCart,
+          searchController: _searchCtrl,
+          onSearch: (v) => setState(() => _search = v),
+          accent: accent,
+        ),
+      );
+    }
 
     return _phoneShell(
       bg: bg,
