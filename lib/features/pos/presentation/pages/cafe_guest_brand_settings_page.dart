@@ -40,7 +40,7 @@ class _CafeGuestBrandSettingsPageState
 
   late final TextEditingController _tagline;
   late final TextEditingController _accentHex;
-  GuestMenuLayout _layout = GuestMenuLayout.night;
+  GuestMenuLayout _layout = GuestMenuLayout.fresh;
   bool _showLogo = true;
   bool _showSearch = false;
 
@@ -268,8 +268,9 @@ class _CafeGuestBrandSettingsPageState
           ),
           const SizedBox(height: 6),
           Text(
-            'Pick a layout, brand color, and logo. Changes apply the next '
-            'time someone opens the menu.',
+            'Pick Fresh or Gallery, brand color, and logo. After saving, '
+            'open Preview — if save fails, run cafe_pos_guest_brand.sql '
+            'in Supabase first.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textLight,
                   height: 1.35,
@@ -531,41 +532,12 @@ class _LayoutThumb extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.border),
         color: switch (layout) {
-          GuestMenuLayout.night => const Color(0xFF1A1714),
           GuestMenuLayout.fresh => const Color(0xFFF7F7F5),
           GuestMenuLayout.gallery => const Color(0xFFF0EEEA),
         },
       ),
       padding: const EdgeInsets.all(6),
       child: switch (layout) {
-        GuestMenuLayout.night => Column(
-            children: [
-              Container(
-                height: 18,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Column(
-                  children: List.generate(
-                    3,
-                    (_) => Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
         GuestMenuLayout.fresh => Column(
             children: [
               Row(

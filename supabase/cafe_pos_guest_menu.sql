@@ -4,6 +4,8 @@
 -- ---------------------------------------------------------------------------
 -- Public menu payload for /m/:cafeId
 -- ---------------------------------------------------------------------------
+-- Brand columns + layout live in cafe_pos_guest_brand.sql.
+-- This RPC always returns brand keys (defaults when columns are missing).
 create or replace function public.get_guest_cafe_menu(p_cafe_id text)
 returns jsonb
 language plpgsql
@@ -15,6 +17,12 @@ declare
   v_cafe public.cafes%rowtype;
   v_categories jsonb;
   v_items jsonb;
+  v_logo text := '';
+  v_tagline text := '';
+  v_accent text := '';
+  v_layout text := 'fresh';
+  v_show_logo boolean := true;
+  v_show_search boolean := false;
 begin
   if p_cafe_id is null or length(trim(p_cafe_id)) = 0 then
     raise exception 'Cafe id required';
@@ -28,6 +36,26 @@ begin
   if not found then
     raise exception 'Cafe not found or inactive';
   end if;
+
+  begin
+    v_logo := coalesce(v_cafe.guest_logo_path, '');
+    v_tagline := coalesce(v_cafe.guest_tagline, '');
+    v_accent := coalesce(v_cafe.guest_accent_hex, '');
+    v_layout := coalesce(nullif(v_cafe.guest_layout, ''), 'fresh');
+    if v_layout = 'night' then
+      v_layout := 'fresh';
+    end if;
+    v_show_logo := coalesce(v_cafe.guest_show_logo, true);
+    v_show_search := coalesce(v_cafe.guest_show_search, false);
+  exception
+    when undefined_column then
+      v_logo := '';
+      v_tagline := '';
+      v_accent := '';
+      v_layout := 'fresh';
+      v_show_logo := true;
+      v_show_search := false;
+  end;
 
   select coalesce(jsonb_agg(
     jsonb_build_object(
@@ -64,7 +92,13 @@ begin
   return jsonb_build_object(
     'cafe', jsonb_build_object(
       'id', v_cafe.id,
-      'name', v_cafe.name
+      'name', v_cafe.name,
+      'guest_logo_path', v_logo,
+      'guest_show_logo', v_show_logo,
+      'guest_tagline', v_tagline,
+      'guest_accent_hex', v_accent,
+      'guest_layout', v_layout,
+      'guest_show_search', v_show_search
     ),
     'categories', v_categories,
     'items', v_items
@@ -76,7 +110,7 @@ revoke all on function public.get_guest_cafe_menu(text) from public;
 grant execute on function public.get_guest_cafe_menu(text) to anon, authenticated;
 
 comment on function public.get_guest_cafe_menu(text) is
-  'Public QR menu: active cafe + categories + available items.';
+  'Public QR menu: cafe brand/layout + categories + available items.';
 
 -- ---------------------------------------------------------------------------
 -- Guest places an order from their phone (pending payment, kitchen ticket).

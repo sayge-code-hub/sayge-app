@@ -168,18 +168,31 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
           await _client.from('cafes').upsert(payload).select().single();
       return CafeModel.fromJson(row);
     } on PostgrestException catch (e) {
-      // Older DBs — strip unknown columns progressively.
       final msg = e.message.toLowerCase();
+      // Guest brand must not be silently dropped — otherwise settings look
+      // saved but the QR menu never changes.
+      if (_isGuestBrandColumnError(msg)) {
+        throw const ServerException(
+          'Guest menu branding is not set up. Run cafe_pos_guest_brand.sql '
+          'in Supabase, then save again.',
+        );
+      }
+      // Older DBs — strip unknown GST / table columns progressively.
       if (msg.contains('show_gst') ||
           msg.contains('gst_label') ||
           msg.contains('gst_split') ||
-          msg.contains('table_count') ||
-          _isGuestBrandColumnError(msg)) {
+          msg.contains('table_count')) {
         try {
           final stripped = <String, dynamic>{
             'id': id,
             'name': cafe.name.trim(),
             'is_active': cafe.isActive,
+            'guest_logo_path': cafe.guestLogoPath.trim(),
+            'guest_show_logo': cafe.guestShowLogo,
+            'guest_tagline': cafe.guestTagline.trim(),
+            'guest_accent_hex': cafe.guestAccentHex.trim(),
+            'guest_layout': cafe.guestLayout.dbValue,
+            'guest_show_search': cafe.guestShowSearch,
           };
           if (!msg.contains('show_gst') &&
               !msg.contains('gst_label') &&
@@ -192,14 +205,6 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
           if (!msg.contains('table_count')) {
             stripped['table_count'] = cafe.tableCount.clamp(1, 100);
           }
-          if (!_isGuestBrandColumnError(msg)) {
-            stripped['guest_logo_path'] = cafe.guestLogoPath.trim();
-            stripped['guest_show_logo'] = cafe.guestShowLogo;
-            stripped['guest_tagline'] = cafe.guestTagline.trim();
-            stripped['guest_accent_hex'] = cafe.guestAccentHex.trim();
-            stripped['guest_layout'] = cafe.guestLayout.dbValue;
-            stripped['guest_show_search'] = cafe.guestShowSearch;
-          }
           final row = await _client
               .from('cafes')
               .upsert(stripped)
@@ -207,6 +212,12 @@ class CafePosRemoteDataSourceImpl implements CafePosRemoteDataSource {
               .single();
           return CafeModel.fromJson(row);
         } on PostgrestException catch (e2) {
+          if (_isGuestBrandColumnError(e2.message)) {
+            throw const ServerException(
+              'Guest menu branding is not set up. Run cafe_pos_guest_brand.sql '
+              'in Supabase, then save again.',
+            );
+          }
           _schemaHint(e2);
         }
       }
