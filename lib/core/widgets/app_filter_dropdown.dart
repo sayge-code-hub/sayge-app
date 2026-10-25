@@ -23,7 +23,7 @@ class AppFilterDropdown<T> extends StatelessWidget {
   });
 
   /// Outer height of the employees-list status chips, including the border.
-  static const double height = 34;
+  static const double height = 44;
 
   static const double radius = 8;
 

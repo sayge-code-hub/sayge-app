@@ -86,6 +86,18 @@ class CafePosRepositoryImpl implements CafePosRepository {
       _guard(() => remoteDataSource.deleteMenuItem(id));
 
   @override
+  Future<Either<Failure, List<CafeMenuAddon>>> getMenuAddons(String menuItemId) =>
+      _guard(() => remoteDataSource.getMenuAddons(menuItemId));
+
+  @override
+  Future<Either<Failure, CafeMenuAddon>> upsertMenuAddon(CafeMenuAddon addon) =>
+      _guard(() => remoteDataSource.upsertMenuAddon(addon));
+
+  @override
+  Future<Either<Failure, void>> deleteMenuAddon(String id) =>
+      _guard(() => remoteDataSource.deleteMenuAddon(id));
+
+  @override
   Future<Either<Failure, List<CafeOrder>>> getOrders(
     String cafeId, {
     DateTime? day,

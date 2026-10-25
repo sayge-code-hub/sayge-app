@@ -4,7 +4,7 @@ import 'package:sayge_app/core/theme/app_theme.dart';
 import 'package:sayge_app/core/widgets/app_filter_dropdown.dart';
 
 void main() {
-  testWidgets('filter dropdown matches status chip height', (tester) async {
+  testWidgets('filter dropdown uses shared control height', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -20,16 +20,19 @@ void main() {
                     selected: label == 'Active',
                     onSelected: (_) {},
                     showCheckmark: false,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.standard,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
+                    visualDensity: const VisualDensity(horizontal: 0, vertical: 0.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(
                         AppFilterDropdown.radius,
                       ),
                     ),
-                    labelStyle: const TextStyle(fontSize: 12, height: 1),
+                    labelStyle: const TextStyle(fontSize: 13, height: 1.1),
                   ),
                 const SizedBox(
                   width: 220,
@@ -52,12 +55,10 @@ void main() {
       ),
     );
 
-    final chip = find.widgetWithText(FilterChip, 'All');
     final dropdown = find.byType(AppFilterDropdown<String?>);
 
+    expect(AppFilterDropdown.height, 44);
     expect(tester.getSize(dropdown).height, AppFilterDropdown.height);
-    expect(tester.getSize(chip).height, tester.getSize(dropdown).height);
-    expect(tester.getTopLeft(chip).dy, tester.getTopLeft(dropdown).dy);
     expect(find.text('All clients'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

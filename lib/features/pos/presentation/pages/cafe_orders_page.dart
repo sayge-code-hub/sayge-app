@@ -33,7 +33,26 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
   @override
   void initState() {
     super.initState();
+    CafePosListChrome.refreshTick.addListener(_onChromeRefresh);
+    CafePosListChrome.deleteTick.addListener(_onChromeDelete);
     _reload();
+  }
+
+  @override
+  void dispose() {
+    CafePosListChrome.refreshTick.removeListener(_onChromeRefresh);
+    CafePosListChrome.deleteTick.removeListener(_onChromeDelete);
+    super.dispose();
+  }
+
+  void _onChromeRefresh() {
+    if (!mounted) return;
+    _reload();
+  }
+
+  void _onChromeDelete() {
+    if (!mounted) return;
+    _clearAllOrders();
   }
 
   Future<void> _reload() async {
@@ -160,30 +179,11 @@ class _CafeOrdersPageState extends State<CafeOrdersPage> {
             child: CafePosPageHeader(
               title: 'Orders',
               subtitle: 'History for the selected day',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    onPressed: _pickDay,
-                    style: CafePosHeaderActions.dateButtonStyle(),
-                    icon: const Icon(Icons.calendar_today_outlined, size: 15),
-                    label: Text(AppDates.medium.format(_day)),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    onPressed: _reload,
-                    tooltip: 'Refresh',
-                    style: CafePosHeaderActions.iconButtonStyle(),
-                    icon: const Icon(Icons.refresh_rounded, size: 20),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    onPressed: _clearAllOrders,
-                    tooltip: 'Delete all orders',
-                    style: CafePosHeaderActions.iconButtonStyle(),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                  ),
-                ],
+              trailing: TextButton.icon(
+                onPressed: _pickDay,
+                style: CafePosHeaderActions.dateButtonStyle(),
+                icon: const Icon(Icons.calendar_today_outlined, size: 15),
+                label: Text(AppDates.medium.format(_day)),
               ),
             ),
           ),

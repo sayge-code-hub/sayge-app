@@ -254,6 +254,30 @@ class CafeCategory extends Equatable {
   List<Object?> get props => [id, cafeId, name, sortOrder, isActive];
 }
 
+class CafeMenuAddon extends Equatable {
+  const CafeMenuAddon({
+    required this.id,
+    required this.cafeId,
+    required this.menuItemId,
+    required this.name,
+    required this.price,
+    this.isActive = true,
+    this.sortOrder = 0,
+  });
+
+  final String id;
+  final String cafeId;
+  final String menuItemId;
+  final String name;
+  final double price;
+  final bool isActive;
+  final int sortOrder;
+
+  @override
+  List<Object?> get props =>
+      [id, cafeId, menuItemId, name, price, isActive, sortOrder];
+}
+
 class CafeMenuItem extends Equatable {
   const CafeMenuItem({
     required this.id,
@@ -266,6 +290,7 @@ class CafeMenuItem extends Equatable {
     this.isActive = true,
     this.sortOrder = 0,
     this.categoryName = '',
+    this.addons = const [],
   });
 
   final String id;
@@ -278,6 +303,26 @@ class CafeMenuItem extends Equatable {
   final bool isActive;
   final int sortOrder;
   final String categoryName;
+  final List<CafeMenuAddon> addons;
+
+  CafeMenuItem copyWith({
+    List<CafeMenuAddon>? addons,
+    String? categoryName,
+  }) {
+    return CafeMenuItem(
+      id: id,
+      cafeId: cafeId,
+      categoryId: categoryId,
+      name: name,
+      price: price,
+      taxRate: taxRate,
+      isAvailable: isAvailable,
+      isActive: isActive,
+      sortOrder: sortOrder,
+      categoryName: categoryName ?? this.categoryName,
+      addons: addons ?? this.addons,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -291,6 +336,7 @@ class CafeMenuItem extends Equatable {
         isActive,
         sortOrder,
         categoryName,
+        addons,
       ];
 }
 
@@ -456,13 +502,44 @@ class CafeCartLine {
     required this.menuItem,
     this.quantity = 1,
     this.notes = '',
-  });
+    List<CafeMenuAddon>? addons,
+  }) : addons = List<CafeMenuAddon>.of(addons ?? const []);
 
   final CafeMenuItem menuItem;
   double quantity;
   String notes;
+  final List<CafeMenuAddon> addons;
 
-  double get lineTotal => menuItem.price * quantity;
+  String get addonKey {
+    final ids = addons.map((a) => a.id).toList()..sort();
+    return ids.join('|');
+  }
+
+  double get addonsTotal =>
+      addons.fold<double>(0, (s, a) => s + a.price);
+
+  double get unitPrice => menuItem.price + addonsTotal;
+
+  double get lineTotal => unitPrice * quantity;
+
+  String get displayName {
+    if (addons.isEmpty) return menuItem.name;
+    final extras = addons.map((a) => a.name).join(', ');
+    return '${menuItem.name} (+$extras)';
+  }
+
+  bool matches(CafeMenuItem item, List<CafeMenuAddon> selected) {
+    if (item.id != menuItem.id) return false;
+    final other = List<CafeMenuAddon>.of(selected)
+      ..sort((a, b) => a.id.compareTo(b.id));
+    final mine = List<CafeMenuAddon>.of(addons)
+      ..sort((a, b) => a.id.compareTo(b.id));
+    if (mine.length != other.length) return false;
+    for (var i = 0; i < mine.length; i++) {
+      if (mine[i].id != other[i].id) return false;
+    }
+    return true;
+  }
 }
 
 enum CafeDiscountType { percent, fixed }

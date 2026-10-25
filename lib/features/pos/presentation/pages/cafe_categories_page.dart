@@ -24,6 +24,7 @@ class CafeCategoriesPage extends StatefulWidget {
 
 class _CafeCategoriesPageState extends State<CafeCategoriesPage> {
   List<CafeCategory> _categories = const [];
+  Map<String, int> _productCounts = const {};
   bool _loading = true;
   String? _error;
 
@@ -38,17 +39,29 @@ class _CafeCategoriesPageState extends State<CafeCategoriesPage> {
       _loading = true;
       _error = null;
     });
-    final result = await sl<GetCafeCategories>()(widget.cafeId);
+    final catsResult = await sl<GetCafeCategories>()(widget.cafeId);
+    final itemsResult = await sl<GetCafeMenuItems>()(widget.cafeId);
     if (!mounted) return;
-    result.fold(
+    catsResult.fold(
       (f) => setState(() {
         _loading = false;
         _error = f.message;
       }),
-      (list) => setState(() {
-        _categories = list.where((c) => c.isActive).toList();
-        _loading = false;
-      }),
+      (list) {
+        final counts = <String, int>{};
+        itemsResult.fold((_) {}, (items) {
+          for (final item in items) {
+            final id = item.categoryId;
+            if (id.isEmpty) continue;
+            counts[id] = (counts[id] ?? 0) + 1;
+          }
+        });
+        setState(() {
+          _categories = list.where((c) => c.isActive).toList();
+          _productCounts = counts;
+          _loading = false;
+        });
+      },
     );
   }
 
@@ -179,15 +192,32 @@ class _CafeCategoriesPageState extends State<CafeCategoriesPage> {
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    c.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _productCountLabel(c.id),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.textLight,
+                                              fontSize: 12,
+                                            ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -224,5 +254,10 @@ class _CafeCategoriesPageState extends State<CafeCategoriesPage> {
         ],
       ),
     );
+  }
+
+  String _productCountLabel(String categoryId) {
+    final n = _productCounts[categoryId] ?? 0;
+    return n == 1 ? '1 product' : '$n products';
   }
 }

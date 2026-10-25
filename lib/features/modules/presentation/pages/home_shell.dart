@@ -454,25 +454,57 @@ class _HomeShellState extends State<HomeShell> {
 
   List<Widget>? get _shellActions {
     final path = Uri.tryParse(widget.location)?.path ?? widget.location;
-    if (!path.contains('/terminal')) return null;
-    return [
-      IconButton(
-        tooltip: 'Clear all tables',
-        onPressed: CafePosTerminalChrome.requestClearTables,
-        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-      ),
-      Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: TextButton.icon(
-          onPressed: CafePosTerminalChrome.requestNewTable,
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('New table'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.text,
+    if (path.contains('/terminal')) {
+      return [
+        IconButton(
+          tooltip: 'Clear all tables',
+          onPressed: CafePosTerminalChrome.requestClearTables,
+          icon: const Icon(Icons.delete_outline_rounded, size: 22),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TextButton.icon(
+            onPressed: CafePosTerminalChrome.requestNewTable,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('New table'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.text,
+              minimumSize: const Size(48, 44),
+            ),
           ),
         ),
-      ),
-    ];
+      ];
+    }
+    if (path.contains('/orders') || path.contains('/reports')) {
+      return [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: CafePosListChrome.requestRefresh,
+          icon: const Icon(Icons.refresh_rounded, size: 22),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: IconButton(
+            tooltip: 'Delete all',
+            onPressed: CafePosListChrome.requestDelete,
+            icon: const Icon(Icons.delete_outline_rounded, size: 22),
+          ),
+        ),
+      ];
+    }
+    if (path.contains('/kitchen')) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: IconButton(
+            tooltip: 'Refresh',
+            onPressed: CafePosListChrome.requestRefresh,
+            icon: const Icon(Icons.refresh_rounded, size: 22),
+          ),
+        ),
+      ];
+    }
+    return null;
   }
 
   @override

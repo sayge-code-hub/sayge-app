@@ -73,6 +73,16 @@ abstract final class CafePosTerminalChrome {
   static void requestClearTables() => clearTablesTick.value++;
 }
 
+/// Shell app-bar actions for list screens (Orders / Reports / Kitchen).
+abstract final class CafePosListChrome {
+  static final ValueNotifier<int> refreshTick = ValueNotifier<int>(0);
+  static final ValueNotifier<int> deleteTick = ValueNotifier<int>(0);
+
+  static void requestRefresh() => refreshTick.value++;
+
+  static void requestDelete() => deleteTick.value++;
+}
+
 class CafePosEmptyState extends StatelessWidget {
   const CafePosEmptyState({
     super.key,
@@ -195,7 +205,7 @@ class CafePosMonogram extends StatelessWidget {
   }
 }
 
-/// Compact tappable nav tile for Cafe POS hub.
+/// Tappable nav tile for Cafe POS hub.
 class CafePosNavTile extends StatelessWidget {
   const CafePosNavTile({
     super.key,
@@ -217,26 +227,26 @@ class CafePosNavTile extends StatelessWidget {
       color: AppColors.background,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(CafePosSpace.radius),
         side: const BorderSide(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.highlight.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 15, color: AppColors.highlight),
+                child: Icon(icon, size: 22, color: AppColors.highlight),
               ),
               const Spacer(),
               Text(
@@ -245,19 +255,19 @@ class CafePosNavTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                  fontSize: 15,
                   color: AppColors.text,
                 ),
               ),
               if (subtitle.trim().isNotEmpty) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
-                    fontSize: 10,
-                    height: 1.2,
+                    fontSize: 12,
+                    height: 1.25,
                     color: AppColors.textLight,
                   ),
                 ),
