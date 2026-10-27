@@ -1,11 +1,11 @@
 {
-    "name": "Sayge",
-    "short_name": "Sayge",
+    "name": "Saasify",
+    "short_name": "Saasify",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
-    "theme_color": "#FFFFFF",
-    "description": "Sayge — HRMS and workplace modules.",
+    "theme_color": "#0A0A0A",
+    "description": "Saasify — platform operations and workplace modules.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
