@@ -22,9 +22,18 @@ class AppReleaseNote {
 
 /// Newest first. Keep in sync when shipping notable deploys.
 abstract final class AppReleaseNotes {
-  static const currentVersionHint = '1.0.21';
+  static const currentVersionHint = '1.0.22';
 
   static final List<AppReleaseNote> all = [
+    AppReleaseNote(
+      version: '1.0.22',
+      releasedAt: DateTime.utc(2026, 10, 27, 6, 15),
+      title: 'Any email domain',
+      highlights: [
+        'Login and invites accept any email domain (not only @sayge.in)',
+        'Invite-only signup is unchanged',
+      ],
+    ),
     AppReleaseNote(
       version: '1.0.21',
       releasedAt: DateTime.utc(2026, 10, 25, 8, 45),

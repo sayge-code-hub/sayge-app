@@ -1,4 +1,4 @@
-// Invite / manage @sayge.in employee auth invites.
+// Invite / manage employee auth invites (any email domain).
 // Deploy: supabase functions deploy invite-employee --no-verify-jwt
 // (JWT is verified inside; service role is used only after caller checks out.)
 //
@@ -16,7 +16,9 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 }
 
-const ALLOWED_DOMAIN = 'sayge.in'
+function isValidEmail(email: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -116,7 +118,7 @@ async function listPendingInvites(
     for (const user of users) {
       if (!isPendingInvite(user)) continue
       const email = (user.email ?? '').toLowerCase()
-      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) continue
+      if (!isValidEmail(email)) continue
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>
       const fullName = String(meta.full_name ?? meta.name ?? '').trim()
       pending.push({
@@ -167,11 +169,8 @@ async function inviteUser(
   const cafeId = String(body.cafeId ?? body.cafe_id ?? '').trim()
   const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
 
-  if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
-    return json(
-      { error: `Only @${ALLOWED_DOMAIN} emails can be invited` },
-      400,
-    )
+  if (!isValidEmail(emailRaw)) {
+    return json({ error: 'Enter a valid email address' }, 400)
   }
 
   const inviteOptions: {
@@ -238,7 +237,7 @@ async function inviteUser(
       return json(
         {
           error:
-            'Invite email sent, but no app profile was created. Check lock_signup_provisioning.sql and @sayge.in domain.',
+            'Invite email sent, but no app profile was created. Check lock_signup_provisioning.sql.',
         },
         500,
       )
@@ -258,11 +257,8 @@ async function resendInvite(
   body: Record<string, unknown>,
 ) {
   const emailRaw = String(body.email ?? '').trim().toLowerCase()
-  if (!emailRaw.endsWith(`@${ALLOWED_DOMAIN}`)) {
-    return json(
-      { error: `Only @${ALLOWED_DOMAIN} emails can be invited` },
-      400,
-    )
+  if (!isValidEmail(emailRaw)) {
+    return json({ error: 'Enter a valid email address' }, 400)
   }
 
   const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()

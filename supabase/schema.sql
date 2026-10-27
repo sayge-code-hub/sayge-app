@@ -387,7 +387,7 @@ drop policy if exists "brand_logos_storage_update" on storage.objects;
 drop policy if exists "brand_logos_storage_delete" on storage.objects;
 -- Storage policies: supabase/security_hardening.sql (run after this file).
 
--- Auto-create a public.users row for invited @sayge.in Auth users only.
+-- Auto-create a public.users row for invited Auth users (any email domain).
 -- Self-signup without invite metadata does not get an app profile.
 -- Dashboard: Authentication → Providers → Email → disable "Allow new users to sign up".
 create or replace function public.handle_new_auth_user()
@@ -406,7 +406,7 @@ declare
 begin
   email_lower := lower(coalesce(new.email, ''));
 
-  if email_lower = '' or email_lower not like '%@sayge.in' then
+  if email_lower = '' or position('@' in email_lower) = 0 then
     return new;
   end if;
 

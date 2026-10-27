@@ -19,8 +19,8 @@ declare
 begin
   email_lower := lower(coalesce(new.email, ''));
 
-  -- Only @sayge.in accounts get an app profile.
-  if email_lower = '' or email_lower not like '%@sayge.in' then
+  -- Any email domain can get an app profile (invite-only still applies).
+  if email_lower = '' or position('@' in email_lower) = 0 then
     return new;
   end if;
 

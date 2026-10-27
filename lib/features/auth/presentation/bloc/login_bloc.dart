@@ -21,14 +21,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     LoginEmailChanged event,
     Emitter<LoginState> emit,
   ) {
-    final emailError = Validators.emailLocalPart(event.email);
-    final fullEmail = emailError == null
-        ? Validators.composeEmail(event.email)
-        : event.email;
+    final email = event.email.trim().toLowerCase();
+    final emailError = Validators.email(email);
 
     emit(
       state.copyWith(
-        email: fullEmail,
+        email: email,
         emailError: emailError,
         clearEmailError: emailError == null,
         clearErrorMessage: true,
@@ -57,15 +55,14 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     LoginSubmitted event,
     Emitter<LoginState> emit,
   ) async {
-    final localPart = state.email.contains('@')
-        ? state.email.split('@').first
-        : state.email;
-    final emailError = Validators.emailLocalPart(localPart);
+    final email = state.email.trim().toLowerCase();
+    final emailError = Validators.email(email);
     final passwordError = Validators.password(state.password);
 
     if (emailError != null || passwordError != null) {
       emit(
         state.copyWith(
+          email: email,
           emailError: emailError,
           passwordError: passwordError,
           clearEmailError: emailError == null,
@@ -76,18 +73,16 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       return;
     }
 
-    final fullEmail = Validators.composeEmail(localPart);
-
     emit(
       state.copyWith(
-        email: fullEmail,
+        email: email,
         status: LoginStatus.loading,
         clearErrorMessage: true,
       ),
     );
 
     final result = await loginUseCase(
-      LoginParams(email: fullEmail, password: state.password),
+      LoginParams(email: email, password: state.password),
     );
 
     result.fold(
