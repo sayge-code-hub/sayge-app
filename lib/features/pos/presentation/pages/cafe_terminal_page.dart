@@ -573,18 +573,7 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
     }
 
     setState(() {
-      CafeCartLine? match;
-      for (final line in cart) {
-        if (line.matches(item, selected)) {
-          match = line;
-          break;
-        }
-      }
-      if (match != null) {
-        match.quantity += 1;
-      } else {
-        cart.add(CafeCartLine(menuItem: item, addons: selected));
-      }
+      cafeCartAddOrIncrement(cart, item, addons: selected);
     });
     await _persistSessions();
   }
@@ -681,10 +670,11 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
     final cart = _session?.lines;
     if (cart == null) return;
     setState(() {
+      // LIFO across variants so menu − does not collapse different add-ons.
       CafeCartLine? line;
-      for (final l in cart) {
-        if (l.menuItem.id == item.id) {
-          line = l;
+      for (var i = cart.length - 1; i >= 0; i--) {
+        if (cart[i].menuItem.id == item.id) {
+          line = cart[i];
           break;
         }
       }
@@ -794,10 +784,9 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
   }
 
   int _qtyInCart(CafeMenuItem item) {
-    for (final line in _cart) {
-      if (line.menuItem.id == item.id) return line.quantity.round();
-    }
-    return 0;
+    return _cart
+        .where((l) => l.menuItem.id == item.id)
+        .fold<int>(0, (s, l) => s + l.quantity.round());
   }
 
   List<CafeMenuItem> get _visible {
@@ -1030,13 +1019,14 @@ class _CafeTerminalPageState extends State<CafeTerminalPage> {
               setSheet(() {});
             }
 
+            // Tall enough that cart lines stay visible above coupon/totals.
             final lineCount = _cart.length;
-            final initial = (0.42 + lineCount * 0.06).clamp(0.45, 0.92);
+            final initial = (0.78 + lineCount * 0.04).clamp(0.82, 0.96);
             return DraggableScrollableSheet(
               expand: false,
               initialChildSize: initial,
-              minChildSize: 0.4,
-              maxChildSize: 0.95,
+              minChildSize: 0.72,
+              maxChildSize: 0.98,
               builder: (_, scrollController) {
                 return _OrderPanel(
                   title: _orderTitle,
@@ -1577,37 +1567,216 @@ class _OrderPanel extends StatelessWidget {
         ],
         const SizedBox(height: 8),
         Expanded(
-          child: cart.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      orderType == CafeOrderType.dineIn && tableNo.isEmpty
-                          ? 'Select a table, then tap items'
-                          : 'Tap items to add',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textLight,
-                            fontSize: 13,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            children: [
+              if (cart.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Text(
+                    orderType == CafeOrderType.dineIn && tableNo.isEmpty
+                        ? 'Select a table, then tap items'
+                        : 'Tap items to add',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textLight,
+                          fontSize: 13,
+                        ),
+                    textAlign: TextAlign.center,
                   ),
                 )
-              : ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                  itemCount: cart.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final line = cart[index];
-                    return _CartRow(
-                      line: line,
-                      onQty: (q) => onQty(line, q),
-                      onRemove: () => onRemove(line),
-                      onEditNotes: () => onEditNotes(line),
-                    );
-                  },
+              else
+                for (final line in cart) ...[
+                  if (line != cart.first) const SizedBox(height: 8),
+                  _CartRow(
+                    line: line,
+                    onQty: (q) => onQty(line, q),
+                    onRemove: () => onRemove(line),
+                    onEditNotes: () => onEditNotes(line),
+                  ),
+                ],
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (coupon == null) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              label: 'Coupon code',
+                              controller: couponCode,
+                              textCapitalization:
+                                  TextCapitalization.characters,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => onApplyCoupon(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: kAppButtonHeight,
+                            child: OutlinedButton(
+                              onPressed: cart.isEmpty || applyingCoupon
+                                  ? null
+                                  : () => onApplyCoupon(),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.text,
+                                side: const BorderSide(
+                                  color: AppColors.border,
+                                ),
+                                minimumSize:
+                                    const Size(72, kAppButtonHeight),
+                                maximumSize:
+                                    const Size(120, kAppButtonHeight),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                alignment: Alignment.center,
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: applyingCoupon
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.text,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Apply',
+                                      textAlign: TextAlign.center,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasSavedCoupons) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed:
+                                cart.isEmpty ? null : () => onPickCoupon(),
+                            icon: Icon(
+                              Icons.local_offer_outlined,
+                              size: 16,
+                              color: AppColors.highlight,
+                            ),
+                            label: Text(
+                              'Choose from available coupons',
+                              style: TextStyle(
+                                color: AppColors.highlight,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ] else
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                AppColors.success.withValues(alpha: 0.28),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.local_offer_outlined,
+                              size: 18,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${coupon!.code} applied',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: AppColors.success,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove coupon',
+                              onPressed: onClearCoupon,
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                              ),
+                              color: AppColors.textLight,
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    _totalRow(
+                      context,
+                      'Subtotal',
+                      MoneyFormat.format(subtotal),
+                    ),
+                    ..._gstRows(context),
+                    if (discount > 0)
+                      _totalRow(
+                        context,
+                        'Discount',
+                        '- ${MoneyFormat.format(discount)}',
+                        valueColor: AppColors.success,
+                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          'Total',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          MoneyFormat.format(total),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+            ],
+          ),
         ),
         const Divider(height: 1, color: AppColors.border),
         Padding(
@@ -1615,213 +1784,64 @@ class _OrderPanel extends StatelessWidget {
             16,
             12,
             16,
-            16 + MediaQuery.paddingOf(context).bottom + 20,
+            12 + MediaQuery.paddingOf(context).bottom + 12,
           ),
-          child: Column(
+          child: Row(
             children: [
-              if (coupon == null) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        label: 'Coupon code',
-                        controller: couponCode,
-                        textCapitalization: TextCapitalization.characters,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => onApplyCoupon(),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: cart.isEmpty || busy ? null : onKot,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text,
+                      side: BorderSide(
+                        color: AppColors.textLight.withValues(alpha: 0.45),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      height: kAppButtonHeight,
-                      child: OutlinedButton(
-                        onPressed: cart.isEmpty || applyingCoupon
-                            ? null
-                            : () => onApplyCoupon(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.text,
-                          side: const BorderSide(color: AppColors.border),
-                          minimumSize: const Size(72, kAppButtonHeight),
-                          maximumSize:
-                              const Size(120, kAppButtonHeight),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          alignment: Alignment.center,
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: applyingCoupon
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.text,
-                                ),
-                              )
-                            : const Text(
-                                'Apply',
-                                textAlign: TextAlign.center,
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (hasSavedCoupons) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: cart.isEmpty ? null : () => onPickCoupon(),
-                      icon: Icon(
-                        Icons.local_offer_outlined,
-                        size: 16,
-                        color: AppColors.highlight,
-                      ),
-                      label: Text(
-                        'Choose from available coupons',
-                        style: TextStyle(
-                          color: AppColors.highlight,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ),
-                ],
-              ] else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.28),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.local_offer_outlined,
-                        size: 18,
-                        color: AppColors.success,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${coupon!.code} applied',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: AppColors.success,
-                                  ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Remove coupon',
-                        onPressed: onClearCoupon,
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        color: AppColors.textLight,
-                      ),
-                    ],
+                    child: const Text('KOT'),
                   ),
                 ),
-              const SizedBox(height: 12),
-              _totalRow(context, 'Subtotal', MoneyFormat.format(subtotal)),
-              ..._gstRows(context),
-              if (discount > 0)
-                _totalRow(
-                  context,
-                  'Discount',
-                  '- ${MoneyFormat.format(discount)}',
-                  valueColor: AppColors.success,
-                ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    'Total',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    MoneyFormat.format(total),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                        ),
-                  ),
-                ],
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: cart.isEmpty || busy ? null : onKot,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.text,
-                          side: BorderSide(
-                            color: AppColors.textLight.withValues(alpha: 0.45),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        child: const Text('KOT'),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: cart.isEmpty || busy ? null : onPay,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.highlight,
+                      foregroundColor: AppColors.background,
+                      disabledBackgroundColor:
+                          AppColors.textLight.withValues(alpha: 0.35),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                    child: busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.background,
+                            ),
+                          )
+                        : Text('PAY ${MoneyFormat.format(total)}'),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: cart.isEmpty || busy ? null : onPay,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.highlight,
-                          foregroundColor: AppColors.background,
-                          disabledBackgroundColor:
-                              AppColors.textLight.withValues(alpha: 0.35),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        child: busy
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.background,
-                                ),
-                              )
-                            : Text('PAY ${MoneyFormat.format(total)}'),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),

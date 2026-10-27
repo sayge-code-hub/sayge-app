@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/billing/billing_write_guard.dart';
 import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_proposal_config.dart';
 import '../../../../core/layout/breakpoints.dart';
@@ -546,7 +547,9 @@ class _ProposalFormViewState extends State<_ProposalFormView> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (!await ensureBillingWritable(context)) return;
+    if (!mounted) return;
     context.read<ProposalsBloc>().add(
           ProposalSubmitted(
             referenceNo: _reference.text,

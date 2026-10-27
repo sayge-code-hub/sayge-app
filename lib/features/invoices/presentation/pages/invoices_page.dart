@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/billing/billing_write_guard.dart';
 import '../../../../core/config/app_display_config.dart';
 import '../../../../core/config/app_invoice_config.dart';
 import '../../../../core/layout/breakpoints.dart';
@@ -671,7 +672,9 @@ class _InvoiceFormViewState extends State<_InvoiceFormView> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (!await ensureBillingWritable(context)) return;
+    if (!mounted) return;
     final paid = double.tryParse(_amountPaid.text.trim()) ?? 0;
     context.read<InvoicesBloc>().add(
       InvoiceSubmitted(

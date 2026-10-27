@@ -33,6 +33,11 @@ class SettingsHubPage extends StatelessWidget {
         path: AppRoutes.companyDetails,
       ),
       _SettingsTileData(
+        title: 'Billing',
+        icon: Icons.credit_card_outlined,
+        path: AppRoutes.billing,
+      ),
+      _SettingsTileData(
         title: 'Roles',
         icon: Icons.manage_accounts_outlined,
         path: AppRoutes.roles,

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
+import '../../../../core/billing/billing_write_guard.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -594,7 +595,9 @@ class _ExpenseFormViewState extends State<_ExpenseFormView> {
     });
   }
 
-  void _submit(List<Client> clients) {
+  Future<void> _submit(List<Client> clients) async {
+    if (!await ensureBillingWritable(context)) return;
+    if (!mounted) return;
     final amount =
         double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? 0;
     final isCompany = _costCenterId == Expense.companyScopeId;

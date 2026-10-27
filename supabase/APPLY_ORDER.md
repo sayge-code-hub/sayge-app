@@ -17,8 +17,10 @@ Always finish with `security_hardening.sql`, then run `security_verification.sql
    - `pos.sql`, then `pos_product_commerce.sql` (legacy retail catalog; optional)
    - `cafe_pos.sql` (Cafe-scoped POS MVP — create cafes in POS, not Settings clients)
 3. `security_hardening.sql` (**last**)
-4. `security_verification.sql` — checks 1–3, 7–9, 14 must be empty
-5. Deploy edge function: `supabase functions deploy invite-employee --no-verify-jwt`
+4. `billing_closed_beta.sql` — after hardening (needs `app_is_staff`); singleton Free/Starter/Growth + seat trigger. Does **not** revoke guest POS grants.
+5. `platform_ops_snapshot.sql` — secret platform overview RPC (logo double-tap console).
+6. `security_verification.sql` — checks 1–3, 7–9, 14 must be empty
+7. Deploy edge function: `supabase functions deploy invite-employee --no-verify-jwt`
 
 ## Existing production (incremental)
 
@@ -36,6 +38,7 @@ lock_signup_provisioning.sql
 cafe_pos_reset_to_cafes.sql   # only if you already applied the old client-scoped cafe_pos.sql
 cafe_pos.sql
 security_hardening.sql
+billing_closed_beta.sql
 security_verification.sql
 ```
 

@@ -544,8 +544,15 @@ class CafeCartLine {
     return '${menuItem.name} (+$extras)';
   }
 
-  bool matches(CafeMenuItem item, List<CafeMenuAddon> selected) {
+  /// Same menu item + same add-on set (+ optional notes) → one line.
+  /// Different add-ons or notes → separate line items.
+  bool matches(
+    CafeMenuItem item,
+    List<CafeMenuAddon> selected, {
+    String notes = '',
+  }) {
     if (item.id != menuItem.id) return false;
+    if (this.notes.trim() != notes.trim()) return false;
     final other = List<CafeMenuAddon>.of(selected)
       ..sort((a, b) => a.id.compareTo(b.id));
     final mine = List<CafeMenuAddon>.of(addons)
@@ -556,6 +563,31 @@ class CafeCartLine {
     }
     return true;
   }
+}
+
+/// Mutates [cart]: increments a matching line or appends a new one.
+void cafeCartAddOrIncrement(
+  List<CafeCartLine> cart,
+  CafeMenuItem item, {
+  List<CafeMenuAddon> addons = const [],
+  String notes = '',
+  double quantity = 1,
+}) {
+  final qty = quantity <= 0 ? 1.0 : quantity;
+  for (final line in cart) {
+    if (line.matches(item, addons, notes: notes)) {
+      line.quantity += qty;
+      return;
+    }
+  }
+  cart.add(
+    CafeCartLine(
+      menuItem: item,
+      quantity: qty,
+      notes: notes.trim(),
+      addons: addons,
+    ),
+  );
 }
 
 enum CafeDiscountType { percent, fixed }
