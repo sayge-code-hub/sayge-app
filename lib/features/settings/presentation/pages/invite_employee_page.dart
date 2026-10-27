@@ -43,7 +43,7 @@ class _InviteEmployeeBody extends StatefulWidget {
 }
 
 class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
-  final _localPart = TextEditingController();
+  final _email = TextEditingController();
   final _fullName = TextEditingController();
   String? _roleId = 'role_employee';
   String? _employeeId;
@@ -107,7 +107,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
 
   @override
   void dispose() {
-    _localPart.dispose();
+    _email.dispose();
     _fullName.dispose();
     super.dispose();
   }
@@ -143,9 +143,10 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
   }
 
   Future<void> _submit(List<AppRole> roles) async {
-    final localError = Validators.emailLocalPart(_localPart.text);
-    if (localError != null) {
-      setState(() => _error = localError);
+    final email = _email.text.trim().toLowerCase();
+    final emailError = Validators.email(email);
+    if (emailError != null) {
+      setState(() => _error = emailError);
       return;
     }
 
@@ -161,8 +162,6 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
       setState(() => _error = 'Select the cafe for this POS role');
       return;
     }
-
-    final email = Validators.composeEmail(_localPart.text);
     setState(() {
       _sending = true;
       _error = null;
@@ -182,7 +181,7 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
             'Invite sent to $email. They will set their own password from the email link.',
       );
       if (!mounted) return;
-      _localPart.clear();
+      _email.clear();
       _fullName.clear();
       setState(() {
         _roleId = 'role_employee';
@@ -227,14 +226,14 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                 children: [
                   Text(
                     needsCafe
-                        ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
+                        ? 'Send an invite to any email address. '
                             'Cafe POS roles must be bound to one cafe. '
                             'They set their own password from the email.'
                         : needsLink
-                            ? 'Send an invite to a @${Validators.allowedEmailDomain} address. '
+                            ? 'Send an invite to any email address. '
                                 'Link an existing HRMS employee so their dashboard shows '
                                 'details and salary slips. They set their own password.'
-                            : 'Send an invite to a @${Validators.allowedEmailDomain} address. '
+                            : 'Send an invite to any email address. '
                                 'Owners and admins do not need an HRMS employee link. '
                                 'They set their own password from the email.',
                     style: textTheme.bodyMedium?.copyWith(
@@ -246,20 +245,11 @@ class _InviteEmployeeBodyState extends State<_InviteEmployeeBody> {
                   const SizedBox(height: 20),
                   AppTextField(
                     label: 'Email',
-                    controller: _localPart,
+                    controller: _email,
                     enabled: !_sending,
                     prefixIcon: Icons.mail_outline_rounded,
-                    hintText: 'first.last',
-                    suffix: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Text(
-                        '@${Validators.allowedEmailDomain}',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textLight,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
+                    hintText: 'name@company.com',
+                    keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),

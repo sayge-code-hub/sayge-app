@@ -41,6 +41,9 @@ security_verification.sql
 
 After `lock_signup_provisioning.sql`: Dashboard → **Authentication → Providers → Email** → turn **off** “Allow new users to sign up”.
 
+If an older deploy still blocked non-`@sayge.in` invites, also run
+`allow_any_email_domain.sql` and redeploy `invite-employee`.
+
 ### Cafe POS guest QR menu (branding)
 
 After `cafe_pos.sql` / guest menu RPCs:

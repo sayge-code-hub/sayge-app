@@ -63,19 +63,18 @@ class _LoginFormState extends State<LoginForm> {
   Future<void> _forgotPassword() async {
     if (_resetting) return;
 
-    final localPart = _emailController.text.trim();
-    final localError = Validators.emailLocalPart(localPart);
-    if (localError != null) {
-      context.read<LoginBloc>().add(LoginEmailChanged(localPart));
+    final email = _emailController.text.trim().toLowerCase();
+    final emailError = Validators.email(email);
+    if (emailError != null) {
+      context.read<LoginBloc>().add(LoginEmailChanged(email));
       await showAppMessageDialog(
         context,
         title: 'Forgot password',
-        message: 'Enter your email username first, then try again.',
+        message: 'Enter your full email address first, then try again.',
       );
       return;
     }
 
-    final email = Validators.composeEmail(localPart);
     setState(() => _resetting = true);
     final result = await sl<ResetPasswordUseCase>()(email);
     if (!mounted) return;
@@ -117,22 +116,14 @@ class _LoginFormState extends State<LoginForm> {
                 controller: _emailController,
                 label: 'Email',
                 prefixIcon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 enabled: !isLoading,
                 errorText: state.emailError,
-                autofillHints: const [AutofillHints.username],
+                autofillHints: const [AutofillHints.email],
                 inputFormatters: [
-                  FilteringTextInputFormatter.deny(RegExp(r'[\s@]')),
+                  FilteringTextInputFormatter.deny(RegExp(r'\s')),
                 ],
-                suffix: Text(
-                  '@${Validators.allowedEmailDomain}',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontSize: 15,
-                        color: AppColors.textLight,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
                 onChanged: (value) =>
                     context.read<LoginBloc>().add(LoginEmailChanged(value)),
                 onSubmitted: (_) => _passwordFocusNode.requestFocus(),

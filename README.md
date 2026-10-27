@@ -63,7 +63,7 @@ lib/
 5. Bootstrap the first owner once (e.g. `aditya.rana@sayge.in` via Dashboard
    invite or schema backfill) so invites can be sent.
 
-Only `@sayge.in` emails are accepted at login.
+Any email domain can sign in / be invited (invite-only signup still required).
 
 ## Database access model
 
