@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/auth/app_access.dart';
+import '../../../../core/billing/billing_access.dart';
+import '../../../../core/billing/billing_models.dart';
 import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
 import '../../../../core/router/app_routes.dart';
@@ -54,7 +56,10 @@ class _HomeShellState extends State<HomeShell> {
     if (_isStaff) {
       _clientsBloc = sl<ClientsBloc>()..add(const ClientsRequested());
     }
+    sl<BillingAccess>().refresh();
   }
+
+  BillingAccess get _billing => sl<BillingAccess>();
 
   @override
   void dispose() {
@@ -65,8 +70,8 @@ class _HomeShellState extends State<HomeShell> {
 
   List<AppNavSection> get _sections {
     if (_isStaff) {
-      return const [
-        AppNavSection(
+      return [
+        const AppNavSection(
           label: 'HRMS',
           icon: Icons.groups_outlined,
           selectable: true,
@@ -78,13 +83,13 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ],
         ),
-        AppNavSection(
+        const AppNavSection(
           label: 'DMS',
           icon: Icons.folder_outlined,
           selectable: true,
           items: [],
         ),
-        AppNavSection(
+        const AppNavSection(
           label: 'Finances',
           icon: Icons.account_balance_wallet_outlined,
           selectable: false,
@@ -103,13 +108,14 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ],
         ),
-        AppNavSection(
-          label: 'POS',
-          icon: Icons.storefront_outlined,
-          selectable: true,
-          items: [],
-        ),
-        AppNavSection(
+        if (_billing.posEnabled)
+          const AppNavSection(
+            label: 'POS',
+            icon: Icons.storefront_outlined,
+            selectable: true,
+            items: [],
+          ),
+        const AppNavSection(
           label: 'Settings',
           icon: Icons.settings_outlined,
           selectable: true,
@@ -164,7 +170,7 @@ class _HomeShellState extends State<HomeShell> {
 
   List<String> get _paths {
     if (_isStaff) {
-      return const [
+      return [
         AppRoutes.hrms,
         AppRoutes.employees,
         AppRoutes.employeesAdd,
@@ -174,7 +180,7 @@ class _HomeShellState extends State<HomeShell> {
         AppRoutes.proposals,
         AppRoutes.invoices,
         AppRoutes.expenses,
-        AppRoutes.pos,
+        if (_billing.posEnabled) AppRoutes.pos,
         AppRoutes.settings,
       ];
     }
@@ -210,18 +216,41 @@ class _HomeShellState extends State<HomeShell> {
       return 0;
     }
 
-    if (location.startsWith(AppRoutes.settings)) return 10;
-    if (location.startsWith(AppRoutes.pos)) return 9;
-    if (location.startsWith(AppRoutes.expenses)) return 8;
-    if (location.startsWith(AppRoutes.invoices)) return 7;
-    if (location.startsWith(AppRoutes.proposals)) return 6;
-    if (location.startsWith(AppRoutes.profitability)) return 5;
-    if (location.startsWith(AppRoutes.payroll)) return 4;
-    if (location.startsWith(AppRoutes.dms)) return 3;
-    if (location.startsWith(AppRoutes.employeesAdd)) return 2;
-    if (location.startsWith('${AppRoutes.employees}/')) return 1;
-    if (location == AppRoutes.employees) return 1;
-    if (location.startsWith(AppRoutes.hrms)) return 0;
+    if (location.startsWith(AppRoutes.settings)) {
+      return paths.indexOf(AppRoutes.settings);
+    }
+    if (location.startsWith(AppRoutes.pos)) {
+      final i = paths.indexOf(AppRoutes.pos);
+      return i >= 0 ? i : paths.indexOf(AppRoutes.settings);
+    }
+    if (location.startsWith(AppRoutes.expenses)) {
+      return paths.indexOf(AppRoutes.expenses);
+    }
+    if (location.startsWith(AppRoutes.invoices)) {
+      return paths.indexOf(AppRoutes.invoices);
+    }
+    if (location.startsWith(AppRoutes.proposals)) {
+      return paths.indexOf(AppRoutes.proposals);
+    }
+    if (location.startsWith(AppRoutes.profitability)) {
+      return paths.indexOf(AppRoutes.profitability);
+    }
+    if (location.startsWith(AppRoutes.payroll)) {
+      return paths.indexOf(AppRoutes.payroll);
+    }
+    if (location.startsWith(AppRoutes.dms)) {
+      return paths.indexOf(AppRoutes.dms);
+    }
+    if (location.startsWith(AppRoutes.employeesAdd)) {
+      return paths.indexOf(AppRoutes.employeesAdd);
+    }
+    if (location.startsWith('${AppRoutes.employees}/') ||
+        location == AppRoutes.employees) {
+      return paths.indexOf(AppRoutes.employees);
+    }
+    if (location.startsWith(AppRoutes.hrms)) {
+      return paths.indexOf(AppRoutes.hrms);
+    }
 
     final exact = paths.indexOf(location);
     return exact >= 0 ? exact : 0;
@@ -255,6 +284,7 @@ class _HomeShellState extends State<HomeShell> {
     if (path.startsWith(AppRoutes.clients)) return 'Manage clients';
     if (path == AppRoutes.inviteEmployee) return 'Invite employee';
     if (path == AppRoutes.manageInvites) return 'Manage invites';
+    if (path == AppRoutes.billing) return 'Billing';
     if (path == AppRoutes.companyDetails) return 'Company Details';
     if (path == AppRoutes.roles) return 'Roles';
     if (path == AppRoutes.ledger) return 'Activity ledger';
@@ -507,28 +537,111 @@ class _HomeShellState extends State<HomeShell> {
     return null;
   }
 
+  Widget? _billingBanner(BillingSnapshot snap) {
+    if (!snap.isPastDue &&
+        !snap.isReadOnly &&
+        !snap.atSeatCap &&
+        !snap.nearSeatCap) {
+      return null;
+    }
+    String message;
+    Color bg;
+    if (snap.isReadOnly) {
+      message = BillingRules.readOnlyMessage();
+      bg = AppColors.error.withValues(alpha: 0.12);
+    } else if (snap.isPastDue) {
+      message =
+          'Subscription past due — writes still allowed during the grace period. '
+          'Mark paid in Settings → Billing.';
+      bg = AppColors.highlight.withValues(alpha: 0.12);
+    } else if (snap.atSeatCap) {
+      message = BillingRules.seatLimitMessage(
+        planCode: snap.planCode,
+        employeeLimit: snap.employeeLimit,
+      );
+      bg = AppColors.highlight.withValues(alpha: 0.12);
+    } else {
+      message =
+          'Approaching employee limit (${snap.activeEmployees}/${snap.employeeLimit}).';
+      bg = AppColors.surfaceMuted;
+    }
+    return Material(
+      color: bg,
+      child: InkWell(
+        onTap: _isStaff ? () => context.go(AppRoutes.billing) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                snap.isReadOnly
+                    ? Icons.lock_outline_rounded
+                    : Icons.info_outline_rounded,
+                size: 18,
+                color: AppColors.text,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                ),
+              ),
+              if (_isStaff)
+                Text(
+                  'Billing',
+                  style: TextStyle(
+                    color: AppColors.highlight,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = AppAccent.of(context);
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: _employeesBloc),
-        if (_clientsBloc != null) BlocProvider.value(value: _clientsBloc!),
-      ],
-      child: AppShell(
-        user: widget.user,
-        title: _title,
-        sections: _sections,
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _selectDestination,
-        onBack: _onBack,
-        onLogout: _loggingOut ? null : _logout,
-        actions: _shellActions,
-        body: KeyedSubtree(
-          key: ValueKey<int>(accent.color.toARGB32()),
-          child: widget.child,
-        ),
-      ),
+    return ListenableBuilder(
+      listenable: _billing,
+      builder: (context, _) {
+        final banner = _billingBanner(_billing.snapshot);
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: _employeesBloc),
+            if (_clientsBloc != null) BlocProvider.value(value: _clientsBloc!),
+          ],
+          child: AppShell(
+            user: widget.user,
+            title: _title,
+            sections: _sections,
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _selectDestination,
+            onBack: _onBack,
+            onLogout: _loggingOut ? null : _logout,
+            actions: _shellActions,
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ?banner,
+                Expanded(
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(accent.color.toARGB32()),
+                    child: widget.child,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

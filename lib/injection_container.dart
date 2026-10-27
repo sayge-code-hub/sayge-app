@@ -6,7 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'core/auth/auth_local_storage.dart';
 import 'core/auth/auth_session.dart';
 import 'core/auth/password_setup.dart';
+import 'core/billing/billing_access.dart';
+import 'core/billing/billing_remote_datasource.dart';
 import 'core/config/app_config.dart';
+import 'core/platform_ops/platform_ops_session.dart';
 import 'core/theme/app_accent.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -132,10 +135,23 @@ Future<void> initDependencies() async {
     ),
   );
 
+  sl.registerLazySingleton<BillingRemoteDataSource>(
+    () => BillingRemoteDataSource(),
+  );
+  sl.registerLazySingleton<BillingAccess>(
+    () => BillingAccess(sl()),
+  );
+  sl.registerLazySingleton<PlatformOpsSession>(() => PlatformOpsSession());
+  if (restoredUser != null) {
+    // Fire-and-forget; UI listens / refreshes on shell open.
+    // ignore: unawaited_futures
+    sl<BillingAccess>().refresh();
+  }
+
   sl.registerFactory(() => LoginBloc(loginUseCase: sl()));
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl()));
-  sl.registerLazySingleton(() => SignOutUseCase(sl(), sl()));
+  sl.registerLazySingleton(() => SignOutUseCase(sl(), sl(), sl()));
   sl.registerLazySingleton(() => UpdateAvatarUseCase(sl()));
 
   sl.registerFactory(

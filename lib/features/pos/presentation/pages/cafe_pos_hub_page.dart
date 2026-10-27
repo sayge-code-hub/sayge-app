@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
+import '../../../../core/billing/billing_access.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../injection_container.dart';
 import '../widgets/cafe_pos_chrome.dart';
@@ -14,6 +15,18 @@ class CafePosHubPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!sl<BillingAccess>().posEnabled) {
+      return CafePosBackdrop(
+        child: CafePosEmptyState(
+          icon: Icons.storefront_outlined,
+          title: 'Cafe POS is turned off',
+          message:
+              'Cafe POS access is disabled for this deployment. '
+              'Staff can re-enable it under Settings → Billing.',
+        ),
+      );
+    }
+
     final user = sl<AuthSession>().user;
     if (!AppAccess.canAccessCafe(user, cafeId)) {
       return const CafePosBackdrop(

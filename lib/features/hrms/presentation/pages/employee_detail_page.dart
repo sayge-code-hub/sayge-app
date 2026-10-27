@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/billing/billing_access.dart';
+import '../../../../core/billing/billing_remote_datasource.dart';
+import '../../../../core/billing/billing_write_guard.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -227,6 +230,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     final employee = _employee;
     if (employee.isActive || _rehiring) return;
 
+    if (!await ensureBillingCanAddEmployee(context)) return;
+    if (!mounted) return;
+
     DateTime? joiningDate;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -299,15 +305,21 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
 
     await result.fold(
       (failure) async {
+        final mapped = mapBillingDbError(
+          failure.message,
+          sl<BillingAccess>().snapshot,
+        );
         await showAppMessageDialog(
           context,
           title: 'Rehire employee',
-          message: failure.message,
+          message: mapped ?? failure.message,
         );
       },
       (updated) async {
         setState(() => _employee = updated);
         context.read<EmployeesBloc>().add(const EmployeesRequested());
+        await sl<BillingAccess>().refresh();
+        if (!mounted) return;
         await showAppMessageDialog(
           context,
           title: 'Rehire employee',

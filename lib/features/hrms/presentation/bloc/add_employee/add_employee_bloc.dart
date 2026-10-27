@@ -1,6 +1,10 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../core/billing/billing_access.dart';
+import '../../../../../core/billing/billing_models.dart';
+import '../../../../../core/billing/billing_remote_datasource.dart';
+import '../../../../../injection_container.dart';
 import '../../../../settings/domain/entities/client.dart';
 import '../../../../settings/domain/usecases/get_clients.dart';
 import '../../../domain/entities/employee.dart';
@@ -186,6 +190,33 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
 
     emit(state.copyWith(status: AddEmployeeStatus.loading, clearError: true));
 
+    final willConsumeSeat = !asDraft && (state.isActive ?? true);
+    if (willConsumeSeat && !state.isEditMode) {
+      await sl<BillingAccess>().refresh();
+      final snap = sl<BillingAccess>().snapshot;
+      if (!snap.writesAllowed) {
+        emit(
+          state.copyWith(
+            status: AddEmployeeStatus.failure,
+            errorMessage: BillingRules.readOnlyMessage(),
+          ),
+        );
+        return;
+      }
+      if (!snap.canAddEmployee) {
+        emit(
+          state.copyWith(
+            status: AddEmployeeStatus.failure,
+            errorMessage: BillingRules.seatLimitMessage(
+              planCode: snap.planCode,
+              employeeLimit: snap.employeeLimit,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     var employeeId = state.employeeId.trim();
     if (!state.isEditMode) {
       // Re-allocate at submit to reduce collision if another hire was saved.
@@ -239,18 +270,27 @@ class AddEmployeeBloc extends Bloc<AddEmployeeEvent, AddEmployeeState> {
         : await addEmployeeUseCase(employee);
 
     result.fold(
-      (failure) => emit(
-        state.copyWith(
-          status: AddEmployeeStatus.failure,
-          errorMessage: failure.message,
-        ),
-      ),
-      (_) => emit(
-        state.copyWith(
-          status: AddEmployeeStatus.success,
-          isDraft: asDraft,
-        ),
-      ),
+      (failure) {
+        final mapped = mapBillingDbError(
+          failure.message,
+          sl<BillingAccess>().snapshot,
+        );
+        emit(
+          state.copyWith(
+            status: AddEmployeeStatus.failure,
+            errorMessage: mapped ?? failure.message,
+          ),
+        );
+      },
+      (_) {
+        sl<BillingAccess>().refresh();
+        emit(
+          state.copyWith(
+            status: AddEmployeeStatus.success,
+            isDraft: asDraft,
+          ),
+        );
+      },
     );
   }
 }

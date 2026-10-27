@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/password_setup.dart';
+import '../../../../core/billing/billing_access.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_version_label.dart';
@@ -38,6 +39,7 @@ class LoginView extends StatelessWidget {
             state.user!,
             needsPasswordSetup: needsSetup,
           );
+          await sl<BillingAccess>().refresh();
           if (!context.mounted) return;
           context.go(
             needsSetup
@@ -100,18 +102,39 @@ class LoginView extends StatelessWidget {
   }
 }
 
-class _LoginHeader extends StatelessWidget {
+class _LoginHeader extends StatefulWidget {
   const _LoginHeader();
+
+  @override
+  State<_LoginHeader> createState() => _LoginHeaderState();
+}
+
+class _LoginHeaderState extends State<_LoginHeader> {
+  DateTime? _lastTap;
+
+  void _onLogoTap() {
+    final now = DateTime.now();
+    final prev = _lastTap;
+    _lastTap = now;
+    if (prev != null && now.difference(prev) <= const Duration(milliseconds: 450)) {
+      _lastTap = null;
+      context.go(AppRoutes.platformOpsGate);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Image.asset(
-          'assets/images/sayge_logo.webp',
-          height: 44,
-          fit: BoxFit.contain,
-          semanticLabel: 'Sayge',
+        GestureDetector(
+          onTap: _onLogoTap,
+          behavior: HitTestBehavior.opaque,
+          child: Image.asset(
+            'assets/images/saasify_logo.png',
+            height: 72,
+            fit: BoxFit.contain,
+            semanticLabel: 'Saasify',
+          ),
         ),
         const SizedBox(height: 28),
         Text(

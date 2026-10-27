@@ -40,6 +40,9 @@ import '../../features/pos/presentation/pages/cafe_terminal_page.dart';
 import '../../features/proposals/domain/entities/proposal.dart';
 import '../../features/proposals/presentation/pages/proposals_page.dart';
 import '../../features/settings/presentation/pages/add_clients_page.dart';
+import '../../features/platform_ops/presentation/pages/platform_ops_gate_page.dart';
+import '../../features/platform_ops/presentation/pages/platform_ops_overview_page.dart';
+import '../../features/settings/presentation/pages/billing_page.dart';
 import '../../features/settings/presentation/pages/client_detail_page.dart';
 import '../../features/settings/presentation/pages/company_details_page.dart';
 import '../../features/settings/presentation/pages/invite_employee_page.dart';
@@ -52,9 +55,19 @@ import '../../features/settings/presentation/pages/expense_categories_page.dart'
 import '../../features/settings/presentation/pages/theme_page.dart';
 import '../auth/app_access.dart';
 import '../auth/auth_session.dart';
+import '../billing/billing_access.dart';
+import '../platform_ops/platform_ops_session.dart';
 import '../theme/app_colors.dart';
 import '../widgets/release_notes_page.dart';
+import '../../injection_container.dart';
 import 'app_routes.dart';
+
+bool _isPlatformOpsPath(String path) {
+  final p = path.trim();
+  return p == AppRoutes.platformOpsGate ||
+      p == AppRoutes.platformOps ||
+      p.startsWith('${AppRoutes.platformOpsGate}/');
+}
 
 bool _isWhatsNewPath(String path) {
   final p = path.trim();
@@ -144,6 +157,16 @@ GoRouter createAppRouter(AuthSession authSession) {
         return null;
       }
 
+      // Platform owner console (logo double-tap) — available logged out.
+      if (_isPlatformOpsPath(location) || _isPlatformOpsPath(uriPath)) {
+        final unlocked = sl<PlatformOpsSession>().isUnlocked;
+        final onGate = location == AppRoutes.platformOpsGate ||
+            uriPath == AppRoutes.platformOpsGate;
+        if (!onGate && !unlocked) return AppRoutes.platformOpsGate;
+        if (onGate && unlocked) return AppRoutes.platformOps;
+        return null;
+      }
+
       if (_isAuthHashDebris(location) || _isAuthHashDebris(uriPath)) {
         return AppRoutes.setPassword;
       }
@@ -161,11 +184,26 @@ GoRouter createAppRouter(AuthSession authSession) {
 
       // Invitees may already have a Supabase session before AuthSession profile
       // is loaded — never bounce them off set-password.
-      if (!loggedIn && !loggingIn && !settingPassword) return AppRoutes.login;
+      if (!loggedIn &&
+          !loggingIn &&
+          !settingPassword &&
+          !_isPlatformOpsPath(location)) {
+        return AppRoutes.login;
+      }
       if (loggedIn && user != null && !authSession.needsPasswordSetup) {
         final home = AppAccess.homeRoute(user);
         if (loggingIn || atRoot) return home;
         if (!AppAccess.canAccessPath(user, location)) return home;
+        // Cafe POS add-on flag (closed beta; no pricing UI).
+        final onPos = location == AppRoutes.pos ||
+            location.startsWith('${AppRoutes.pos}/');
+        if (onPos && !sl<BillingAccess>().posEnabled) {
+          // Staff: send to people home. Cafe-scoped users stay on POS route
+          // (page shows disabled state) so we don't redirect-loop.
+          if (AppAccess.isStaff(user)) {
+            return home.startsWith(AppRoutes.pos) ? AppRoutes.hrms : home;
+          }
+        }
       }
       return null;
     },
@@ -182,6 +220,16 @@ GoRouter createAppRouter(AuthSession authSession) {
         path: AppRoutes.whatsNew,
         pageBuilder: (context, state) =>
             _page(state, const ReleaseNotesPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.platformOpsGate,
+        pageBuilder: (context, state) =>
+            _page(state, const PlatformOpsGatePage()),
+      ),
+      GoRoute(
+        path: AppRoutes.platformOps,
+        pageBuilder: (context, state) =>
+            _page(state, const PlatformOpsOverviewPage()),
       ),
       GoRoute(
         path: '/m/:cafeId',
@@ -576,6 +624,15 @@ GoRouter createAppRouter(AuthSession authSession) {
                     ],
                   ),
                 ],
+              ),
+              GoRoute(
+                path: 'billing',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  BillingPage(
+                    onBack: () => _goBack(context, AppRoutes.settings),
+                  ),
+                ),
               ),
               GoRoute(
                 path: 'company',

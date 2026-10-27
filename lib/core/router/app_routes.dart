@@ -37,10 +37,15 @@ abstract final class AppRoutes {
   static const categories = '/settings/categories';
   static const inviteEmployee = '/settings/invite';
   static const manageInvites = '/settings/invites';
+  static const billing = '/settings/billing';
   static const setPassword = '/set-password';
 
   /// Curated release notes (tap the version label).
   static const whatsNew = '/whats-new';
+
+  /// Secret platform owner console (double-tap logo on login).
+  static const platformOpsGate = '/platform';
+  static const platformOps = '/platform/overview';
 
   static const pos = '/pos';
 
