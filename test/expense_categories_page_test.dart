@@ -89,11 +89,20 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const SettingsHubPage()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(1440, 1200)),
+          child: const SettingsHubPage(),
+        ),
+      ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('Billing'), findsOneWidget);
 
+    // Desktop hub uses 4 columns — first row stays on one baseline.
     final firstRow = [
       'Invite employee',
       'Manage invites',
@@ -106,6 +115,10 @@ void main() {
     for (final top in tops) {
       expect((top - tops.first).abs(), lessThan(2));
     }
+
+    // Billing starts the second row.
+    final billingTop = tester.getTopLeft(find.text('Billing')).dy;
+    expect(billingTop, greaterThan(tops.first + 2));
   });
 
   testWidgets('categories can be added and renamed', (tester) async {
