@@ -127,7 +127,7 @@ class _CafeGuestMenuPageState extends State<CafeGuestMenuPage> {
     required String notes,
   }) {
     for (final l in _cart) {
-      if (l.matches(item, addons) && l.notes.trim() == notes.trim()) {
+      if (l.matches(item, addons, notes: notes)) {
         return l;
       }
     }
