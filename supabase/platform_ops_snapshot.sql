@@ -19,7 +19,8 @@ declare
   v_live_plan_name text := null;
   v_live_status text := null;
   v_pos_enabled boolean := null;
-  v_solo_company_id uuid := null;
+  -- company_details.id is text (e.g. company_sayge), not uuid.
+  v_solo_company_id text := null;
 begin
   if coalesce(p_password, '') is distinct from 'ihateluvstories' then
     raise exception 'PLATFORM_OPS_FORBIDDEN' using errcode = '42501';
