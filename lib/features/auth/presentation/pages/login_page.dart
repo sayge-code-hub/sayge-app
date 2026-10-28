@@ -6,9 +6,10 @@ import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/password_setup.dart';
 import '../../../../core/billing/billing_access.dart';
+import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_version_label.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 import '../../../../injection_container.dart';
 import '../bloc/login_bloc.dart';
 import '../widgets/login_form.dart';
@@ -48,54 +49,16 @@ class LoginView extends StatelessWidget {
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(context).copyWith(
-                              scrollbars: false,
-                              overscroll: false,
-                            ),
-                            child: SingleChildScrollView(
-                              physics: const ClampingScrollPhysics(),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
-                                ),
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      _LoginHeader(),
-                                      SizedBox(height: 40),
-                                      LoginForm(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const AppVersionLabel(),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      child: AuthPageScaffold(
+        footer: const AppVersionLabel(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _LoginHeader(),
+            SizedBox(height: Breakpoints.isCompact(context) ? 24 : 28),
+            const LoginForm(),
+          ],
         ),
       ),
     );
@@ -116,7 +79,8 @@ class _LoginHeaderState extends State<_LoginHeader> {
     final now = DateTime.now();
     final prev = _lastTap;
     _lastTap = now;
-    if (prev != null && now.difference(prev) <= const Duration(milliseconds: 450)) {
+    if (prev != null &&
+        now.difference(prev) <= const Duration(milliseconds: 450)) {
       _lastTap = null;
       context.go(AppRoutes.platformOpsGate);
     }
@@ -124,23 +88,31 @@ class _LoginHeaderState extends State<_LoginHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = Breakpoints.isCompact(context);
+
     return Column(
       children: [
         GestureDetector(
           onTap: _onLogoTap,
           behavior: HitTestBehavior.opaque,
-          child: Image.asset(
-            'assets/images/saasify_logo.png',
-            height: 72,
-            fit: BoxFit.contain,
-            semanticLabel: 'Saasify',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Image.asset(
+              'assets/images/saasify_logo.png',
+              height: compact ? 40 : 48,
+              fit: BoxFit.contain,
+              semanticLabel: 'Saasify',
+            ),
           ),
         ),
-        const SizedBox(height: 28),
+        SizedBox(height: compact ? 12 : 14),
         Text(
           'Welcome back. Sign in to continue.',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                height: 1.35,
+              ),
         ),
       ],
     );

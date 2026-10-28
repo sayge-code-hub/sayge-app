@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/platform_ops/platform_ops_session.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_password_field.dart';
 import '../../../../injection_container.dart';
 
 /// Fixed-password entry — black / white, full-width chrome.
@@ -16,13 +20,10 @@ class PlatformOpsGatePage extends StatefulWidget {
 class _PlatformOpsGatePageState extends State<PlatformOpsGatePage> {
   static const _password = 'ihateluvstories';
   static const _black = Color(0xFF0A0A0A);
-  static const _white = Color(0xFFFFFFFF);
-  static const _muted = Color(0xFF737373);
   static const _line = Color(0xFFE5E5E5);
 
   final _controller = TextEditingController();
   String? _error;
-  bool _obscure = true;
 
   @override
   void dispose() {
@@ -43,9 +44,11 @@ class _PlatformOpsGatePageState extends State<PlatformOpsGatePage> {
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    final compact = Breakpoints.isCompact(context);
 
     return Scaffold(
-      backgroundColor: _white,
+      backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -53,143 +56,108 @@ class _PlatformOpsGatePageState extends State<PlatformOpsGatePage> {
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: _line)),
             ),
-            padding: EdgeInsets.fromLTRB(wide ? 48 : 20, 16, wide ? 48 : 20, 16),
+            padding: EdgeInsets.fromLTRB(wide ? 48 : 16, 12, wide ? 48 : 16, 12),
             child: SafeArea(
               bottom: false,
-              child: Row(
-                children: [
-                  TextButton(
-                    onPressed: () => context.go(AppRoutes.login),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _black,
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 36),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      '← Back',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => context.go(AppRoutes.login),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _black,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    '← Back',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
           Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Image.asset(
-                          'assets/images/saasify_logo.png',
-                          height: 72,
-                          fit: BoxFit.contain,
-                          semanticLabel: 'Saasify',
+            child: SafeArea(
+              top: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 20 : 24,
+                      compact ? 24 : 36,
+                      compact ? 20 : 24,
+                      24,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 48,
+                        maxWidth: 400,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 400),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Center(
+                                child: Image.asset(
+                                  'assets/images/saasify_logo.png',
+                                  height: compact ? 40 : 48,
+                                  fit: BoxFit.contain,
+                                  semanticLabel: 'Saasify',
+                                ),
+                              ),
+                              SizedBox(height: compact ? 20 : 24),
+                              Text(
+                                'Owner access',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _black,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: compact ? 24 : 28,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Enter password to continue',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.textLight,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              AppPasswordField(
+                                controller: _controller,
+                                autofocus: true,
+                                errorText: _error,
+                                onChanged: (_) {
+                                  if (_error != null) {
+                                    setState(() => _error = null);
+                                  }
+                                },
+                                onSubmitted: (_) => _submit(),
+                              ),
+                              const SizedBox(height: 16),
+                              AppButton(
+                                label: 'Continue',
+                                onPressed: _submit,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      const Text(
-                        'Owner access',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _black,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 28,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Enter password to continue',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      TextField(
-                        controller: _controller,
-                        obscureText: _obscure,
-                        autofocus: true,
-                        cursorColor: _black,
-                        style: const TextStyle(
-                          color: _black,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          labelStyle: const TextStyle(color: _muted),
-                          floatingLabelStyle: const TextStyle(color: _black),
-                          errorText: _error,
-                          enabledBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: _line),
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          focusedBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: _black, width: 1.4),
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          errorBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: _black),
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          focusedErrorBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: _black, width: 1.4),
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                              color: _muted,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onChanged: (_) {
-                          if (_error != null) setState(() => _error = null);
-                        },
-                        onSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 48,
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _black,
-                            foregroundColor: _white,
-                            elevation: 0,
-                            shape: const RoundedRectangleBorder(),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          child: const Text('Continue'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
