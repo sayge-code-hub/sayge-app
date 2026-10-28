@@ -5,11 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/app_access.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/password_setup.dart';
+import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_password_field.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/data/datasources/auth_remote_datasource.dart';
 
@@ -138,76 +140,68 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final compact = Breakpoints.isCompact(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Image.asset(
-                      'assets/images/sayge_logo.webp',
-                      height: 36,
-                      semanticLabel: 'Sayge',
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Text(
-                    'Set your password',
-                    style: textTheme.headlineMedium?.copyWith(fontSize: 24),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choose a password for your Sayge account. Use at least 6 characters.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textLight,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  AppPasswordField(
-                    controller: _password,
-                    label: 'New password',
-                    enabled: _ready && !_saving,
-                  ),
-                  const SizedBox(height: 12),
-                  AppPasswordField(
-                    controller: _confirm,
-                    label: 'Confirm password',
-                    enabled: _ready && !_saving,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.error,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  AppButton(
-                    label: _saving ? 'Saving…' : 'Save password & continue',
-                    isLoading: _saving,
-                    enabled: _ready && !_saving,
-                    onPressed: _submit,
-                  ),
-                ],
-              ),
+    return AuthPageScaffold(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Image.asset(
+              'assets/images/saasify_logo.png',
+              height: compact ? 36 : 40,
+              fit: BoxFit.contain,
+              semanticLabel: 'Saasify',
             ),
           ),
-        ),
+          SizedBox(height: compact ? 20 : 24),
+          Text(
+            'Set your password',
+            style: textTheme.headlineMedium?.copyWith(fontSize: 22),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choose a password for your account. Use at least 6 characters.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.textLight,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          AppPasswordField(
+            controller: _password,
+            label: 'New password',
+            enabled: _ready && !_saving,
+          ),
+          const SizedBox(height: 14),
+          AppPasswordField(
+            controller: _confirm,
+            label: 'Confirm password',
+            enabled: _ready && !_saving,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.error,
+                fontSize: 13,
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          AppButton(
+            label: _saving ? 'Saving…' : 'Save password & continue',
+            isLoading: _saving,
+            enabled: _ready && !_saving,
+            onPressed: _submit,
+          ),
+        ],
       ),
     );
   }

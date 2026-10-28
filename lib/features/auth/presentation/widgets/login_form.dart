@@ -128,7 +128,7 @@ class _LoginFormState extends State<LoginForm> {
                     context.read<LoginBloc>().add(LoginEmailChanged(value)),
                 onSubmitted: (_) => _passwordFocusNode.requestFocus(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               AppPasswordField(
                 controller: _passwordController,
                 focusNode: _passwordFocusNode,
@@ -139,14 +139,18 @@ class _LoginFormState extends State<LoginForm> {
                 onSubmitted: (_) =>
                     context.read<LoginBloc>().add(const LoginSubmitted()),
               ),
+              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: isLoading ? null : _forgotPassword,
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.text,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
@@ -160,10 +164,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
               ),
               if (state.errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _ErrorBanner(message: state.errorMessage!),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               AppButton(
                 label: 'Sign in',
                 isLoading: state.status == LoginStatus.loading,
@@ -172,7 +176,7 @@ class _LoginFormState extends State<LoginForm> {
                     : () =>
                         context.read<LoginBloc>().add(const LoginSubmitted()),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text.rich(
                 TextSpan(
                   style: bodyStyle,

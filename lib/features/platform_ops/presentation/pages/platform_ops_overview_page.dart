@@ -439,7 +439,7 @@ class _OverviewBody extends StatelessWidget {
     ];
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(wide ? 48 : 20, 36, wide ? 48 : 20, 48),
+      padding: EdgeInsets.fromLTRB(wide ? 48 : 16, wide ? 36 : 20, wide ? 48 : 16, wide ? 48 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
