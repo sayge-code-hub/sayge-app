@@ -93,7 +93,8 @@ where bucket_id in (
   )
 order by bucket_id, name;
 
--- 9. No function in `public` may be executable by anon or PUBLIC.
+-- 9. No function in `public` may be executable by anon or PUBLIC —
+--    except intentional guest Cafe POS + password-gated platform_ops RPCs.
 --    PostgreSQL grants EXECUTE to PUBLIC on every new function, and anon
 --    inherits it, so this must cover the whole schema — not just the role
 --    helpers. Extension-owned functions are excluded; their ACLs are the
@@ -108,6 +109,14 @@ cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
 where n.nspname = 'public'
   and acl.privilege_type = 'EXECUTE'
   and (acl.grantee = 0 or pg_get_userbyid(acl.grantee) = 'anon')
+  and p.proname not in (
+    'get_guest_cafe_menu',
+    'create_guest_cafe_order',
+    'platform_ops_snapshot',
+    'platform_ops_update_plan',
+    'platform_ops_set_live_plan',
+    'platform_ops_set_plan_active'
+  )
   and not exists (
     select 1 from pg_depend d
     where d.classid = 'pg_proc'::regclass

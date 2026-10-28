@@ -990,6 +990,22 @@ create policy billing_events_select on public.billing_events
   using (public.app_is_staff());
 
 -- Mutations only via security definer RPCs (no direct insert/update policies).
+-- CREATE FUNCTION defaults EXECUTE to PUBLIC — revoke before granting.
+
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.oid::regprocedure as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname like 'billing_%'
+  loop
+    execute format('revoke all on function %s from public, anon', r.sig);
+  end loop;
+end $$;
 
 grant execute on function public.billing_active_employee_count() to authenticated;
 grant execute on function public.billing_plan_limit() to authenticated;
