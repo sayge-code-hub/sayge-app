@@ -161,8 +161,9 @@ class _BillingPageState extends State<BillingPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Closed beta · single deployment · no payment gateway. '
-                          'Mark periods paid after bank/UPI transfer.',
+                          'Per-company Saasify billing · payment gateway not '
+                          'connected yet. Mark periods paid after bank/UPI, or '
+                          'use Free self-serve signup.',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: AppColors.textLight,

@@ -192,8 +192,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final profile = await _client
         .from('users')
         .select(
-          'id, email, full_name, role_id, employee_id, cafe_id, avatar_path, '
-          'is_active, roles(code, label)',
+          'id, email, full_name, role_id, employee_id, company_id, cafe_id, '
+          'avatar_path, is_active, roles(code, label)',
         )
         .eq('id', userId)
         .maybeSingle();

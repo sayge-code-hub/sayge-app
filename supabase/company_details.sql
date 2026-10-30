@@ -1,4 +1,6 @@
--- Company details (seller / bank info for invoices) — run in Supabase SQL Editor.
+-- Company details = Saasify tenant (client company).
+-- Sayge (id=company_sayge) is the first client using Saasify — not the product.
+-- Multi-tenant extras: supabase/multi_tenant.sql
 
 create table if not exists public.company_details (
   id text primary key,

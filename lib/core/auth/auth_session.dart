@@ -21,6 +21,12 @@ class AuthSession extends ChangeNotifier {
 
   bool get isAuthenticated => _user != null;
 
+  /// Active Saasify tenant (client company). Sayge = `company_sayge`.
+  String? get activeCompanyId {
+    final id = _user?.companyId?.trim();
+    return (id == null || id.isEmpty) ? null : id;
+  }
+
   /// True for invitees until they finish [SetPasswordPage].
   bool get needsPasswordSetup => _needsPasswordSetup;
 

@@ -9,6 +9,7 @@ class User extends Equatable {
     required this.roleLabel,
     this.name,
     this.employeeId,
+    this.companyId,
     this.cafeId,
     this.avatarPath,
     this.avatarUrl,
@@ -21,6 +22,9 @@ class User extends Equatable {
   final String roleLabel;
   final String? name;
   final String? employeeId;
+
+  /// Saasify tenant (client company). Sayge = `company_sayge` (first client).
+  final String? companyId;
 
   /// Cafe POS tenant — required for cafe_admin / cashier / kitchen.
   final String? cafeId;
@@ -45,6 +49,7 @@ class User extends Equatable {
     String? roleLabel,
     String? name,
     String? employeeId,
+    String? companyId,
     String? cafeId,
     String? avatarPath,
     String? avatarUrl,
@@ -58,6 +63,7 @@ class User extends Equatable {
       roleLabel: roleLabel ?? this.roleLabel,
       name: name ?? this.name,
       employeeId: employeeId ?? this.employeeId,
+      companyId: companyId ?? this.companyId,
       cafeId: cafeId ?? this.cafeId,
       avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
       avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
@@ -73,6 +79,7 @@ class User extends Equatable {
         roleLabel,
         name,
         employeeId,
+        companyId,
         cafeId,
         avatarPath,
         avatarUrl,

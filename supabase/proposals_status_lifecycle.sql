@@ -1,4 +1,5 @@
--- Proposal statuses: active, sent, accepted, archived.
+-- Proposal statuses: active, sent, accepted, archived,
+-- discarded_by_client, discarded_by_us.
 -- Run in the Supabase SQL editor (idempotent).
 
 alter table public.proposals
@@ -6,4 +7,11 @@ alter table public.proposals
 
 alter table public.proposals
   add constraint proposals_status_check
-  check (status in ('active', 'sent', 'accepted', 'archived'));
+  check (status in (
+    'active',
+    'sent',
+    'accepted',
+    'archived',
+    'discarded_by_client',
+    'discarded_by_us'
+  ));

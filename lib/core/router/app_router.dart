@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/set_password_page.dart';
+import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/dms/presentation/pages/dms_page.dart';
 import '../../features/hrms/domain/entities/employee.dart';
 import '../../features/hrms/presentation/bloc/employees/employees_bloc.dart';
@@ -173,6 +174,7 @@ GoRouter createAppRouter(AuthSession authSession) {
 
       final loggedIn = authSession.isAuthenticated;
       final loggingIn = location == AppRoutes.login;
+      final signingUp = location == AppRoutes.signup;
       final settingPassword = location == AppRoutes.setPassword;
       final atRoot = location == AppRoutes.root;
       final user = authSession.user;
@@ -186,13 +188,14 @@ GoRouter createAppRouter(AuthSession authSession) {
       // is loaded — never bounce them off set-password.
       if (!loggedIn &&
           !loggingIn &&
+          !signingUp &&
           !settingPassword &&
           !_isPlatformOpsPath(location)) {
         return AppRoutes.login;
       }
       if (loggedIn && user != null && !authSession.needsPasswordSetup) {
         final home = AppAccess.homeRoute(user);
-        if (loggingIn || atRoot) return home;
+        if (loggingIn || signingUp || atRoot) return home;
         if (!AppAccess.canAccessPath(user, location)) return home;
         // Cafe POS add-on flag (closed beta; no pricing UI).
         final onPos = location == AppRoutes.pos ||
@@ -211,6 +214,10 @@ GoRouter createAppRouter(AuthSession authSession) {
       GoRoute(
         path: AppRoutes.login,
         pageBuilder: (context, state) => _page(state, const LoginPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.signup,
+        pageBuilder: (context, state) => _page(state, const SignupPage()),
       ),
       GoRoute(
         path: AppRoutes.setPassword,

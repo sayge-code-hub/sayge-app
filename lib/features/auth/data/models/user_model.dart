@@ -9,6 +9,7 @@ class UserModel extends User {
     required super.roleLabel,
     super.name,
     super.employeeId,
+    super.companyId,
     super.cafeId,
     super.avatarPath,
     super.avatarUrl,
@@ -22,6 +23,7 @@ class UserModel extends User {
     final roleMap = role is Map<String, dynamic> ? role : <String, dynamic>{};
     final path = (json['avatar_path'] ?? '').toString().trim();
     final cafeId = (json['cafe_id'] ?? '').toString().trim();
+    final companyId = (json['company_id'] ?? '').toString().trim();
 
     return UserModel(
       id: json['id'] as String,
@@ -33,6 +35,7 @@ class UserModel extends User {
       roleCode: (roleMap['code'] as String?) ?? 'employee',
       roleLabel: (roleMap['label'] as String?) ?? 'Employee',
       employeeId: json['employee_id'] as String?,
+      companyId: companyId.isEmpty ? null : companyId,
       cafeId: cafeId.isEmpty ? null : cafeId,
       avatarPath: path.isEmpty ? null : path,
       avatarUrl: avatarUrl?.trim().isNotEmpty == true ? avatarUrl!.trim() : null,
@@ -48,6 +51,7 @@ class UserModel extends User {
       'role_code': roleCode,
       'role_label': roleLabel,
       'employee_id': employeeId,
+      'company_id': companyId,
       'cafe_id': cafeId,
       'avatar_path': avatarPath,
       'avatar_url': avatarUrl,
@@ -60,6 +64,7 @@ class UserModel extends User {
     final path = (json['avatar_path'] ?? '').toString().trim();
     final url = (json['avatar_url'] ?? '').toString().trim();
     final cafeId = (json['cafe_id'] ?? '').toString().trim();
+    final companyId = (json['company_id'] ?? '').toString().trim();
     return UserModel(
       id: (json['id'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
@@ -70,6 +75,7 @@ class UserModel extends User {
       roleCode: (json['role_code'] as String?) ?? 'employee',
       roleLabel: (json['role_label'] as String?) ?? 'Employee',
       employeeId: json['employee_id'] as String?,
+      companyId: companyId.isEmpty ? null : companyId,
       cafeId: cafeId.isEmpty ? null : cafeId,
       avatarPath: path.isEmpty ? null : path,
       avatarUrl: url.isEmpty ? null : url,
@@ -85,6 +91,7 @@ class UserModel extends User {
       roleLabel: user.roleLabel,
       name: user.name,
       employeeId: user.employeeId,
+      companyId: user.companyId,
       cafeId: user.cafeId,
       avatarPath: user.avatarPath,
       avatarUrl: user.avatarUrl,

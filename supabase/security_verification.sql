@@ -115,7 +115,10 @@ where n.nspname = 'public'
     'platform_ops_snapshot',
     'platform_ops_update_plan',
     'platform_ops_set_live_plan',
-    'platform_ops_set_plan_active'
+    'platform_ops_set_plan_active',
+    'platform_ops_create_company',
+    'platform_ops_set_company_plan',
+    'platform_ops_prepare_owner_invite'
   )
   and not exists (
     select 1 from pg_depend d

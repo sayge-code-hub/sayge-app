@@ -22,9 +22,21 @@ class AppReleaseNote {
 
 /// Newest first. Keep in sync when shipping notable deploys.
 abstract final class AppReleaseNotes {
-  static const currentVersionHint = '1.0.22';
+  static const currentVersionHint = '1.0.25';
 
   static final List<AppReleaseNote> all = [
+    AppReleaseNote(
+      version: '1.0.25',
+      releasedAt: DateTime.utc(2026, 10, 30, 11, 45),
+      title: 'Multi-tenant Saasify & proposals',
+      highlights: [
+        'Saasify multi-tenant: Sayge is the first client company',
+        'Public Free signup and platform ops create-company / invite owner',
+        'Proposal statuses: Discarded by client, Discarded by us',
+        'Status change shows a loader until the update finishes',
+        'Fixed proposal/invoice line-item save (RLS)',
+      ],
+    ),
     AppReleaseNote(
       version: '1.0.22',
       releasedAt: DateTime.utc(2026, 10, 27, 6, 15),
