@@ -467,23 +467,24 @@ class _ProposalStatusChip extends StatelessWidget {
     final Color color;
     switch (status) {
       case ProposalPoStatus.active:
-        color = AppColors.textLight;
+        color = AppColors.success; // green
       case ProposalPoStatus.sent:
-        color = AppColors.text;
+        color = const Color(0xFF7C3AED); // violet
       case ProposalPoStatus.accepted:
-        color = AppColors.success;
+        color = const Color(0xFF0D9488); // teal (distinct from Active)
       case ProposalPoStatus.archived:
-        color = AppColors.error;
+        color = const Color(0xFFD97706); // amber
       case ProposalPoStatus.discardedByClient:
-        color = const Color(0xFFB45309); // amber-brown
+        color = const Color(0xFF6B7280); // grey
       case ProposalPoStatus.discardedByUs:
-        color = const Color(0xFF6B7280); // neutral gray
+        color = AppColors.error; // red
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         status.label,
