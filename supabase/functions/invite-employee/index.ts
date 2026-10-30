@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: profileErr } = await admin
       .from('users')
-      .select('id, role_id, roles(code)')
+      .select('id, role_id, company_id, roles(code)')
       .eq('id', caller.id)
       .maybeSingle()
 
@@ -63,15 +63,30 @@ Deno.serve(async (req) => {
 
     const roleCode =
       (callerProfile.roles as { code?: string } | null)?.code ?? ''
-    if (roleCode !== 'owner' && roleCode !== 'admin') {
+    const callerCompanyId = String(callerProfile.company_id ?? '').trim()
+    // Platform ops may pass company_id when inviting a new company owner.
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>
+    const opsCompanyId = String(body.company_id ?? body.companyId ?? '').trim()
+    const isOpsOwnerInvite =
+      String(body.source ?? '').trim().toLowerCase() === 'platform_ops'
+
+    if (
+      !isOpsOwnerInvite &&
+      roleCode !== 'owner' &&
+      roleCode !== 'admin'
+    ) {
       return json({ error: 'Only owners and admins can invite employees' }, 403)
     }
 
-    const body = await req.json().catch(() => ({}))
+    const companyId =
+      opsCompanyId || callerCompanyId || 'company_sayge'
+    body.company_id = companyId
+    body.companyId = companyId
+
     const action = String(body.action ?? 'invite').trim().toLowerCase()
 
     if (action === 'list') {
-      return await listPendingInvites(admin)
+      return await listPendingInvites(admin, companyId)
     }
 
     if (action === 'resend') {
@@ -95,6 +110,7 @@ Deno.serve(async (req) => {
 
 async function listPendingInvites(
   admin: ReturnType<typeof createClient>,
+  companyId?: string,
 ) {
   const pending: Array<{
     id: string
@@ -120,6 +136,8 @@ async function listPendingInvites(
       const email = (user.email ?? '').toLowerCase()
       if (!isValidEmail(email)) continue
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+      const metaCompany = String(meta.company_id ?? '').trim()
+      if (companyId && metaCompany && metaCompany !== companyId) continue
       const fullName = String(meta.full_name ?? meta.name ?? '').trim()
       pending.push({
         id: user.id,
@@ -167,6 +185,11 @@ async function inviteUser(
   const roleId = String(body.roleId ?? body.role_id ?? 'role_employee').trim()
   const employeeId = String(body.employeeId ?? body.employee_id ?? '').trim()
   const cafeId = String(body.cafeId ?? body.cafe_id ?? '').trim()
+  const companyId = String(body.companyId ?? body.company_id ?? 'company_sayge')
+    .trim() || 'company_sayge'
+  const memberRole = String(body.member_role ?? body.memberRole ?? 'member')
+    .trim()
+    .toLowerCase() || 'member'
   const redirectTo = String(body.redirectTo ?? body.redirect_to ?? '').trim()
 
   if (!isValidEmail(emailRaw)) {
@@ -182,6 +205,10 @@ async function inviteUser(
       name: fullName || emailRaw.split('@')[0],
       role_id: roleId,
       must_set_password: 'true',
+      company_id: companyId,
+      member_role: ['owner', 'admin', 'member'].includes(memberRole)
+        ? memberRole
+        : 'member',
     },
   }
   if (redirectTo) {
@@ -205,6 +232,7 @@ async function inviteUser(
     if (roleId) patch.role_id = roleId
     if (employeeId) patch.employee_id = employeeId
     if (cafeId) patch.cafe_id = cafeId
+    patch.company_id = companyId
 
     // Profile row is created by on_auth_user_created; update extras.
     // Retry briefly — the trigger may race the first update.
@@ -227,6 +255,18 @@ async function inviteUser(
         500,
       )
     }
+
+    const memberRoleFinal = ['owner', 'admin', 'member'].includes(memberRole)
+      ? memberRole
+      : 'member'
+    await admin.from('company_members').upsert(
+      {
+        company_id: companyId,
+        user_id: userId,
+        role: memberRoleFinal,
+      },
+      { onConflict: 'company_id,user_id' },
+    )
 
     const { data: profile } = await admin
       .from('users')

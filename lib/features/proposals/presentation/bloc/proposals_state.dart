@@ -55,6 +55,7 @@ class ProposalsState extends Equatable {
     required this.shipToGstin,
     required this.notes,
     this.editingId,
+    this.statusUpdatingProposalId,
     this.quoteDate,
     this.expiryDate,
     this.errorMessage,
@@ -103,9 +104,14 @@ class ProposalsState extends Equatable {
   final String notes;
   /// When set, Save updates this proposal instead of creating a new one.
   final String? editingId;
+  /// Proposal id currently updating status (shows loader on that card).
+  final String? statusUpdatingProposalId;
   final String? errorMessage;
 
   bool get isEditing => editingId != null;
+
+  bool isStatusUpdating(String proposalId) =>
+      statusUpdatingProposalId == proposalId;
 
   double get draftSubtotal {
     var sum = 0.0;
@@ -169,9 +175,11 @@ class ProposalsState extends Equatable {
     String? shipToGstin,
     String? notes,
     String? editingId,
+    String? statusUpdatingProposalId,
     String? errorMessage,
     bool clearError = false,
     bool clearEditingId = false,
+    bool clearStatusUpdating = false,
   }) {
     return ProposalsState(
       status: status ?? this.status,
@@ -194,6 +202,9 @@ class ProposalsState extends Equatable {
       shipToGstin: shipToGstin ?? this.shipToGstin,
       notes: notes ?? this.notes,
       editingId: clearEditingId ? null : (editingId ?? this.editingId),
+      statusUpdatingProposalId: clearStatusUpdating
+          ? null
+          : (statusUpdatingProposalId ?? this.statusUpdatingProposalId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -220,6 +231,7 @@ class ProposalsState extends Equatable {
         shipToGstin,
         notes,
         editingId,
+        statusUpdatingProposalId,
         errorMessage,
       ];
 }

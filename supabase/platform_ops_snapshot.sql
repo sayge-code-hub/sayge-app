@@ -1,5 +1,7 @@
 -- Platform owner snapshot — users, companies, plans.
 -- Secret logo double-tap console. Re-run safe.
+-- Multi-tenant (per-company plans, create/invite): prefer supabase/multi_tenant.sql
+-- which replaces these RPCs. Sayge (company_sayge) is the first Saasify client.
 
 create or replace function public.platform_ops_snapshot(p_password text)
 returns jsonb

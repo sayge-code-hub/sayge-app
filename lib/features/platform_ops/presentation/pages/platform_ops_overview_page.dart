@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/platform_ops/platform_ops_session.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -142,6 +143,226 @@ class _PlatformOpsOverviewPageState extends State<PlatformOpsOverviewPage> {
       },
     );
     await _applySnapshot(raw);
+  }
+
+  Future<void> _createCompany({
+    required String displayName,
+    String? planCode,
+    String? email,
+  }) async {
+    final raw = await Supabase.instance.client.rpc(
+      'platform_ops_create_company',
+      params: {
+        'p_password': _password,
+        'p_display_name': displayName,
+        'p_name': null,
+        'p_plan_code': (planCode ?? 'free').trim().isEmpty
+            ? 'free'
+            : planCode!.trim(),
+        'p_email': email,
+        'p_telephone': null,
+      },
+    );
+    await _applySnapshot(raw);
+  }
+
+  Future<void> _inviteCompanyOwner({
+    required String companyId,
+    required String email,
+    String? fullName,
+  }) async {
+    final prepared = await Supabase.instance.client.rpc(
+      'platform_ops_prepare_owner_invite',
+      params: {
+        'p_password': _password,
+        'p_company_id': companyId,
+        'p_email': email,
+        'p_full_name': fullName,
+      },
+    );
+    if (prepared is! Map) throw StateError('Invite prepare failed');
+    final meta = Map<String, dynamic>.from(
+      (prepared['invite_metadata'] as Map?) ?? prepared,
+    );
+    final roleId = (meta['role_id'] ?? prepared['role_id'] ?? '').toString();
+    final body = <String, dynamic>{
+      'action': 'invite',
+      'source': 'platform_ops',
+      'email': email.trim().toLowerCase(),
+      'fullName': (fullName ?? '').trim(),
+      'company_id': companyId,
+      'member_role': 'owner',
+      if (roleId.isNotEmpty) 'roleId': roleId,
+      if (AppConfig.inviteRedirectUrl.isNotEmpty)
+        'redirectTo': AppConfig.inviteRedirectUrl,
+    };
+    final res = await Supabase.instance.client.functions.invoke(
+      'invite-employee',
+      body: body,
+    );
+    final data = res.data;
+    if (data is Map && data['error'] != null) {
+      throw StateError(data['error'].toString());
+    }
+  }
+
+  Future<void> _showCreateCompanyDialog() async {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    String plan = 'free';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text('Create company'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppTextField(
+                      controller: nameCtrl,
+                      label: 'Display name',
+                      hintText: 'Acme Pvt Ltd',
+                    ),
+                    const SizedBox(height: 12),
+                    AppTextField(
+                      controller: emailCtrl,
+                      label: 'Billing email (optional)',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      // ignore: deprecated_member_use — controlled value in StatefulBuilder
+                      value: plan,
+                      decoration: const InputDecoration(
+                        labelText: 'Plan',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'free', child: Text('Free')),
+                        DropdownMenuItem(
+                          value: 'starter',
+                          child: Text('Starter'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'growth',
+                          child: Text('Growth'),
+                        ),
+                      ],
+                      onChanged: (v) => setLocal(() => plan = v ?? 'free'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Create'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    final displayName = nameCtrl.text.trim();
+    nameCtrl.dispose();
+    final email = emailCtrl.text.trim();
+    emailCtrl.dispose();
+    if (ok != true || displayName.isEmpty) return;
+    try {
+      await _createCompany(
+        displayName: displayName,
+        planCode: plan,
+        email: email.isEmpty ? null : email,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Created $displayName')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showInviteOwnerDialog(Map<String, dynamic> company) async {
+    final companyId = (company['id'] ?? '').toString();
+    if (companyId.isEmpty) return;
+    final display = (company['display_name']?.toString().trim().isNotEmpty ==
+            true)
+        ? company['display_name'].toString()
+        : (company['name']?.toString() ?? 'Company');
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Invite owner · $display'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppTextField(
+                controller: emailCtrl,
+                label: 'Owner email',
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: nameCtrl,
+                label: 'Full name (optional)',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send invite'),
+          ),
+        ],
+      ),
+    );
+    final email = emailCtrl.text.trim().toLowerCase();
+    final fullName = nameCtrl.text.trim();
+    emailCtrl.dispose();
+    nameCtrl.dispose();
+    if (ok != true || email.isEmpty) return;
+    try {
+      await _inviteCompanyOwner(
+        companyId: companyId,
+        email: email,
+        fullName: fullName.isEmpty ? null : fullName,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invite sent to $email')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   void _openPlanCompanies(Map<String, dynamic> plan) {
@@ -307,9 +528,11 @@ class _PlatformOpsOverviewPageState extends State<PlatformOpsOverviewPage> {
                             dateFmt: _dateFmt,
                             wide: wide,
                             subtitle:
-                                'Tap a company to view its users',
+                                'Sayge is the first Saasify client · create companies & invite owners',
                             onBack: () =>
                                 setState(() => _view = _OpsView.overview),
+                            onCreateCompany: _showCreateCompanyDialog,
+                            onInviteOwner: _showInviteOwnerDialog,
                             onCompanyTap: (c) {
                               final id = (c['id'] ?? '').toString();
                               if (id.isEmpty) return;
@@ -860,6 +1083,8 @@ class _CompaniesTableView extends StatefulWidget {
     this.title = 'Companies',
     this.subtitle,
     this.onCompanyTap,
+    this.onCreateCompany,
+    this.onInviteOwner,
   });
 
   final List<Map<String, dynamic>> companies;
@@ -869,6 +1094,8 @@ class _CompaniesTableView extends StatefulWidget {
   final String title;
   final String? subtitle;
   final void Function(Map<String, dynamic> company)? onCompanyTap;
+  final VoidCallback? onCreateCompany;
+  final void Function(Map<String, dynamic> company)? onInviteOwner;
 
   @override
   State<_CompaniesTableView> createState() => _CompaniesTableViewState();
@@ -951,6 +1178,16 @@ class _CompaniesTableViewState extends State<_CompaniesTableView> {
               fontWeight: FontWeight.w500,
             ),
           ),
+          if (widget.onCreateCompany != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _BwButton(
+                label: 'Create company',
+                onPressed: widget.onCreateCompany,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           _SearchField(
             controller: _search,
@@ -979,14 +1216,16 @@ class _CompaniesTableViewState extends State<_CompaniesTableView> {
                             horizontal: 16,
                             vertical: 12,
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              _HeadCell('Company', flex: 3),
-                              _HeadCell('Email', flex: 3),
-                              _HeadCell('Phone', flex: 2),
-                              _HeadCell('GSTIN', flex: 2),
-                              _HeadCell('Users', flex: 1),
-                              _HeadCell('Created', flex: 2),
+                              const _HeadCell('Company', flex: 3),
+                              const _HeadCell('Email', flex: 3),
+                              const _HeadCell('Phone', flex: 2),
+                              const _HeadCell('GSTIN', flex: 2),
+                              const _HeadCell('Users', flex: 1),
+                              const _HeadCell('Created', flex: 2),
+                              if (widget.onInviteOwner != null)
+                                const _HeadCell('Invite', flex: 2),
                             ],
                           ),
                         ),
@@ -1057,6 +1296,34 @@ class _CompaniesTableViewState extends State<_CompaniesTableView> {
                                           : '—',
                                       flex: 2,
                                     ),
+                                    if (widget.onInviteOwner != null)
+                                      Expanded(
+                                        flex: 2,
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton(
+                                            onPressed: () =>
+                                                widget.onInviteOwner!(c),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: _black,
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: const Size(0, 28),
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                            child: const Text(
+                                              'Owner',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               );

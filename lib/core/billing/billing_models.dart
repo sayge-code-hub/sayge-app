@@ -1,4 +1,4 @@
-// Closed-beta deployment subscription models (singleton, not multi-tenant).
+// Per-company Saasify subscription models (Sayge = first client company_sayge).
 
 enum BillingStatus {
   trialing,

@@ -517,6 +517,14 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     ProposalStatusChanged event,
     Emitter<ProposalsState> emit,
   ) async {
+    if (state.statusUpdatingProposalId != null) return;
+
+    emit(
+      state.copyWith(
+        statusUpdatingProposalId: event.proposalId,
+        clearError: true,
+      ),
+    );
     final result = await updateProposalStatusUseCase(
       id: event.proposalId,
       status: event.status,
@@ -527,6 +535,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           state.copyWith(
             status: ProposalsStatus.failure,
             errorMessage: failure.message,
+            clearStatusUpdating: true,
           ),
         );
         emit(state.copyWith(status: ProposalsStatus.ready, clearError: true));
@@ -536,6 +545,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           state.copyWith(
             status: ProposalsStatus.ready,
             clearError: true,
+            clearStatusUpdating: true,
             proposals: [
               for (final item in state.proposals)
                 if (item.id == updated.id) updated else item,

@@ -191,7 +191,12 @@ class _ProposalListState extends State<_ProposalList> {
                       itemCount: proposals.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        return _ProposalCard(proposal: proposals[index]);
+                        final proposal = proposals[index];
+                        return _ProposalCard(
+                          proposal: proposal,
+                          statusUpdating: widget.state
+                              .isStatusUpdating(proposal.id),
+                        );
                       },
                     ),
         ),
@@ -203,9 +208,13 @@ class _ProposalListState extends State<_ProposalList> {
 }
 
 class _ProposalCard extends StatelessWidget {
-  const _ProposalCard({required this.proposal});
+  const _ProposalCard({
+    required this.proposal,
+    this.statusUpdating = false,
+  });
 
   final Proposal proposal;
+  final bool statusUpdating;
 
   String get _descriptionSummary {
     final descriptions = proposal.lineItems
@@ -267,7 +276,17 @@ class _ProposalCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _ProposalStatusChip(status: proposal.poStatus),
+                        if (statusUpdating)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textLight,
+                            ),
+                          )
+                        else
+                          _ProposalStatusChip(status: proposal.poStatus),
                       ],
                     ),
                     if (description.isNotEmpty) ...[
@@ -317,12 +336,14 @@ class _ProposalCard extends StatelessWidget {
                   tooltip: 'Mark sent',
                   iconSize: 15,
                   buttonSize: 28,
-                  onPressed: () => context.read<ProposalsBloc>().add(
-                        ProposalStatusChanged(
-                          proposalId: proposal.id,
-                          status: ProposalPoStatus.sent,
-                        ),
-                      ),
+                  onPressed: statusUpdating
+                      ? null
+                      : () => context.read<ProposalsBloc>().add(
+                            ProposalStatusChanged(
+                              proposalId: proposal.id,
+                              status: ProposalPoStatus.sent,
+                            ),
+                          ),
                   icon: Icons.send_outlined,
                 ),
               if (proposal.poStatus == ProposalPoStatus.active ||
@@ -332,44 +353,53 @@ class _ProposalCard extends StatelessWidget {
                   tooltip: 'Mark accepted',
                   iconSize: 15,
                   buttonSize: 28,
-                  onPressed: () => context.read<ProposalsBloc>().add(
-                        ProposalStatusChanged(
-                          proposalId: proposal.id,
-                          status: ProposalPoStatus.accepted,
-                        ),
-                      ),
+                  onPressed: statusUpdating
+                      ? null
+                      : () => context.read<ProposalsBloc>().add(
+                            ProposalStatusChanged(
+                              proposalId: proposal.id,
+                              status: ProposalPoStatus.accepted,
+                            ),
+                          ),
                   icon: Icons.check_circle_outline,
                 ),
               ],
               const SizedBox(width: 6),
-              PopupMenuButton<ProposalPoStatus>(
-                tooltip: 'Set status',
-                padding: EdgeInsets.zero,
-                offset: const Offset(0, 28),
-                onSelected: (status) => context.read<ProposalsBloc>().add(
-                      ProposalStatusChanged(
-                        proposalId: proposal.id,
-                        status: status,
+              IgnorePointer(
+                ignoring: statusUpdating,
+                child: Opacity(
+                  opacity: statusUpdating ? 0.45 : 1,
+                  child: PopupMenuButton<ProposalPoStatus>(
+                    tooltip: 'Set status',
+                    padding: EdgeInsets.zero,
+                    offset: const Offset(0, 28),
+                    onSelected: (status) =>
+                        context.read<ProposalsBloc>().add(
+                              ProposalStatusChanged(
+                                proposalId: proposal.id,
+                                status: status,
+                              ),
+                            ),
+                    itemBuilder: (context) => [
+                      for (final status in ProposalPoStatus.values)
+                        PopupMenuItem(
+                          value: status,
+                          enabled: proposal.poStatus != status,
+                          child: Text(
+                            proposal.poStatus == status
+                                ? '✓ ${status.label}'
+                                : status.label,
+                          ),
+                        ),
+                    ],
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Icon(
+                        Icons.flag_outlined,
+                        size: 15,
+                        color: AppColors.textLight,
                       ),
                     ),
-                itemBuilder: (context) => [
-                  for (final status in ProposalPoStatus.values)
-                    PopupMenuItem(
-                      value: status,
-                      enabled: proposal.poStatus != status,
-                      child: Text(
-                        proposal.poStatus == status
-                            ? '✓ ${status.label}'
-                            : status.label,
-                      ),
-                    ),
-                ],
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Icon(
-                    Icons.flag_outlined,
-                    size: 15,
-                    color: AppColors.textLight,
                   ),
                 ),
               ),
@@ -378,9 +408,11 @@ class _ProposalCard extends StatelessWidget {
                 tooltip: 'Edit',
                 iconSize: 15,
                 buttonSize: 28,
-                onPressed: () => context.read<ProposalsBloc>().add(
-                      ProposalEditOpened(proposal),
-                    ),
+                onPressed: statusUpdating
+                    ? null
+                    : () => context.read<ProposalsBloc>().add(
+                          ProposalEditOpened(proposal),
+                        ),
                 icon: Icons.edit_outlined,
               ),
               const SizedBox(width: 6),
@@ -388,9 +420,11 @@ class _ProposalCard extends StatelessWidget {
                 tooltip: 'Clone',
                 iconSize: 15,
                 buttonSize: 28,
-                onPressed: () => context.read<ProposalsBloc>().add(
-                      ProposalCloneOpened(proposal),
-                    ),
+                onPressed: statusUpdating
+                    ? null
+                    : () => context.read<ProposalsBloc>().add(
+                          ProposalCloneOpened(proposal),
+                        ),
                 icon: Icons.copy_outlined,
               ),
               const SizedBox(width: 6),
@@ -398,7 +432,9 @@ class _ProposalCard extends StatelessWidget {
                 tooltip: 'Convert to invoice',
                 iconSize: 15,
                 buttonSize: 28,
-                onPressed: () => openInvoiceFromProposal(context, proposal),
+                onPressed: statusUpdating
+                    ? null
+                    : () => openInvoiceFromProposal(context, proposal),
                 icon: Icons.receipt_long_outlined,
               ),
               const SizedBox(width: 6),
@@ -406,9 +442,11 @@ class _ProposalCard extends StatelessWidget {
                 tooltip: 'Download PDF',
                 iconSize: 15,
                 buttonSize: 28,
-                onPressed: () => context.read<ProposalsBloc>().add(
-                      ProposalDownloadRequested(proposal),
-                    ),
+                onPressed: statusUpdating
+                    ? null
+                    : () => context.read<ProposalsBloc>().add(
+                          ProposalDownloadRequested(proposal),
+                        ),
                 icon: Icons.download,
               ),
             ],
@@ -436,6 +474,10 @@ class _ProposalStatusChip extends StatelessWidget {
         color = AppColors.success;
       case ProposalPoStatus.archived:
         color = AppColors.error;
+      case ProposalPoStatus.discardedByClient:
+        color = const Color(0xFFB45309); // amber-brown
+      case ProposalPoStatus.discardedByUs:
+        color = const Color(0xFF6B7280); // neutral gray
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

@@ -2,8 +2,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -176,7 +178,13 @@ class _LoginFormState extends State<LoginForm> {
                     : () =>
                         context.read<LoginBloc>().add(const LoginSubmitted()),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed:
+                    isLoading ? null : () => context.go(AppRoutes.signup),
+                child: const Text('New to Saasify? Create a workspace'),
+              ),
+              const SizedBox(height: 8),
               Text.rich(
                 TextSpan(
                   style: bodyStyle,

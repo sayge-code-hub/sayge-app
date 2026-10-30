@@ -1,4 +1,6 @@
--- Closed-beta subscription (SINGLE DEPLOYMENT — not multi-tenant).
+-- Billing catalog + legacy bootstrap (historically singleton id='deployment').
+-- Saasify product; Sayge (company_sayge) is the first client company.
+-- Per-company subscriptions: apply supabase/multi_tenant.sql after this file.
 -- Safe to re-run. Additive only; does not drop business tables.
 --
 -- Apply AFTER security_hardening.sql (needs public.app_is_staff()).

@@ -1,6 +1,7 @@
 /// Canonical path helpers for go_router destinations.
 abstract final class AppRoutes {
   static const login = '/login';
+  static const signup = '/signup';
   static const root = '/';
   static const hrms = '/hrms';
 

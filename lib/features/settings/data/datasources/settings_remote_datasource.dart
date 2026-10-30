@@ -77,13 +77,22 @@ class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
   @override
   Future<CompanyDetails> getCompanyDetails({String name = 'sayge'}) async {
     try {
-      final row = await _client
+      final companyId = _authSession?.activeCompanyId;
+      Map<String, dynamic>? row;
+      if (companyId != null && companyId.isNotEmpty) {
+        row = await _client
+            .from('company_details')
+            .select()
+            .eq('id', companyId)
+            .maybeSingle();
+      }
+      row ??= await _client
           .from('company_details')
           .select()
           .eq('name', name)
           .maybeSingle();
       if (row == null) {
-        throw const ServerException('Company details not found for sayge.');
+        throw const ServerException('Company details not found.');
       }
       return _withLogoUrl(_companyFromJson(row));
     } on PostgrestException catch (e) {

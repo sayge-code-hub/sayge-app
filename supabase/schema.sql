@@ -633,7 +633,10 @@ create table if not exists public.proposals (
   notes text not null default '',
   subtotal numeric(14, 2) not null default 0,
   status text not null default 'active'
-    check (status in ('active', 'archived')),
+    check (status in (
+      'active', 'sent', 'accepted', 'archived',
+      'discarded_by_client', 'discarded_by_us'
+    )),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

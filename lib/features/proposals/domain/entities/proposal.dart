@@ -5,11 +5,16 @@ enum ProposalPoStatus {
   active,
   sent,
   accepted,
-  archived;
+  archived,
+  discardedByClient,
+  discardedByUs;
 
-  bool get isMuted => this == ProposalPoStatus.archived;
+  bool get isMuted =>
+      this == ProposalPoStatus.archived ||
+      this == ProposalPoStatus.discardedByClient ||
+      this == ProposalPoStatus.discardedByUs;
 
-  bool get includeInBulkDownload => this != ProposalPoStatus.archived;
+  bool get includeInBulkDownload => !isMuted;
 
   String get label {
     switch (this) {
@@ -21,6 +26,10 @@ enum ProposalPoStatus {
         return 'Accepted';
       case ProposalPoStatus.archived:
         return 'Archived';
+      case ProposalPoStatus.discardedByClient:
+        return 'Discarded by client';
+      case ProposalPoStatus.discardedByUs:
+        return 'Discarded by us';
     }
   }
 
@@ -34,6 +43,10 @@ enum ProposalPoStatus {
         return 'accepted';
       case ProposalPoStatus.archived:
         return 'archived';
+      case ProposalPoStatus.discardedByClient:
+        return 'discarded_by_client';
+      case ProposalPoStatus.discardedByUs:
+        return 'discarded_by_us';
     }
   }
 
@@ -46,8 +59,12 @@ enum ProposalPoStatus {
       case 'archived':
       case 'voided':
       case 'null':
-      case 'rejected':
         return ProposalPoStatus.archived;
+      case 'discarded_by_client':
+      case 'rejected':
+        return ProposalPoStatus.discardedByClient;
+      case 'discarded_by_us':
+        return ProposalPoStatus.discardedByUs;
       default:
         return ProposalPoStatus.active;
     }

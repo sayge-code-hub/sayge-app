@@ -1,5 +1,7 @@
 -- Allow invite profiles for any email domain (safe to re-run).
 -- Also redeploy: supabase functions deploy invite-employee --no-verify-jwt
+-- Multi-tenant company_id provisioning: apply supabase/multi_tenant.sql
+-- (replaces this handle_new_auth_user with membership-aware version).
 
 create or replace function public.handle_new_auth_user()
 returns trigger
