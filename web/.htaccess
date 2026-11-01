@@ -1,0 +1,31 @@
+# Flutter web SPA on Hostinger (app.sayge.in). Do not use on sayge.in apex.
+# Copied into build/web during CI deploy.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Security headers (mirrors netlify.toml / web/_headers)
+<IfModule mod_headers.c>
+  Header set X-Frame-Options "DENY"
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Flutter fonts/manifests: revalidate (avoid stale MaterialIcons)
+  <FilesMatch "^(FontManifest\.json|AssetManifest\.json|AssetManifest\.bin|AssetManifest\.bin\.json)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  <FilesMatch "\.(otf|ttf)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  <FilesMatch "^(main\.dart\.js|flutter_bootstrap\.js|flutter\.js|index\.html)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>

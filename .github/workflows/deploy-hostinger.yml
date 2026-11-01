@@ -1,0 +1,123 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: hostinger-production
+  cancel-in-progress: true
+
+# Parallel with Netlify: deploys Flutter web to app.sayge.in only.
+# Does not bump pubspec — Netlify owns version bumps while both hosts are live.
+# Does not touch sayge.in apex.
+jobs:
+  deploy:
+    if: >-
+      ${{
+        !contains(github.event.head_commit.message, '[skip ci]')
+        && !contains(github.event.head_commit.message, 'chore: bump version')
+        && !contains(github.event.head_commit.message, 'chore/bump-')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Point Auth redirects at app.sayge.in
+        run: |
+          set -euo pipefail
+          # Keep committed app.env on Netlify URL; override only for this build.
+          sed -i -E 's|^APP_PUBLIC_URL=.*|APP_PUBLIC_URL=https://app.sayge.in|' assets/config/app.env
+          grep -E '^APP_PUBLIC_URL=' assets/config/app.env
+
+      - name: Build web (CanvasKit from CDN)
+        run: |
+          flutter build web --release --base-href / --web-resources-cdn --no-wasm-dry-run --no-tree-shake-icons
+          rm -rf build/web/canvaskit
+          # SPA rewrite + headers for Apache (Hostinger)
+          cp web/.htaccess build/web/.htaccess
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
+            const p = 'build/web/flutter_bootstrap.js';
+            let t = fs.readFileSync(p, 'utf8');
+            t = t.replace(
+              /_flutter\.loader\.load\(\{[\s\S]*?\}\);/,
+              '_flutter.loader.load({ config: {} });'
+            );
+            fs.writeFileSync(p, t);
+
+            const fontsDir = 'build/web/assets/fonts';
+            const oldName = 'MaterialIcons-Regular.otf';
+            const oldPath = path.join(fontsDir, oldName);
+            if (fs.existsSync(oldPath)) {
+              const hash = crypto
+                .createHash('sha1')
+                .update(fs.readFileSync(oldPath))
+                .digest('hex')
+                .slice(0, 8);
+              const newName = 'MaterialIcons-Regular.' + hash + '.otf';
+              fs.copyFileSync(oldPath, path.join(fontsDir, newName));
+              const fmPath = 'build/web/assets/FontManifest.json';
+              const fm = JSON.parse(fs.readFileSync(fmPath, 'utf8'));
+              for (const family of fm) {
+                if (!family.fonts) continue;
+                for (const font of family.fonts) {
+                  if (typeof font.asset === 'string' && font.asset.endsWith(oldName)) {
+                    font.asset = font.asset.replace(oldName, newName);
+                  }
+                }
+              }
+              fs.writeFileSync(fmPath, JSON.stringify(fm));
+              for (const manifestName of [
+                'AssetManifest.json',
+                'AssetManifest.bin.json',
+              ]) {
+                const mp = path.join('build/web/assets', manifestName);
+                if (!fs.existsSync(mp)) continue;
+                let body = fs.readFileSync(mp, 'utf8');
+                if (body.includes(oldName)) {
+                  body = body.split(oldName).join(newName);
+                  fs.writeFileSync(mp, body);
+                }
+              }
+              console.log('MaterialIcons cache-busted as', newName);
+            }
+          "
+
+      - name: Deploy to Hostinger (FTP)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_HOST }}
+          username: ${{ secrets.HOSTINGER_FTP_USER }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          local-dir: ./build/web/
+          server-dir: ${{ secrets.HOSTINGER_FTP_REMOTE_DIR }}
+          dangerous-clean-slate: true
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/canvaskit/**
