@@ -103,6 +103,7 @@ bool _isAuthHashDebris(String location) {
   if (segment.length <= 8 && RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(segment)) {
     const known = {
       'login',
+      'signup',
       'dashboard',
       'hrms',
       'dms',
@@ -112,6 +113,7 @@ bool _isAuthHashDebris(String location) {
       'invoices',
       'expenses',
       'settings',
+      'platform',
       'pos',
       'm',
     };
