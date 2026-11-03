@@ -2,6 +2,7 @@
 abstract final class AppRoutes {
   static const login = '/login';
   static const signup = '/signup';
+  static const onboardingModules = '/onboarding/modules';
   static const root = '/';
   static const hrms = '/hrms';
 

@@ -7,6 +7,7 @@ import '../../../../core/billing/billing_access.dart';
 import '../../../../core/billing/billing_models.dart';
 import '../../../../core/layout/app_destination.dart';
 import '../../../../core/layout/app_shell.dart';
+import '../../../../core/modules/app_modules.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_accent.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -68,47 +69,59 @@ class _HomeShellState extends State<HomeShell> {
     super.dispose();
   }
 
+  bool _mod(AppModule m) => _billing.hasModule(m);
+
   List<AppNavSection> get _sections {
     if (_isStaff) {
+      final financeOn = _mod(AppModule.finances);
       return [
-        const AppNavSection(
-          label: 'HRMS',
-          icon: Icons.groups_outlined,
-          selectable: true,
-          items: [
-            AppNavItem(label: 'All Employees', icon: Icons.people_outline),
-            AppNavItem(
-              label: 'Add Employee',
-              icon: Icons.person_add_alt_1_outlined,
-            ),
-          ],
-        ),
-        const AppNavSection(
-          label: 'DMS',
-          icon: Icons.folder_outlined,
-          selectable: true,
-          items: [],
-        ),
-        const AppNavSection(
-          label: 'Finances',
-          icon: Icons.account_balance_wallet_outlined,
-          selectable: false,
-          items: [
-            AppNavItem(label: 'Payroll', icon: Icons.payments_outlined),
-            AppNavItem(
-              label: 'Profitability',
-              icon: Icons.trending_up_outlined,
-            ),
-            AppNavItem(label: 'Proposals', icon: Icons.request_quote_outlined),
-            AppNavItem(label: 'Invoices', icon: Icons.receipt_long_outlined),
-            AppNavItem(
-              label: 'Expense',
-              icon: Icons.account_balance_outlined,
-              iconAsset: 'assets/images/nav_expense.png',
-            ),
-          ],
-        ),
-        if (_billing.posEnabled)
+        if (_mod(AppModule.hrms))
+          const AppNavSection(
+            label: 'HRMS',
+            icon: Icons.groups_outlined,
+            selectable: true,
+            items: [
+              AppNavItem(label: 'All Employees', icon: Icons.people_outline),
+              AppNavItem(
+                label: 'Add Employee',
+                icon: Icons.person_add_alt_1_outlined,
+              ),
+            ],
+          ),
+        if (_mod(AppModule.hrms))
+          const AppNavSection(
+            label: 'DMS',
+            icon: Icons.folder_outlined,
+            selectable: true,
+            items: [],
+          ),
+        if (financeOn)
+          const AppNavSection(
+            label: 'Finances',
+            icon: Icons.account_balance_wallet_outlined,
+            selectable: false,
+            items: [
+              AppNavItem(label: 'Payroll', icon: Icons.payments_outlined),
+              AppNavItem(
+                label: 'Profitability',
+                icon: Icons.trending_up_outlined,
+              ),
+              AppNavItem(
+                label: 'Proposals',
+                icon: Icons.request_quote_outlined,
+              ),
+              AppNavItem(
+                label: 'Invoices',
+                icon: Icons.receipt_long_outlined,
+              ),
+              AppNavItem(
+                label: 'Expense',
+                icon: Icons.account_balance_outlined,
+                iconAsset: 'assets/images/nav_expense.png',
+              ),
+            ],
+          ),
+        if (_mod(AppModule.pos) && _billing.posEnabled)
           const AppNavSection(
             label: 'POS',
             icon: Icons.storefront_outlined,
@@ -171,16 +184,20 @@ class _HomeShellState extends State<HomeShell> {
   List<String> get _paths {
     if (_isStaff) {
       return [
-        AppRoutes.hrms,
-        AppRoutes.employees,
-        AppRoutes.employeesAdd,
-        AppRoutes.dms,
-        AppRoutes.payroll,
-        AppRoutes.profitability,
-        AppRoutes.proposals,
-        AppRoutes.invoices,
-        AppRoutes.expenses,
-        if (_billing.posEnabled) AppRoutes.pos,
+        if (_mod(AppModule.hrms)) ...[
+          AppRoutes.hrms,
+          AppRoutes.employees,
+          AppRoutes.employeesAdd,
+          AppRoutes.dms,
+        ],
+        if (_mod(AppModule.finances)) ...[
+          AppRoutes.payroll,
+          AppRoutes.profitability,
+          AppRoutes.proposals,
+          AppRoutes.invoices,
+          AppRoutes.expenses,
+        ],
+        if (_mod(AppModule.pos) && _billing.posEnabled) AppRoutes.pos,
         AppRoutes.settings,
       ];
     }

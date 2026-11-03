@@ -16,7 +16,7 @@ import '../../../../core/widgets/auth_page_scaffold.dart';
 import '../../../../injection_container.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 
-/// Public Saasify self-serve signup (Free plan). Payment gateway not connected.
+/// Public Saasify self-serve signup (Free plan).
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
@@ -53,6 +53,10 @@ class _SignupPageState extends State<SignupPage> {
       setState(() => _error = 'Enter your company name.');
       return;
     }
+    if (name.isEmpty) {
+      setState(() => _error = 'Enter your name.');
+      return;
+    }
     if (emailErr != null) {
       setState(() => _error = emailErr);
       return;
@@ -75,8 +79,8 @@ class _SignupPageState extends State<SignupPage> {
         data: {
           'saasify_signup': 'true',
           'company_name': company,
-          'full_name': name.isEmpty ? email.split('@').first : name,
-          'name': name.isEmpty ? email.split('@').first : name,
+          'full_name': name,
+          'name': name,
           'role_code': 'owner',
           'member_role': 'owner',
         },
@@ -103,6 +107,7 @@ class _SignupPageState extends State<SignupPage> {
       await sl<AuthSession>().setUser(profile, needsPasswordSetup: false);
       await sl<BillingAccess>().refresh();
       if (!mounted) return;
+      // Owners without module opt-in land on the picker via homeRoute.
       context.go(AppAccess.homeRoute(profile));
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -128,42 +133,33 @@ class _SignupPageState extends State<SignupPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Saasify',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.6,
-                ),
-          ),
-          SizedBox(height: compact ? 8 : 10),
-          Text(
-            'Create your company workspace on the Free plan.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textLight,
-                ),
+          Image.asset(
+            'assets/images/saasify_logo.png',
+            height: compact ? 40 : 48,
+            fit: BoxFit.contain,
+            semanticLabel: 'Saasify',
           ),
           SizedBox(height: compact ? 24 : 28),
           AppTextField(
             controller: _companyController,
             label: 'Company name',
-            hintText: 'Acme Cafe',
             textInputAction: TextInputAction.next,
+            textCapitalization: TextCapitalization.words,
             enabled: !_busy,
           ),
           const SizedBox(height: 14),
           AppTextField(
             controller: _nameController,
             label: 'Your name',
-            hintText: 'Optional',
             textInputAction: TextInputAction.next,
+            textCapitalization: TextCapitalization.words,
             enabled: !_busy,
           ),
           const SizedBox(height: 14),
           AppTextField(
             controller: _emailController,
             label: 'Work email',
+            prefixIcon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             enabled: !_busy,
@@ -188,17 +184,8 @@ class _SignupPageState extends State<SignupPage> {
           ],
           const SizedBox(height: 20),
           AppButton(
-            label: _busy ? 'Creating…' : 'Create workspace',
+            label: _busy ? 'Creating…' : 'Create account',
             onPressed: _busy ? null : _submit,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Payments are not connected yet — Free plan only. '
-            'Upgrade via platform ops / billing later.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textLight,
-                ),
           ),
           const SizedBox(height: 16),
           TextButton(

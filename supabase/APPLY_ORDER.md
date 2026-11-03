@@ -39,6 +39,8 @@ cafe_pos_reset_to_cafes.sql   # only if you already applied the old client-scope
 cafe_pos.sql
 security_hardening.sql
 billing_closed_beta.sql
+multi_tenant.sql              # if not already applied
+company_modules.sql           # post-signup module picker
 security_verification.sql
 ```
 

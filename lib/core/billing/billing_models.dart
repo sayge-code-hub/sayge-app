@@ -196,6 +196,8 @@ class BillingSnapshot {
     required this.planName,
     this.graceDays = 7,
     this.currentPeriodEnd,
+    this.enabledModules = const [],
+    this.modulesSelected = true,
   });
 
   final BillingStatus status;
@@ -209,7 +211,29 @@ class BillingSnapshot {
   final int graceDays;
   final DateTime? currentPeriodEnd;
 
+  /// Module codes from company opt-in (see [AppModule]).
+  final List<String> enabledModules;
+
+  /// False until the owner finishes the post-signup module picker.
+  final bool modulesSelected;
+
+  /// Pre-load / fail-open for billing writes. Modules stay empty until the
+  /// real snapshot loads so a refresh cannot briefly unlock every pack.
   static const permissive = BillingSnapshot(
+    status: BillingStatus.active,
+    writesAllowed: true,
+    posEnabled: false,
+    canAddEmployee: true,
+    activeEmployees: 0,
+    employeeLimit: 30,
+    planCode: 'growth',
+    planName: 'Growth',
+    enabledModules: [],
+    modulesSelected: true,
+  );
+
+  /// Used only when billing SQL is missing entirely (legacy environments).
+  static const legacyAllModules = BillingSnapshot(
     status: BillingStatus.active,
     writesAllowed: true,
     posEnabled: true,
@@ -218,6 +242,14 @@ class BillingSnapshot {
     employeeLimit: 30,
     planCode: 'growth',
     planName: 'Growth',
+    enabledModules: [
+      'hrms',
+      'finances',
+      'pos',
+      'assets',
+      'checklist',
+    ],
+    modulesSelected: true,
   );
 
   bool get isPastDue => status == BillingStatus.pastDue;
@@ -229,6 +261,17 @@ class BillingSnapshot {
   bool get isTopPlan => planCode == 'growth';
 
   factory BillingSnapshot.fromJson(Map<String, dynamic> json) {
+    final rawModules = json['enabled_modules'];
+    final modules = <String>[];
+    if (rawModules is List) {
+      for (final item in rawModules) {
+        final code = item?.toString().trim().toLowerCase() ?? '';
+        if (code.isNotEmpty && !modules.contains(code)) modules.add(code);
+      }
+    }
+    // Older backends omit the field — treat as fully provisioned.
+    final hasModulesField = json.containsKey('enabled_modules') ||
+        json.containsKey('modules_selected');
     return BillingSnapshot(
       status: BillingStatus.fromDb(json['status']?.toString()),
       writesAllowed: json['writes_allowed'] != false,
@@ -240,6 +283,10 @@ class BillingSnapshot {
       planName: (json['plan_name'] ?? 'Free').toString(),
       graceDays: _int(json['grace_days'], 7),
       currentPeriodEnd: _date(json['current_period_end']),
+      enabledModules: modules,
+      modulesSelected: hasModulesField
+          ? json['modules_selected'] == true
+          : true,
     );
   }
 }

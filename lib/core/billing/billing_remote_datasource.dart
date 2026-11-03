@@ -90,6 +90,15 @@ class BillingRemoteDataSource {
     return BillingState.fromJson(_asMap(raw));
   }
 
+  /// Persist company module opt-in; returns updated public snapshot fields.
+  Future<BillingSnapshot> setModules(List<String> modules) async {
+    await _client.rpc(
+      'company_set_modules',
+      params: {'p_modules': modules},
+    );
+    return fetchSnapshot();
+  }
+
   Future<BillingState> upsertOffer({
     String? id,
     required String code,

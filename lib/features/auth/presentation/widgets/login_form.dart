@@ -182,7 +182,7 @@ class _LoginFormState extends State<LoginForm> {
               TextButton(
                 onPressed:
                     isLoading ? null : () => context.go(AppRoutes.signup),
-                child: const Text('New to Saasify? Create account'),
+                child: const Text('New to Saasify? Create an account'),
               ),
               const SizedBox(height: 8),
               Text.rich(

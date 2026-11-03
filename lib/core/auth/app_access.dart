@@ -1,5 +1,8 @@
 import '../../features/auth/domain/entities/user.dart';
+import '../billing/billing_access.dart';
+import '../modules/app_modules.dart';
 import '../router/app_routes.dart';
+import '../../injection_container.dart';
 
 /// Role-based access for Sayge.
 ///
@@ -65,7 +68,13 @@ abstract final class AppAccess {
 
   /// Default landing route after login.
   static String homeRoute(User user) {
-    if (isStaff(user)) return AppRoutes.hrms;
+    if (isStaff(user)) {
+      final billing = sl<BillingAccess>();
+      if (!billing.loaded || !billing.modulesSelected) {
+        return AppRoutes.onboardingModules;
+      }
+      return billing.firstModuleHome;
+    }
     if (isKitchen(user)) {
       final cafeId = cafeIdOf(user);
       if (cafeId != null) return AppRoutes.posKitchen(cafeId);
@@ -84,13 +93,34 @@ abstract final class AppAccess {
     return AppRoutes.dashboard;
   }
 
+  /// Whether staff may open [location] given company module opt-in.
+  static bool staffModuleAllows(String location) {
+    final path = Uri.tryParse(location)?.path ?? location;
+    if (path == AppRoutes.settings ||
+        path.startsWith('${AppRoutes.settings}/') ||
+        path == AppRoutes.onboardingModules ||
+        path.startsWith('${AppRoutes.onboardingModules}/') ||
+        path == AppRoutes.whatsNew ||
+        path.startsWith('${AppRoutes.whatsNew}/')) {
+      return true;
+    }
+    final billing = sl<BillingAccess>();
+    if (!billing.modulesSelected) {
+      return path == AppRoutes.onboardingModules;
+    }
+    for (final m in AppModule.values) {
+      if (billing.hasModule(m) && m.coversPath(path)) return true;
+    }
+    return false;
+  }
+
   /// Whether [location] is allowed for [user].
   static bool canAccessPath(User user, String location) {
     if (location == AppRoutes.whatsNew ||
         location.startsWith('${AppRoutes.whatsNew}/')) {
       return true;
     }
-    if (isStaff(user)) return true;
+    if (isStaff(user)) return staffModuleAllows(location);
 
     if (isCafeRole(user)) {
       if (location == AppRoutes.pos || location.startsWith('${AppRoutes.pos}/')) {
